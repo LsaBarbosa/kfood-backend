@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: kfood-backend
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      show-details: never
