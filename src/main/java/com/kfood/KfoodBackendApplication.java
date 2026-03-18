@@ -8,16 +8,11 @@ import org.springframework.boot.hibernate.autoconfigure.HibernateJpaAutoConfigur
 import org.springframework.boot.jdbc.autoconfigure.DataSourceAutoConfiguration;
 
 @SpringBootApplication(
-    exclude = {
-        DataSourceAutoConfiguration.class,
-        HibernateJpaAutoConfiguration.class
-    }
-)
+    exclude = {DataSourceAutoConfiguration.class, HibernateJpaAutoConfiguration.class})
 @ConfigurationPropertiesScan(basePackageClasses = AppProperties.class)
 public class KfoodBackendApplication {
 
-     static void main(String[] args) {
-        SpringApplication.run(KfoodBackendApplication.class, args);
-    }
-
+  static void main(String[] args) {
+    SpringApplication.run(KfoodBackendApplication.class, args);
+  }
 }
