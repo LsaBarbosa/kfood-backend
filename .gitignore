@@ -3,6 +3,8 @@
 build/
 out/
 
+!gradle/wrapper/gradle-wrapper.jar
+
 # Java
 *.class
 *.jar
