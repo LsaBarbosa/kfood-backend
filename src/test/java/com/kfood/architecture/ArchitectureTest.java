@@ -8,44 +8,43 @@ import org.junit.jupiter.api.Test;
 
 class ArchitectureTest {
 
-    private static final String BASE_PACKAGE = "com.kfood";
+  private static final String BASE_PACKAGE = "com.kfood";
 
-    private final JavaClasses importedClasses =
-        new ClassFileImporter().importPackages(BASE_PACKAGE);
+  private final JavaClasses importedClasses = new ClassFileImporter().importPackages(BASE_PACKAGE);
 
-    @Test
-    void domainShouldNotDependOnApiApplicationOrInfra() {
-        noClasses()
-            .that()
-            .resideInAPackage("..domain..")
-            .should()
-            .dependOnClassesThat()
-            .resideInAnyPackage("..api..", "..application..", "..infra..")
-            .allowEmptyShould(true)
-            .check(importedClasses);
-    }
+  @Test
+  void domainShouldNotDependOnApiApplicationOrInfra() {
+    noClasses()
+        .that()
+        .resideInAPackage("..domain..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAnyPackage("..api..", "..application..", "..infra..")
+        .allowEmptyShould(true)
+        .check(importedClasses);
+  }
 
-    @Test
-    void applicationShouldNotDependOnApiOrInfra() {
-        noClasses()
-            .that()
-            .resideInAPackage("..application..")
-            .should()
-            .dependOnClassesThat()
-            .resideInAnyPackage("..api..", "..infra..")
-            .allowEmptyShould(true)
-            .check(importedClasses);
-    }
+  @Test
+  void applicationShouldNotDependOnApiOrInfra() {
+    noClasses()
+        .that()
+        .resideInAPackage("..application..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAnyPackage("..api..", "..infra..")
+        .allowEmptyShould(true)
+        .check(importedClasses);
+  }
 
-    @Test
-    void apiShouldNotDependDirectlyOnInfra() {
-        noClasses()
-            .that()
-            .resideInAPackage("..api..")
-            .should()
-            .dependOnClassesThat()
-            .resideInAPackage("..infra..")
-            .allowEmptyShould(true)
-            .check(importedClasses);
-    }
+  @Test
+  void apiShouldNotDependDirectlyOnInfra() {
+    noClasses()
+        .that()
+        .resideInAPackage("..api..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage("..infra..")
+        .allowEmptyShould(true)
+        .check(importedClasses);
+  }
 }

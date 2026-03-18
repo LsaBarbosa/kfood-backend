@@ -9,34 +9,32 @@ import org.springframework.validation.annotation.Validated;
 @ConfigurationProperties(prefix = "app")
 public class AppProperties {
 
-    private final Security security = new Security();
+  private final Security security = new Security();
 
-    public Security getSecurity(){
-        return security;
+  public Security getSecurity() {
+    return security;
+  }
+
+  public static class Security {
+
+    @NotBlank private String jwtSecret;
+
+    @Min(60) private long jwtExpirationSeconds;
+
+    public String getJwtSecret() {
+      return jwtSecret;
     }
 
-    public static class Security{
-
-        @NotBlank
-        private String jwtSecret;
-
-        @Min(60)
-        private long jwtExpirationSeconds;
-
-        public String getJwtSecret() {
-            return jwtSecret;
-        }
-
-        public void setJwtSecret(String jwtSecret) {
-            this.jwtSecret = jwtSecret;
-        }
-
-        public long getJwtExpirationSeconds() {
-            return jwtExpirationSeconds;
-        }
-
-        public void setJwtExpirationSeconds(long jwtExpirationSeconds) {
-            this.jwtExpirationSeconds = jwtExpirationSeconds;
-        }
+    public void setJwtSecret(String jwtSecret) {
+      this.jwtSecret = jwtSecret;
     }
+
+    public long getJwtExpirationSeconds() {
+      return jwtExpirationSeconds;
+    }
+
+    public void setJwtExpirationSeconds(long jwtExpirationSeconds) {
+      this.jwtExpirationSeconds = jwtExpirationSeconds;
+    }
+  }
 }
