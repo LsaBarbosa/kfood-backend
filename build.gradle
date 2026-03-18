@@ -3,6 +3,7 @@ plugins {
     id 'org.springframework.boot' version '4.0.3'
     id 'io.spring.dependency-management' version '1.1.7'
     id 'com.diffplug.spotless' version '8.3.0'
+    id 'jacoco'
 }
 
 group = 'com.kfood'
@@ -20,7 +21,6 @@ repositories {
 }
 
 dependencies {
-
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
@@ -30,11 +30,8 @@ dependencies {
     runtimeOnly 'org.postgresql:postgresql'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
-    testImplementation 'org.springframework.boot:spring-boot-webmvc-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
     testImplementation 'org.springframework.security:spring-security-test'
-    testImplementation 'org.springframework.boot:spring-boot-webmvc-test'
-
-
     testImplementation 'com.tngtech.archunit:archunit-junit5:1.4.1'
 
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
@@ -42,6 +39,49 @@ dependencies {
 
 tasks.named('test') {
     useJUnitPlatform()
+    finalizedBy tasks.named('jacocoTestReport')
+}
+
+jacoco {
+    toolVersion = '0.8.13'
+}
+
+jacocoTestReport {
+    dependsOn tasks.named('test')
+
+    reports {
+        xml.required = true
+        html.required = true
+        csv.required = false
+    }
+}
+
+def minimumCoverage = providers
+    .gradleProperty('jacocoMinimumCoverage')
+    .map { new BigDecimal(it) }
+    .orElse(new BigDecimal('0.00'))
+
+jacocoTestCoverageVerification {
+    dependsOn tasks.named('test')
+
+    violationRules {
+        rule {
+            enabled = true
+            element = 'BUNDLE'
+
+            limit {
+                counter = 'LINE'
+                value = 'COVEREDRATIO'
+                minimum = minimumCoverage.get()
+            }
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('spotlessCheck')
+    dependsOn tasks.named('jacocoTestReport')
+    dependsOn tasks.named('jacocoTestCoverageVerification')
 }
 
 spotless {
@@ -59,8 +99,4 @@ spotless {
         trimTrailingWhitespace()
         endWithNewline()
     }
-}
-
-tasks.named('check') {
-    dependsOn 'spotlessCheck'
 }
