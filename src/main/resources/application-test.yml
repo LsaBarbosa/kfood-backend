@@ -5,6 +5,10 @@ spring:
     password:
     driver-class-name: org.h2.Driver
 
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
   data:
     redis:
       host: localhost
