@@ -17,9 +17,33 @@ Construir um back-end sólido para suportar:
 
 A direção arquitetural do projeto é começar com um **monólito modular**, com separação clara entre **domínio**, **aplicação** e **infraestrutura**, preservando simplicidade operacional no MVP e deixando espaço para evolução futura.
 
-## Escopo atual
+---
 
-Neste momento, o projeto cobre a base inicial de execução e infraestrutura local.
+## Visão do produto
+
+O produto não nasce como marketplace completo no MVP.
+
+A proposta é entregar um **canal próprio de vendas e operação** para pequenos comércios, permitindo:
+
+- vender pelo próprio link
+- organizar melhor os pedidos
+- reduzir dependência de marketplaces
+- manter relacionamento com a base de clientes
+- operar com menor complexidade no início
+
+Segmentos iniciais mais aderentes:
+
+- pizzaria
+- hamburgueria
+- açaí / lanches
+- doceria
+- marmitaria
+
+---
+
+## Escopo atual do projeto
+
+Até este ponto, o projeto cobre a base estrutural necessária para evoluir com segurança, incluindo:
 
 ### Sprint 1 — Fundação do projeto
 
@@ -32,6 +56,20 @@ Neste momento, o projeto cobre a base inicial de execução e infraestrutura loc
 ### Sprint 2 — DX, qualidade e CI
 
 - S2-01: infraestrutura local com Docker Compose para PostgreSQL, Redis e RabbitMQ
+- S2-02: profiles `local`, `test` e `prod`
+- S2-03: pipeline de build e testes com GitHub Actions
+- S2-04: formatação automática com Spotless
+- S2-05: cobertura com JaCoCo
+
+### Sprint 3 — Base técnica e banco
+
+- S3-01: Flyway com migration baseline
+- S3-02: padrão global de erro
+- S3-03: auditoria base com `createdAt` e `updatedAt`
+- S3-04: integração real com PostgreSQL via Testcontainers
+- S3-05: health / readiness no Actuator
+
+---
 
 ## Stack atual
 
@@ -41,36 +79,50 @@ Neste momento, o projeto cobre a base inicial de execução e infraestrutura loc
 - Spring Boot 4
 - Gradle Wrapper
 - GitHub
+- GitHub Actions
 
-### Dependências já adicionadas
+### Dependências principais
 
 - Spring Web
 - Spring Validation
 - Spring Data JPA
 - Spring Security
 - Spring Boot Actuator
+- Flyway
+- PostgreSQL Driver
 
-### Infra local
+### Qualidade e testes
+
+- JUnit 5
+- Mockito
+- Testcontainers
+- JaCoCo
+- Spotless
+- ArchUnit
+
+### Infraestrutura local
 
 - PostgreSQL
 - Redis
 - RabbitMQ
 
+---
+
 ## Arquitetura alvo
 
 A solução segue a direção de um **monólito modular com evolução orientada a eventos**.
 
-Organização esperada do código:
+Estrutura sugerida do código:
 
 ```text
 com.kfood
 ├── shared
 │   ├── config
 │   ├── security
-│   ├── tenancy
 │   ├── exceptions
+│   ├── tenancy
 │   └── util
-├── <modulo>
+├── <module>
 │   ├── api
 │   ├── application
 │   ├── domain
@@ -82,7 +134,55 @@ com.kfood
 - `api`: controllers, requests, responses e DTOs
 - `application`: casos de uso e orquestração
 - `domain`: regras de negócio, entidades e value objects
-- `infra`: persistência, integrações, configurações e adapters
+- `infra`: persistência, integrações, adapters e configurações técnicas
+
+### Diretrizes arquiteturais
+
+- começar simples sem comprometer qualidade
+- priorizar coesão por módulo de negócio
+- manter separação clara de responsabilidades
+- usar PostgreSQL como fonte transacional principal
+- usar Redis para cache e dados temporários
+- usar RabbitMQ para eventos internos assíncronos
+- preparar a base para multi-tenancy lógico
+
+---
+
+## Estrutura atual esperada do projeto
+
+```text
+.
+├── .editorconfig
+├── .gitattributes
+├── .gitignore
+├── build.gradle
+├── settings.gradle
+├── gradlew
+├── gradlew.bat
+├── docker-compose.yml
+├── README.md
+├── .github
+│   └── workflows
+│       └── ci.yml
+└── src
+    ├── main
+    │   ├── java
+    │   │   └── com/kfood
+    │   │       ├── shared
+    │   │       └── ...
+    │   └── resources
+    │       ├── application.yml
+    │       ├── application-local.yml
+    │       ├── application-test.yml
+    │       ├── application-prod.yml
+    │       └── db
+    │           └── migration
+    └── test
+        └── java
+            └── com/kfood
+```
+
+---
 
 ## Pré-requisitos
 
@@ -93,29 +193,11 @@ Antes de rodar o projeto, tenha instalado:
 - Docker Compose
 - Git
 
-## Como executar a aplicação
+---
 
-### Subir a aplicação
+## Como subir a infraestrutura local
 
-```bash
-./gradlew bootRun
-```
-
-### Gerar build
-
-```bash
-./gradlew build
-```
-
-### Rodar testes
-
-```bash
-./gradlew test
-```
-
-## Infraestrutura local
-
-O projeto possui um `docker-compose.yml` para subir as dependências locais.
+O projeto usa `docker-compose.yml` para subir dependências locais.
 
 ### Subir serviços
 
@@ -149,6 +231,8 @@ docker compose down
 docker compose down -v
 ```
 
+---
+
 ## Serviços expostos localmente
 
 | Serviço | Porta |
@@ -157,6 +241,8 @@ docker compose down -v
 | Redis | 6379 |
 | RabbitMQ AMQP | 5672 |
 | RabbitMQ Management | 15672 |
+
+---
 
 ## Credenciais locais padrão
 
@@ -173,19 +259,107 @@ docker compose down -v
 
 Painel do RabbitMQ:
 
-- `http://localhost:15672`
+```text
+http://localhost:15672
+```
 
-## Health check / endpoint técnico
+---
 
-O projeto já possui um endpoint técnico básico para validação de saúde da aplicação.
+## Como executar a aplicação
 
-### Actuator Health
+### Rodar com profile local
+
+```bash
+./gradlew bootRun --args='--spring.profiles.active=local'
+```
+
+### Rodar build
+
+```bash
+./gradlew build
+```
+
+### Rodar testes
+
+```bash
+./gradlew test
+```
+
+### Rodar verificação completa
+
+```bash
+./gradlew clean build
+```
+
+---
+
+## Profiles da aplicação
+
+O projeto já está preparado para múltiplos ambientes.
+
+### `local`
+
+Usado no desenvolvimento local com infraestrutura via Docker Compose.
+
+### `test`
+
+Usado para testes automatizados, incluindo testes de integração.
+
+### `prod`
+
+Usado para execução em ambiente produtivo, com dependências e segredos externalizados.
+
+### Exemplo de ativação de profile
+
+```bash
+SPRING_PROFILES_ACTIVE=local
+```
+
+ou
+
+```bash
+./gradlew bootRun --args='--spring.profiles.active=local'
+```
+
+---
+
+## Banco de dados e migrations
+
+O projeto usa **Flyway** para versionamento do schema.
+
+### Estrutura esperada das migrations
+
+```text
+src/main/resources/db/migration
+```
+
+### Convenção
+
+```text
+V1__baseline.sql
+V2__...
+V3__...
+```
+
+### Regras importantes
+
+- migrations aplicadas não devem ser editadas
+- alterações incompatíveis devem seguir estratégia forward-only
+- toda mudança estrutural do banco deve passar por migration
+
+---
+
+## Health checks e endpoints técnicos
+
+O projeto expõe endpoints técnicos via **Spring Boot Actuator**.
+
+### Health geral
 
 ```bash
 curl http://localhost:8080/actuator/health
 ```
 
-Exemplo de retorno esperado:
+Exemplo esperado:
 
 ```json
 {
@@ -193,9 +367,152 @@ Exemplo de retorno esperado:
 }
 ```
 
-> Dependendo da evolução da sprint, pode existir também endpoint técnico adicional como `/ping`.
+### Readiness
 
-## Validação rápida da infra
+```bash
+curl http://localhost:8080/actuator/health/readiness
+```
+
+### Liveness
+
+```bash
+curl http://localhost:8080/actuator/health/liveness
+```
+
+### Observação
+
+A Sprint 3 fecha a base de saúde da aplicação com health/readiness documentados, preparando o serviço para ambientes mais próximos de produção.
+
+---
+
+## Padrão de erro da API
+
+A aplicação adota um payload padronizado para erros previsíveis e inesperados.
+
+### Estrutura esperada
+
+```json
+{
+  "code": "VALIDATION_ERROR",
+  "message": "Validation failed",
+  "timestamp": "2026-03-19T10:00:00Z",
+  "path": "/v1/example",
+  "details": [
+    {
+      "field": "name",
+      "message": "must not be blank"
+    }
+  ]
+}
+```
+
+### Objetivos do padrão
+
+- evitar retorno inconsistente de erro
+- não vazar stacktrace para o consumidor
+- facilitar troubleshooting
+- padronizar validação e regras de negócio
+
+---
+
+## Auditoria base
+
+A base técnica já prevê auditoria mínima de timestamps automáticos nas entidades.
+
+### Campos padrão
+
+- `createdAt`
+- `updatedAt`
+
+### Regras esperadas
+
+- `createdAt` é preenchido na criação
+- `updatedAt` é atualizado em alteração
+- `createdAt` não deve mudar em updates
+
+---
+
+## Qualidade de código
+
+### Formatação
+
+O projeto usa **Spotless** para padronização automática.
+
+#### Verificar formatação
+
+```bash
+./gradlew spotlessCheck
+```
+
+#### Corrigir formatação
+
+```bash
+./gradlew spotlessApply
+```
+
+### Cobertura
+
+O projeto usa **JaCoCo** para gerar relatório de cobertura.
+
+#### Gerar relatório
+
+```bash
+./gradlew test jacocoTestReport
+```
+
+Relatórios costumam ficar em:
+
+```text
+build/reports/jacoco/test/html/index.html
+```
+
+---
+
+## Integração contínua
+
+O projeto possui pipeline mínima com GitHub Actions.
+
+### Objetivos da pipeline
+
+- validar build
+- rodar testes
+- validar formatação
+- impedir merge de código quebrado
+
+### Fluxo esperado
+
+- push em branch
+- pull request
+- execução automática do workflow
+- falha do pipeline bloqueia avanço do código
+
+---
+
+## Testes
+
+A base atual contempla três frentes principais:
+
+### 1. Testes de unidade
+
+Cobrem regras isoladas de negócio e componentes específicos.
+
+### 2. Testes de contexto / bootstrap
+
+Validam se a aplicação sobe corretamente com os beans principais.
+
+### 3. Testes de integração
+
+Com **Testcontainers**, usando PostgreSQL real em container para validar persistência e comportamento mais próximo do ambiente real.
+
+### Comando geral
+
+```bash
+./gradlew test
+```
+
+---
+
+## Validação rápida da infraestrutura
 
 ### PostgreSQL
 
@@ -215,92 +532,125 @@ docker exec -it kfood-redis redis-cli ping
 docker exec -it kfood-rabbitmq rabbitmq-diagnostics -q ping
 ```
 
-## Estrutura mínima esperada do projeto
+---
 
-```text
-.
-├── .editorconfig
-├── .gitignore
-├── build.gradle
-├── settings.gradle
-├── gradlew
-├── gradlew.bat
-├── docker-compose.yml
-├── README.md
-└── src
-    ├── main
-    │   ├── java
-    │   │   └── com/kfood
-    │   └── resources
-    └── test
-        └── java
-            └── com/kfood
+## Estado atual do projeto
+
+### Já concluído até o fim da Sprint 3
+
+- repositório base criado
+- bootstrap do Spring Boot com Java 25
+- estrutura inicial por camadas
+- dependências base adicionadas
+- endpoint técnico / health básico
+- infraestrutura local com PostgreSQL, Redis e RabbitMQ
+- profiles `local`, `test` e `prod`
+- pipeline mínima no GitHub Actions
+- formatação com Spotless
+- cobertura com JaCoCo
+- Flyway com migration baseline
+- handler global de exceções
+- auditoria base com timestamps automáticos
+- integração real com PostgreSQL usando Testcontainers
+- health/readiness no Actuator
+
+---
+
+## Próximos passos
+
+Após a Sprint 3, a evolução natural do projeto segue para:
+
+### Sprint 4 — Segurança
+
+- usuários e papéis
+- hash seguro de senha
+- login com JWT
+- proteção de rotas
+- RBAC
+
+### Sprints seguintes
+
+- onboarding da loja
+- catálogo
+- checkout
+- pedidos
+- pagamentos
+- eventos internos
+- auditoria e observabilidade avançada
+- produção e go-live
+
+---
+
+## Princípios do projeto
+
+- simplicidade operacional no MVP
+- clareza arquitetural
+- evolução incremental
+- testes como parte do caminho principal
+- responsabilidade bem definida entre camadas
+- qualidade antes de aceleração de escopo
+
+---
+
+## Comandos úteis
+
+### Subir infra local
+
+```bash
+docker compose up -d
 ```
 
-## Qualidade e testes
+### Rodar app
 
-O projeto foi iniciado já com preocupação de qualidade, mantendo a base pronta para evolução incremental.
+```bash
+./gradlew bootRun --args='--spring.profiles.active=local'
+```
 
-Até aqui, a intenção é garantir:
+### Rodar testes
 
-- aplicação sobe localmente
-- contexto Spring carrega corretamente
-- dependências base não conflitam
-- endpoint técnico responde com sucesso
-- infra local sobe com PostgreSQL, Redis e RabbitMQ
-- portas locais ficam documentadas
+```bash
+./gradlew test
+```
 
-## Roadmap resumido
+### Rodar build completo
 
-### Já concluído
+```bash
+./gradlew clean build
+```
 
-- fundação do projeto
-- bootstrap do Spring
-- estrutura inicial
-- dependências base
-- health check técnico
-- docker compose local
+### Validar formatação
 
-### Próximos passos
+```bash
+./gradlew spotlessCheck
+```
 
-- profiles `local`, `test` e `prod`
-- workflow de CI no GitHub Actions
-- Spotless
-- JaCoCo
-- Flyway
-- padrão global de erro
-- auditoria base
-- testes com Testcontainers
+### Aplicar formatação
 
-## Diretrizes técnicas do projeto
+```bash
+./gradlew spotlessApply
+```
 
-### Princípios
+### Gerar cobertura
 
-- começar simples sem comprometer qualidade
-- separar responsabilidades por módulo e camada
-- evitar complexidade operacional cedo demais
-- tratar PostgreSQL como fonte transacional principal
-- usar Redis para cache e dados temporários
-- usar RabbitMQ para eventos internos do MVP
-- evoluir com testes e automação desde cedo
+```bash
+./gradlew jacocoTestReport
+```
 
-### O que está fora do foco agora
+---
 
-- microserviços
-- Kubernetes
-- Kafka no início do MVP
-- complexidade excessiva de infraestrutura antes da validação do fluxo principal
+## Observações finais
 
-## Observações
+Este projeto foi estruturado para servir não apenas como MVP de produto, mas também como base técnica sustentável para crescimento.
 
-Este repositório representa a base do back-end do produto. O objetivo neste estágio não é já cobrir todo o domínio do negócio, mas garantir que a aplicação:
+A prioridade até aqui foi montar um backend:
 
-- esteja executável
-- tenha estrutura saudável
-- possua dependências essenciais
-- ofereça health check técnico
-- tenha ambiente local padronizado para evolução das próximas sprints
+- executável
+- testável
+- observável
+- com persistência versionada
+- com padrão de erro
+- com base de auditoria
+- com pipeline mínima
+- e com ambiente local reproduzível
 
-## Licença
-
-Definir.
+A partir daqui, a base está pronta para entrar nas regras reais de domínio do produto.
