@@ -10,8 +10,8 @@ import com.kfood.support.PostgreSqlContainerIT;
 import jakarta.persistence.EntityManager;
 import java.util.Set;
 import java.util.UUID;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
@@ -58,11 +58,7 @@ class IdentityUserRepositoryIntegrationTest extends PostgreSqlContainerIT {
   void shouldPersistUserWithValidRole() {
     IdentityUserEntity user =
         new IdentityUserEntity(
-            UUID.randomUUID(),
-            null,
-            "admin@kfood.local",
-            "hashed-password",
-            UserStatus.ACTIVE);
+            UUID.randomUUID(), null, "admin@kfood.local", "hashed-password", UserStatus.ACTIVE);
     user.replaceRoles(Set.of(UserRoleName.ADMIN));
 
     IdentityUserEntity saved = repository.saveAndFlush(user);
