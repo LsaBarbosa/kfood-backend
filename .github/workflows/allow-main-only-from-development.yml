@@ -1,0 +1,22 @@
+name: Allow main only from development
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  validate-source-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate PR source branch
+        run: |
+          echo "Base branch: ${{ github.event.pull_request.base.ref }}"
+          echo "Head branch: ${{ github.event.pull_request.head.ref }}"
+
+          if [ "${{ github.event.pull_request.head.ref }}" != "development" ]; then
+            echo "ERRO: a branch main só pode receber merge da development."
+            exit 1
+          fi
+
+          echo "OK: PR permitido."
