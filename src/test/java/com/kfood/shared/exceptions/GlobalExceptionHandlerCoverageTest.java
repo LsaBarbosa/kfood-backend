@@ -44,7 +44,8 @@ class GlobalExceptionHandlerCoverageTest {
     MDC.put("traceId", "trace-123");
 
     ResponseEntity<ApiErrorResponse> response =
-        handler.handleConstraintViolation(new ConstraintViolationException(Set.of(violation)), request);
+        handler.handleConstraintViolation(
+            new ConstraintViolationException(Set.of(violation)), request);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     assertThat(response.getBody()).isNotNull();
@@ -59,7 +60,8 @@ class GlobalExceptionHandlerCoverageTest {
   @Test
   void shouldUseFallbackMessageWhenFieldValidationMessageIsNull() throws Exception {
     HttpServletRequest request = request("/test-errors/validation");
-    BeanPropertyBindingResult bindingResult = new BeanPropertyBindingResult(new Object(), "payload");
+    BeanPropertyBindingResult bindingResult =
+        new BeanPropertyBindingResult(new Object(), "payload");
     bindingResult.addError(new FieldError("payload", "name", null, false, null, null, null));
 
     ResponseEntity<ApiErrorResponse> response =
@@ -68,7 +70,8 @@ class GlobalExceptionHandlerCoverageTest {
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     assertThat(response.getBody()).isNotNull();
-    assertThat(response.getBody().details()).containsExactly(new ApiFieldError("name", "Invalid value."));
+    assertThat(response.getBody().details())
+        .containsExactly(new ApiFieldError("name", "Invalid value."));
     assertThat(response.getBody().traceId()).isNull();
   }
 
@@ -76,7 +79,8 @@ class GlobalExceptionHandlerCoverageTest {
   void shouldReplaceNullBusinessDetailsAndBlankTraceId() {
     HttpServletRequest request = request("/test-errors/business");
     BusinessException exception =
-        new BusinessException(ErrorCode.STORE_NOT_ACTIVE, "Store is not active.", HttpStatus.CONFLICT, null);
+        new BusinessException(
+            ErrorCode.STORE_NOT_ACTIVE, "Store is not active.", HttpStatus.CONFLICT, null);
     MDC.put("traceId", "   ");
 
     ResponseEntity<ApiErrorResponse> response = handler.handleBusinessException(exception, request);
@@ -93,9 +97,12 @@ class GlobalExceptionHandlerCoverageTest {
     HttpServletRequest request = request("/missing");
     ErrorResponseException exception =
         new ErrorResponseException(
-            HttpStatus.NOT_FOUND, ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, "Resource missing."), null);
+            HttpStatus.NOT_FOUND,
+            ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, "Resource missing."),
+            null);
 
-    ResponseEntity<ApiErrorResponse> response = handler.handleErrorResponseException(exception, request);
+    ResponseEntity<ApiErrorResponse> response =
+        handler.handleErrorResponseException(exception, request);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.NOT_FOUND);
     assertThat(response.getBody()).isNotNull();
@@ -107,9 +114,11 @@ class GlobalExceptionHandlerCoverageTest {
   void shouldMapForbiddenErrorResponseExceptionWhenProblemDetailHasNoDetail() {
     HttpServletRequest request = request("/forbidden");
     ErrorResponseException exception =
-        new ErrorResponseException(HttpStatus.FORBIDDEN, ProblemDetail.forStatus(HttpStatus.FORBIDDEN), null);
+        new ErrorResponseException(
+            HttpStatus.FORBIDDEN, ProblemDetail.forStatus(HttpStatus.FORBIDDEN), null);
 
-    ResponseEntity<ApiErrorResponse> response = handler.handleErrorResponseException(exception, request);
+    ResponseEntity<ApiErrorResponse> response =
+        handler.handleErrorResponseException(exception, request);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
     assertThat(response.getBody()).isNotNull();
@@ -126,7 +135,8 @@ class GlobalExceptionHandlerCoverageTest {
             ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, "   "),
             null);
 
-    ResponseEntity<ApiErrorResponse> response = handler.handleErrorResponseException(exception, request);
+    ResponseEntity<ApiErrorResponse> response =
+        handler.handleErrorResponseException(exception, request);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
     assertThat(response.getBody()).isNotNull();
@@ -141,7 +151,8 @@ class GlobalExceptionHandlerCoverageTest {
     when(exception.getStatusCode()).thenReturn(HttpStatus.BAD_REQUEST);
     when(exception.getBody()).thenReturn(null);
 
-    ResponseEntity<ApiErrorResponse> response = handler.handleErrorResponseException(exception, request);
+    ResponseEntity<ApiErrorResponse> response =
+        handler.handleErrorResponseException(exception, request);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
     assertThat(response.getBody()).isNotNull();
@@ -154,17 +165,17 @@ class GlobalExceptionHandlerCoverageTest {
   void shouldBuildResponseWithEmptyDetailsWhenNullIsProvided() throws Exception {
     Method method =
         GlobalExceptionHandler.class.getDeclaredMethod(
-            "buildResponse",
-            ErrorCode.class,
-            String.class,
-            HttpServletRequest.class,
-            List.class);
+            "buildResponse", ErrorCode.class, String.class, HttpServletRequest.class, List.class);
     method.setAccessible(true);
 
     ApiErrorResponse response =
         (ApiErrorResponse)
             method.invoke(
-                handler, ErrorCode.UNEXPECTED_ERROR, "An unexpected error occurred.", request("/oops"), null);
+                handler,
+                ErrorCode.UNEXPECTED_ERROR,
+                "An unexpected error occurred.",
+                request("/oops"),
+                null);
 
     assertThat(response.details()).isEmpty();
     assertThat(response.path()).isEqualTo("/oops");

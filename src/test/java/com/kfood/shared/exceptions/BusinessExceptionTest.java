@@ -10,7 +10,8 @@ class BusinessExceptionTest {
   @Test
   void shouldReplaceNullDetailsWithEmptyList() {
     BusinessException exception =
-        new BusinessException(ErrorCode.STORE_NOT_ACTIVE, "Store is not active.", HttpStatus.CONFLICT, null);
+        new BusinessException(
+            ErrorCode.STORE_NOT_ACTIVE, "Store is not active.", HttpStatus.CONFLICT, null);
 
     assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.STORE_NOT_ACTIVE);
     assertThat(exception.getStatus()).isEqualTo(HttpStatus.CONFLICT);
