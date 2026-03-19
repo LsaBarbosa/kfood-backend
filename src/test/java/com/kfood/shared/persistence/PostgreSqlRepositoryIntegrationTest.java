@@ -21,10 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Import(TestJpaAuditingConfig.class)
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @TestPropertySource(
-    properties = {
-      "spring.flyway.enabled=false",
-      "spring.jpa.hibernate.ddl-auto=create-drop"
-    })
+    properties = {"spring.flyway.enabled=false", "spring.jpa.hibernate.ddl-auto=create"})
 class PostgreSqlRepositoryIntegrationTest extends PostgreSqlContainerIT {
 
   @Autowired private TestAuditEntityRepository repository;
