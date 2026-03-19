@@ -20,3 +20,14 @@ app:
   security:
     jwt-secret: ${JWT_SECRET:local-dev-secret}
     jwt-expiration-seconds: ${JWT_EXPIRATION_SECONDS:3600}
+
+management:
+  endpoint:
+    health:
+      group:
+        readiness:
+          include: readinessState,db,redis,rabbit,ping
+        liveness:
+          include: livenessState,ping
+      show-details: when_authorized
+      show-components: when_authorized

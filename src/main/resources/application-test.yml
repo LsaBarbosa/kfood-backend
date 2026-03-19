@@ -30,3 +30,10 @@ app:
   security:
     jwt-secret: test-secret
     jwt-expiration-seconds: 1800
+
+management:
+  health:
+    rabbit:
+      enabled: false
+    redis:
+      enabled: false
