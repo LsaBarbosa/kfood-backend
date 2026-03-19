@@ -1,13 +1,19 @@
 spring:
-  datasource:
-    url: jdbc:h2:mem:kfood-test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
-    username: sa
-    password:
-    driver-class-name: org.h2.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: false
 
   flyway:
     enabled: true
     locations: classpath:db/migration
+
+  sql:
+    init:
+      mode: never
 
   data:
     redis:
@@ -24,3 +30,10 @@ app:
   security:
     jwt-secret: test-secret
     jwt-expiration-seconds: 1800
+
+management:
+  health:
+    rabbit:
+      enabled: false
+    redis:
+      enabled: false
