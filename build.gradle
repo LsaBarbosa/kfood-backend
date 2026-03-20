@@ -34,8 +34,11 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-amqp'
 
     implementation 'org.flywaydb:flyway-core'
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.7'
 
     runtimeOnly 'org.postgresql:postgresql'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.7'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.7'
     testRuntimeOnly 'com.h2database:h2'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
