@@ -113,6 +113,24 @@ class FlywayMigrationTest {
   }
 
   @Test
+  void shouldRegisterVersionFiveInFlywayHistory() throws Exception {
+    try (Connection connection = dataSource.getConnection();
+        Statement statement = connection.createStatement();
+        ResultSet resultSet =
+            statement.executeQuery(
+                """
+                     select count(*)
+                     from flyway_schema_history
+                     where version = '5'
+                       and success = true
+                     """)) {
+
+      assertThat(resultSet.next()).isTrue();
+      assertThat(resultSet.getInt(1)).isEqualTo(1);
+    }
+  }
+
+  @Test
   void shouldApplySetupAsStoreDefaultStatusAfterApplyingMigrations() throws Exception {
     try (Connection connection = dataSource.getConnection();
         Statement statement = connection.createStatement()) {
@@ -227,6 +245,41 @@ class FlywayMigrationTest {
                               '22:00:00',
                               '10:00:00',
                               false,
+                              current_timestamp,
+                              current_timestamp)
+                      """))
+          .isInstanceOf(Exception.class);
+    }
+  }
+
+  @Test
+  void shouldApplyDeliveryZoneConstraintsAfterApplyingMigrations() throws Exception {
+    try (Connection connection = dataSource.getConnection();
+        Statement statement = connection.createStatement()) {
+      statement.executeUpdate(
+          """
+          insert into store (id, slug, name, cnpj, phone, timezone, created_at, updated_at)
+          values ('88888888-8888-8888-8888-888888888888',
+                  'store-zone-constraint',
+                  'Loja Zona',
+                  '45.723.174/0001-10',
+                  '21999990000',
+                  'America/Sao_Paulo',
+                  current_timestamp,
+                  current_timestamp)
+          """);
+
+      org.assertj.core.api.Assertions.assertThatThrownBy(
+              () ->
+                  statement.executeUpdate(
+                      """
+                      insert into delivery_zone (id, store_id, zone_name, fee_amount, min_order_amount, active, created_at, updated_at)
+                      values ('99999999-9999-9999-9999-999999999999',
+                              '88888888-8888-8888-8888-888888888888',
+                              'Centro',
+                              -1.00,
+                              25.00,
+                              true,
                               current_timestamp,
                               current_timestamp)
                       """))
