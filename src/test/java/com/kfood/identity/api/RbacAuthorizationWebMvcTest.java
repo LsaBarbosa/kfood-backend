@@ -10,6 +10,8 @@ import com.kfood.identity.app.JwtTokenService;
 import com.kfood.identity.domain.UserRoleName;
 import com.kfood.identity.domain.UserStatus;
 import com.kfood.identity.persistence.IdentityUserEntity;
+import com.kfood.merchant.app.CreateStoreUseCase;
+import com.kfood.merchant.app.UpdateStoreUseCase;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -18,6 +20,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 @SpringBootTest
@@ -33,6 +36,10 @@ class RbacAuthorizationWebMvcTest {
 
   @Autowired private JwtTokenService jwtTokenService;
 
+  @MockitoBean private CreateStoreUseCase createStoreUseCase;
+
+  @MockitoBean private UpdateStoreUseCase updateStoreUseCase;
+
   @Test
   @DisplayName("should allow admin to access admin route")
   void shouldAllowAdminToAccessAdminRoute() throws Exception {
@@ -40,7 +47,7 @@ class RbacAuthorizationWebMvcTest {
 
     mockMvc
         .perform(
-            get("/v1/admin/audit-logs")
+            get("/v1/rbac/admin/audit-logs")
                 .header("Authorization", "Bearer " + token)
                 .contentType(APPLICATION_JSON))
         .andExpect(status().isOk())
@@ -54,7 +61,7 @@ class RbacAuthorizationWebMvcTest {
 
     mockMvc
         .perform(
-            get("/v1/admin/audit-logs")
+            get("/v1/rbac/admin/audit-logs")
                 .header("Authorization", "Bearer " + token)
                 .contentType(APPLICATION_JSON))
         .andExpect(status().isForbidden())
@@ -68,7 +75,7 @@ class RbacAuthorizationWebMvcTest {
 
     mockMvc
         .perform(
-            post("/v1/merchant/store/terms-acceptance")
+            post("/v1/rbac/merchant/store/terms-acceptance")
                 .header("Authorization", "Bearer " + token)
                 .contentType(APPLICATION_JSON))
         .andExpect(status().isOk())
@@ -82,7 +89,7 @@ class RbacAuthorizationWebMvcTest {
 
     mockMvc
         .perform(
-            post("/v1/merchant/store/terms-acceptance")
+            post("/v1/rbac/merchant/store/terms-acceptance")
                 .header("Authorization", "Bearer " + token)
                 .contentType(APPLICATION_JSON))
         .andExpect(status().isForbidden())
@@ -96,7 +103,7 @@ class RbacAuthorizationWebMvcTest {
 
     mockMvc
         .perform(
-            post("/v1/catalog/categories")
+            post("/v1/rbac/catalog/categories")
                 .header("Authorization", "Bearer " + token)
                 .contentType(APPLICATION_JSON))
         .andExpect(status().isOk())
@@ -110,7 +117,7 @@ class RbacAuthorizationWebMvcTest {
 
     mockMvc
         .perform(
-            post("/v1/catalog/categories")
+            post("/v1/rbac/catalog/categories")
                 .header("Authorization", "Bearer " + token)
                 .contentType(APPLICATION_JSON))
         .andExpect(status().isForbidden())
@@ -124,7 +131,7 @@ class RbacAuthorizationWebMvcTest {
 
     mockMvc
         .perform(
-            get("/v1/orders")
+            get("/v1/rbac/orders")
                 .header("Authorization", "Bearer " + token)
                 .contentType(APPLICATION_JSON))
         .andExpect(status().isOk())
@@ -138,7 +145,7 @@ class RbacAuthorizationWebMvcTest {
 
     mockMvc
         .perform(
-            post("/v1/merchant/users")
+            post("/v1/rbac/merchant/users")
                 .header("Authorization", "Bearer " + token)
                 .contentType(APPLICATION_JSON))
         .andExpect(status().isForbidden())
@@ -152,7 +159,7 @@ class RbacAuthorizationWebMvcTest {
 
     mockMvc
         .perform(
-            post("/v1/merchant/store")
+            post("/v1/rbac/merchant/store")
                 .header("Authorization", "Bearer " + token)
                 .contentType(APPLICATION_JSON))
         .andExpect(status().isOk())
@@ -166,7 +173,7 @@ class RbacAuthorizationWebMvcTest {
 
     mockMvc
         .perform(
-            post("/v1/merchant/store")
+            post("/v1/rbac/merchant/store")
                 .header("Authorization", "Bearer " + token)
                 .contentType(APPLICATION_JSON))
         .andExpect(status().isOk())
@@ -180,7 +187,7 @@ class RbacAuthorizationWebMvcTest {
 
     mockMvc
         .perform(
-            post("/v1/merchant/store")
+            post("/v1/rbac/merchant/store")
                 .header("Authorization", "Bearer " + token)
                 .contentType(APPLICATION_JSON))
         .andExpect(status().isForbidden())

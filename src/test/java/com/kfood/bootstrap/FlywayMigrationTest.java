@@ -77,6 +77,54 @@ class FlywayMigrationTest {
   }
 
   @Test
+  void shouldRegisterVersionThreeInFlywayHistory() throws Exception {
+    try (Connection connection = dataSource.getConnection();
+        Statement statement = connection.createStatement();
+        ResultSet resultSet =
+            statement.executeQuery(
+                """
+                     select count(*)
+                     from flyway_schema_history
+                     where version = '3'
+                       and success = true
+                     """)) {
+
+      assertThat(resultSet.next()).isTrue();
+      assertThat(resultSet.getInt(1)).isEqualTo(1);
+    }
+  }
+
+  @Test
+  void shouldApplySetupAsStoreDefaultStatusAfterApplyingMigrations() throws Exception {
+    try (Connection connection = dataSource.getConnection();
+        Statement statement = connection.createStatement()) {
+      statement.executeUpdate(
+          """
+          insert into store (id, slug, name, cnpj, phone, timezone, created_at, updated_at)
+          values ('33333333-3333-3333-3333-333333333333',
+                  'store-default-status',
+                  'Loja Default',
+                  '45.723.174/0001-10',
+                  '21999990000',
+                  'America/Sao_Paulo',
+                  current_timestamp,
+                  current_timestamp)
+          """);
+
+      try (ResultSet resultSet =
+          statement.executeQuery(
+              """
+              select status
+              from store
+              where id = '33333333-3333-3333-3333-333333333333'
+              """)) {
+        assertThat(resultSet.next()).isTrue();
+        assertThat(resultSet.getString(1)).isEqualTo("SETUP");
+      }
+    }
+  }
+
+  @Test
   void shouldRejectInvalidIdentityRoleAfterApplyingMigrations() throws Exception {
     try (Connection connection = dataSource.getConnection();
         Statement statement = connection.createStatement()) {
