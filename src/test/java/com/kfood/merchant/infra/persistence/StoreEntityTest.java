@@ -30,6 +30,7 @@ class StoreEntityTest {
     assertThat(store.getPhone()).isEqualTo("21999990000");
     assertThat(store.getTimezone()).isEqualTo("America/Sao_Paulo");
     assertThat(store.getStatus()).isEqualTo(StoreStatus.SETUP);
+    assertThat(store.getHoursVersion()).isZero();
 
     store.changeName("Loja Centro");
     store.changeSlug("loja-centro");
@@ -51,6 +52,9 @@ class StoreEntityTest {
 
     store.moveToSetup();
     assertThat(store.getStatus()).isEqualTo(StoreStatus.SETUP);
+
+    store.incrementHoursVersion();
+    assertThat(store.getHoursVersion()).isEqualTo(1);
   }
 
   @Test
@@ -97,6 +101,28 @@ class StoreEntityTest {
     prePersist.invoke(store);
 
     assertThat(store.getStatus()).isEqualTo(StoreStatus.SETUP);
+  }
+
+  @Test
+  void shouldResetNegativeHoursVersionAtPrePersist() throws Exception {
+    var store =
+        new Store(
+            UUID.randomUUID(),
+            "Loja do Bairro",
+            "loja-do-bairro",
+            "45.723.174/0001-10",
+            "21999990000",
+            "America/Sao_Paulo");
+
+    Field hoursVersion = Store.class.getDeclaredField("hoursVersion");
+    hoursVersion.setAccessible(true);
+    hoursVersion.set(store, -1);
+
+    Method prePersist = Store.class.getDeclaredMethod("prePersist");
+    prePersist.setAccessible(true);
+    prePersist.invoke(store);
+
+    assertThat(store.getHoursVersion()).isZero();
   }
 
   @Test

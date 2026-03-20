@@ -95,6 +95,24 @@ class FlywayMigrationTest {
   }
 
   @Test
+  void shouldRegisterVersionFourInFlywayHistory() throws Exception {
+    try (Connection connection = dataSource.getConnection();
+        Statement statement = connection.createStatement();
+        ResultSet resultSet =
+            statement.executeQuery(
+                """
+                     select count(*)
+                     from flyway_schema_history
+                     where version = '4'
+                       and success = true
+                     """)) {
+
+      assertThat(resultSet.next()).isTrue();
+      assertThat(resultSet.getInt(1)).isEqualTo(1);
+    }
+  }
+
+  @Test
   void shouldApplySetupAsStoreDefaultStatusAfterApplyingMigrations() throws Exception {
     try (Connection connection = dataSource.getConnection();
         Statement statement = connection.createStatement()) {
@@ -150,9 +168,83 @@ class FlywayMigrationTest {
     }
   }
 
+  @Test
+  void shouldApplyStoreHoursConstraintsAndHoursVersionAfterApplyingMigrations() throws Exception {
+    assertThat(columnExists("store", "hours_version")).isTrue();
+
+    try (Connection connection = dataSource.getConnection();
+        Statement statement = connection.createStatement()) {
+      statement.executeUpdate(
+          """
+          insert into store (id, slug, name, cnpj, phone, timezone, created_at, updated_at)
+          values ('44444444-4444-4444-4444-444444444444',
+                  'store-hours-constraint',
+                  'Loja Horario',
+                  '45.723.174/0001-10',
+                  '21999990000',
+                  'America/Sao_Paulo',
+                  current_timestamp,
+                  current_timestamp)
+          """);
+
+      statement.executeUpdate(
+          """
+          insert into store_hours (id, store_id, day_of_week, open_time, close_time, is_closed, created_at, updated_at)
+          values ('55555555-5555-5555-5555-555555555555',
+                  '44444444-4444-4444-4444-444444444444',
+                  'MONDAY',
+                  '10:00:00',
+                  '22:00:00',
+                  false,
+                  current_timestamp,
+                  current_timestamp)
+          """);
+
+      org.assertj.core.api.Assertions.assertThatThrownBy(
+              () ->
+                  statement.executeUpdate(
+                      """
+                      insert into store_hours (id, store_id, day_of_week, open_time, close_time, is_closed, created_at, updated_at)
+                      values ('66666666-6666-6666-6666-666666666666',
+                              '44444444-4444-4444-4444-444444444444',
+                              'MONDAY',
+                              '09:00:00',
+                              '21:00:00',
+                              false,
+                              current_timestamp,
+                              current_timestamp)
+                      """))
+          .isInstanceOf(Exception.class);
+
+      org.assertj.core.api.Assertions.assertThatThrownBy(
+              () ->
+                  statement.executeUpdate(
+                      """
+                      insert into store_hours (id, store_id, day_of_week, open_time, close_time, is_closed, created_at, updated_at)
+                      values ('77777777-7777-7777-7777-777777777777',
+                              '44444444-4444-4444-4444-444444444444',
+                              'TUESDAY',
+                              '22:00:00',
+                              '10:00:00',
+                              false,
+                              current_timestamp,
+                              current_timestamp)
+                      """))
+          .isInstanceOf(Exception.class);
+    }
+  }
+
   private boolean tableExists(String tableName) throws Exception {
     try (Connection connection = dataSource.getConnection();
         ResultSet resultSet = connection.getMetaData().getTables(null, null, tableName, null)) {
+      return resultSet.next();
+    }
+  }
+
+  private boolean columnExists(String tableName, String columnName) throws Exception {
+    try (Connection connection = dataSource.getConnection();
+        ResultSet resultSet =
+            connection.getMetaData().getColumns(null, null, tableName, columnName)) {
       return resultSet.next();
     }
   }
