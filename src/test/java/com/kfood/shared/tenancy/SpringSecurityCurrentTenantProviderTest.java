@@ -42,6 +42,22 @@ class SpringSecurityCurrentTenantProviderTest {
   }
 
   @Test
+  void shouldRejectWhenAuthenticationIsPresentButNotAuthenticated() {
+    var authentication =
+        new UsernamePasswordAuthenticationToken("plain-user", null, List.of()) {
+          @Override
+          public boolean isAuthenticated() {
+            return false;
+          }
+        };
+    SecurityContextHolder.getContext().setAuthentication(authentication);
+
+    assertThatThrownBy(provider::getRequiredStoreId)
+        .isInstanceOf(AccessDeniedException.class)
+        .hasMessage("Unauthenticated request");
+  }
+
+  @Test
   void shouldRejectWhenPrincipalIsNotTenantAware() {
     SecurityContextHolder.getContext()
         .setAuthentication(new UsernamePasswordAuthenticationToken("plain-user", null, List.of()));

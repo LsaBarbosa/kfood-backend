@@ -161,4 +161,65 @@ class UpdateStoreHoursUseCaseTest {
         .isInstanceOf(InvalidStoreHoursException.class)
         .hasMessageContaining("Open day must define openTime and closeTime");
   }
+
+  @Test
+  void shouldRejectClosedDayWhenOnlyCloseTimeIsDefined() {
+    var storeId = UUID.randomUUID();
+    var store =
+        new Store(
+            storeId,
+            "Loja do Bairro",
+            "loja-do-bairro",
+            "45.723.174/0001-10",
+            "21999990000",
+            "America/Sao_Paulo");
+    var request =
+        new UpdateStoreHoursRequest(
+            List.of(new StoreHourRequest(DayOfWeek.SUNDAY, null, LocalTime.of(22, 0), true)));
+
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
+    when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
+
+    assertThatThrownBy(() -> updateStoreHoursUseCase.execute(request))
+        .isInstanceOf(InvalidStoreHoursException.class)
+        .hasMessageContaining("Closed day must not define openTime or closeTime");
+  }
+
+  @Test
+  void shouldRejectOpenDayWhenOnlyCloseTimeIsDefined() {
+    var storeId = UUID.randomUUID();
+    var store =
+        new Store(
+            storeId,
+            "Loja do Bairro",
+            "loja-do-bairro",
+            "45.723.174/0001-10",
+            "21999990000",
+            "America/Sao_Paulo");
+    var request =
+        new UpdateStoreHoursRequest(
+            List.of(new StoreHourRequest(DayOfWeek.MONDAY, null, LocalTime.of(22, 0), false)));
+
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
+    when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
+
+    assertThatThrownBy(() -> updateStoreHoursUseCase.execute(request))
+        .isInstanceOf(InvalidStoreHoursException.class)
+        .hasMessageContaining("Open day must define openTime and closeTime");
+  }
+
+  @Test
+  void shouldThrowWhenStoreDoesNotExist() {
+    var storeId = UUID.randomUUID();
+    var request =
+        new UpdateStoreHoursRequest(
+            List.of(new StoreHourRequest(DayOfWeek.MONDAY, null, null, false)));
+
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
+    when(storeRepository.findById(storeId)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> updateStoreHoursUseCase.execute(request))
+        .isInstanceOf(StoreNotFoundException.class)
+        .hasMessageContaining(storeId.toString());
+  }
 }

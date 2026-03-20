@@ -85,4 +85,19 @@ class CreateDeliveryZoneUseCaseTest {
         .isInstanceOf(DeliveryZoneAlreadyExistsException.class)
         .hasMessageContaining("Centro");
   }
+
+  @Test
+  void shouldThrowWhenStoreDoesNotExist() {
+    var storeId = UUID.randomUUID();
+    var request =
+        new CreateDeliveryZoneRequest(
+            "Centro", new BigDecimal("6.50"), new BigDecimal("25.00"), true);
+
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
+    when(storeRepository.findById(storeId)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> createDeliveryZoneUseCase.execute(request))
+        .isInstanceOf(StoreNotFoundException.class)
+        .hasMessageContaining(storeId.toString());
+  }
 }

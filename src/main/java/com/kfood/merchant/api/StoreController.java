@@ -2,6 +2,7 @@ package com.kfood.merchant.api;
 
 import com.kfood.identity.app.Roles;
 import com.kfood.merchant.app.ChangeStoreStatusUseCase;
+import com.kfood.merchant.app.CreateStoreTermsAcceptanceUseCase;
 import com.kfood.merchant.app.CreateStoreUseCase;
 import com.kfood.merchant.app.GetStoreDetailsUseCase;
 import com.kfood.merchant.app.UpdateStoreUseCase;
@@ -25,16 +26,20 @@ public class StoreController {
   private final ObjectProvider<CreateStoreUseCase> createStoreUseCaseProvider;
   private final ObjectProvider<UpdateStoreUseCase> updateStoreUseCaseProvider;
   private final ObjectProvider<GetStoreDetailsUseCase> getStoreDetailsUseCaseProvider;
+  private final ObjectProvider<CreateStoreTermsAcceptanceUseCase>
+      createStoreTermsAcceptanceUseCaseProvider;
   private final ObjectProvider<ChangeStoreStatusUseCase> changeStoreStatusUseCaseProvider;
 
   public StoreController(
       ObjectProvider<CreateStoreUseCase> createStoreUseCaseProvider,
       ObjectProvider<UpdateStoreUseCase> updateStoreUseCaseProvider,
       ObjectProvider<GetStoreDetailsUseCase> getStoreDetailsUseCaseProvider,
+      ObjectProvider<CreateStoreTermsAcceptanceUseCase> createStoreTermsAcceptanceUseCaseProvider,
       ObjectProvider<ChangeStoreStatusUseCase> changeStoreStatusUseCaseProvider) {
     this.createStoreUseCaseProvider = createStoreUseCaseProvider;
     this.updateStoreUseCaseProvider = updateStoreUseCaseProvider;
     this.getStoreDetailsUseCaseProvider = getStoreDetailsUseCaseProvider;
+    this.createStoreTermsAcceptanceUseCaseProvider = createStoreTermsAcceptanceUseCaseProvider;
     this.changeStoreStatusUseCaseProvider = changeStoreStatusUseCaseProvider;
   }
 
@@ -49,6 +54,14 @@ public class StoreController {
   @PreAuthorize(Roles.OWNER_OR_MANAGER)
   public StoreResponse update(@Valid @RequestBody UpdateStoreRequest request) {
     return updateStoreUseCase().execute(request);
+  }
+
+  @PostMapping("/terms-acceptance")
+  @ResponseStatus(HttpStatus.CREATED)
+  @PreAuthorize(Roles.OWNER)
+  public StoreTermsAcceptanceResponse acceptTerms(
+      @Valid @RequestBody CreateStoreTermsAcceptanceRequest request) {
+    return createStoreTermsAcceptanceUseCase().execute(request);
   }
 
   @GetMapping
@@ -73,6 +86,10 @@ public class StoreController {
 
   private GetStoreDetailsUseCase getStoreDetailsUseCase() {
     return getStoreDetailsUseCaseProvider.getObject();
+  }
+
+  private CreateStoreTermsAcceptanceUseCase createStoreTermsAcceptanceUseCase() {
+    return createStoreTermsAcceptanceUseCaseProvider.getObject();
   }
 
   private ChangeStoreStatusUseCase changeStoreStatusUseCase() {

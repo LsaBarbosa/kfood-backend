@@ -139,6 +139,7 @@ class StoreEntityTest {
     assertThat(store.isSuspended()).isFalse();
 
     store.activate();
+    assertThat(store.isSetup()).isFalse();
     assertThat(store.isActive()).isTrue();
 
     store.suspend();

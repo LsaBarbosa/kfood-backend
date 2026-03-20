@@ -15,11 +15,13 @@ import com.kfood.identity.domain.UserRoleName;
 import com.kfood.identity.domain.UserStatus;
 import com.kfood.identity.persistence.IdentityUserEntity;
 import com.kfood.merchant.app.ChangeStoreStatusUseCase;
+import com.kfood.merchant.app.CreateStoreTermsAcceptanceUseCase;
 import com.kfood.merchant.app.CreateStoreUseCase;
 import com.kfood.merchant.app.GetStoreDetailsUseCase;
 import com.kfood.merchant.app.StoreActivationRequirementsNotMetException;
 import com.kfood.merchant.app.StoreNotFoundException;
 import com.kfood.merchant.app.UpdateStoreUseCase;
+import com.kfood.merchant.domain.LegalDocumentType;
 import com.kfood.merchant.domain.StoreStatus;
 import java.time.Instant;
 import java.util.Set;
@@ -50,6 +52,8 @@ class StoreControllerWebMvcTest {
   @MockitoBean private UpdateStoreUseCase updateStoreUseCase;
 
   @MockitoBean private GetStoreDetailsUseCase getStoreDetailsUseCase;
+
+  @MockitoBean private CreateStoreTermsAcceptanceUseCase createStoreTermsAcceptanceUseCase;
 
   @MockitoBean private ChangeStoreStatusUseCase changeStoreStatusUseCase;
 
@@ -279,6 +283,71 @@ class StoreControllerWebMvcTest {
                     """))
         .andExpect(status().isForbidden())
         .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN_ROLE"));
+  }
+
+  @Test
+  void shouldAcceptTermsSuccessfully() throws Exception {
+    when(createStoreTermsAcceptanceUseCase.execute(any(CreateStoreTermsAcceptanceRequest.class)))
+        .thenReturn(
+            new StoreTermsAcceptanceResponse(
+                UUID.randomUUID(),
+                LegalDocumentType.TERMS_OF_USE,
+                "2026.03",
+                Instant.parse("2026-03-20T10:15:00Z")));
+
+    mockMvc
+        .perform(
+            post("/v1/merchant/store/terms-acceptance")
+                .header("Authorization", "Bearer " + tokenOf(UserRoleName.OWNER))
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "documentType": "TERMS_OF_USE",
+                      "documentVersion": "2026.03",
+                      "acceptedAt": "2026-03-20T10:15:00Z"
+                    }
+                    """))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.documentType").value("TERMS_OF_USE"))
+        .andExpect(jsonPath("$.documentVersion").value("2026.03"));
+  }
+
+  @Test
+  void shouldForbidManagerFromAcceptingTerms() throws Exception {
+    mockMvc
+        .perform(
+            post("/v1/merchant/store/terms-acceptance")
+                .header("Authorization", "Bearer " + tokenOf(UserRoleName.MANAGER))
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "documentType": "TERMS_OF_USE",
+                      "documentVersion": "2026.03",
+                      "acceptedAt": "2026-03-20T10:15:00Z"
+                    }
+                    """))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN_ROLE"));
+  }
+
+  @Test
+  void shouldReturnBadRequestWhenTermsAcceptancePayloadIsInvalid() throws Exception {
+    mockMvc
+        .perform(
+            post("/v1/merchant/store/terms-acceptance")
+                .header("Authorization", "Bearer " + tokenOf(UserRoleName.OWNER))
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "documentVersion": "",
+                      "acceptedAt": null
+                    }
+                    """))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
   }
 
   private String tokenOf(UserRoleName role) {
