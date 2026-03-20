@@ -28,7 +28,7 @@ spring:
 
 app:
   security:
-    jwt-secret: test-secret
+    jwt-secret: test-secret-change-me-change-me-1234
     jwt-expiration-seconds: 1800
 
 management:

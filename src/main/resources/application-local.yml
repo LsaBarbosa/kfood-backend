@@ -18,7 +18,7 @@ spring:
 
 app:
   security:
-    jwt-secret: ${JWT_SECRET:local-dev-secret}
+    jwt-secret: ${JWT_SECRET:local-dev-secret-change-me-1234}
     jwt-expiration-seconds: ${JWT_EXPIRATION_SECONDS:3600}
 
 management:
