@@ -18,6 +18,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(controllers = GlobalExceptionHandlerTestController.class)
@@ -106,6 +107,11 @@ class GlobalExceptionHandlerWebMvcTest {
     @Bean
     AuthenticationEntryPoint authenticationEntryPoint() {
       return mock(AuthenticationEntryPoint.class);
+    }
+
+    @Bean
+    AccessDeniedHandler accessDeniedHandler() {
+      return mock(AccessDeniedHandler.class);
     }
   }
 }
