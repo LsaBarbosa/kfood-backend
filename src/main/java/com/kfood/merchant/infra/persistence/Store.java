@@ -45,6 +45,9 @@ public class Store extends AuditableEntity {
   @Column(name = "status", nullable = false, length = 20)
   private StoreStatus status;
 
+  @Column(name = "hours_version", nullable = false)
+  private int hoursVersion;
+
   protected Store() {}
 
   public Store(UUID id, String name, String slug, String cnpj, String phone, String timezone) {
@@ -55,12 +58,16 @@ public class Store extends AuditableEntity {
     this.phone = normalize(Objects.requireNonNull(phone, "phone is required"));
     this.timezone = normalize(Objects.requireNonNull(timezone, "timezone is required"));
     status = StoreStatus.SETUP;
+    hoursVersion = 0;
   }
 
   @PrePersist
   void prePersist() {
     if (status == null) {
       status = StoreStatus.SETUP;
+    }
+    if (hoursVersion < 0) {
+      hoursVersion = 0;
     }
   }
 
@@ -92,6 +99,10 @@ public class Store extends AuditableEntity {
     return status;
   }
 
+  public int getHoursVersion() {
+    return hoursVersion;
+  }
+
   public void changeName(String name) {
     this.name = normalize(Objects.requireNonNull(name, "name is required"));
   }
@@ -110,6 +121,10 @@ public class Store extends AuditableEntity {
 
   public void changeTimezone(String timezone) {
     this.timezone = normalize(Objects.requireNonNull(timezone, "timezone is required"));
+  }
+
+  public void incrementHoursVersion() {
+    hoursVersion++;
   }
 
   public void activate() {
