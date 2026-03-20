@@ -1,19 +1,28 @@
 package com.kfood.shared.exceptions;
 
+import static org.mockito.Mockito.mock;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.kfood.identity.app.JwtTokenReader;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(controllers = GlobalExceptionHandlerTestController.class)
-@Import(GlobalExceptionHandler.class)
+@AutoConfigureMockMvc(addFilters = false)
+@Import({GlobalExceptionHandler.class, GlobalExceptionHandlerWebMvcTest.MockConfig.class})
 class GlobalExceptionHandlerWebMvcTest {
 
   @Autowired private MockMvc mockMvc;
@@ -84,5 +93,19 @@ class GlobalExceptionHandlerWebMvcTest {
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.timestamp").isNotEmpty())
         .andExpect(jsonPath("$.path").value("/test-errors/business"));
+  }
+
+  @TestConfiguration
+  static class MockConfig {
+
+    @Bean
+    JwtTokenReader jwtTokenReader() {
+      return mock(JwtTokenReader.class);
+    }
+
+    @Bean
+    AuthenticationEntryPoint authenticationEntryPoint() {
+      return mock(AuthenticationEntryPoint.class);
+    }
   }
 }
