@@ -25,6 +25,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.web.AuthenticationEntryPoint;
+import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(AuthController.class)
@@ -114,6 +115,11 @@ class AuthControllerWebMvcTest {
     @Bean
     AuthenticationEntryPoint authenticationEntryPoint() {
       return mock(AuthenticationEntryPoint.class);
+    }
+
+    @Bean
+    AccessDeniedHandler accessDeniedHandler() {
+      return mock(AccessDeniedHandler.class);
     }
   }
 }

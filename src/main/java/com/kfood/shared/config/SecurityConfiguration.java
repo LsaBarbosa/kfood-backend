@@ -1,6 +1,7 @@
 package com.kfood.shared.config;
 
 import com.kfood.identity.infra.security.JwtAuthenticationFilter;
+import com.kfood.identity.infra.security.RestAccessDeniedHandler;
 import com.kfood.identity.infra.security.RestAuthenticationEntryPoint;
 import org.springframework.boot.security.autoconfigure.actuate.web.servlet.EndpointRequest;
 import org.springframework.context.annotation.Bean;
@@ -18,12 +19,15 @@ public class SecurityConfiguration {
 
   private final JwtAuthenticationFilter jwtAuthenticationFilter;
   private final RestAuthenticationEntryPoint restAuthenticationEntryPoint;
+  private final RestAccessDeniedHandler restAccessDeniedHandler;
 
   public SecurityConfiguration(
       JwtAuthenticationFilter jwtAuthenticationFilter,
-      RestAuthenticationEntryPoint restAuthenticationEntryPoint) {
+      RestAuthenticationEntryPoint restAuthenticationEntryPoint,
+      RestAccessDeniedHandler restAccessDeniedHandler) {
     this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     this.restAuthenticationEntryPoint = restAuthenticationEntryPoint;
+    this.restAccessDeniedHandler = restAccessDeniedHandler;
   }
 
   @Bean
@@ -32,7 +36,10 @@ public class SecurityConfiguration {
         .sessionManagement(
             session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .exceptionHandling(
-            exceptions -> exceptions.authenticationEntryPoint(restAuthenticationEntryPoint))
+            exceptions ->
+                exceptions
+                    .authenticationEntryPoint(restAuthenticationEntryPoint)
+                    .accessDeniedHandler(restAccessDeniedHandler))
         .authorizeHttpRequests(
             authorize ->
                 authorize
@@ -48,11 +55,8 @@ public class SecurityConfiguration {
                     .permitAll()
                     .requestMatchers(EndpointRequest.to("info"))
                     .permitAll()
-                    .requestMatchers(
-                        "/v1/merchant/**", "/v1/catalog/**", "/v1/orders/**", "/v1/admin/**")
-                    .authenticated()
                     .anyRequest()
-                    .permitAll())
+                    .authenticated())
         .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
         .httpBasic(AbstractHttpConfigurer::disable)
         .formLogin(AbstractHttpConfigurer::disable);

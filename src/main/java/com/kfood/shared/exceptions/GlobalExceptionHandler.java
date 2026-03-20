@@ -8,6 +8,7 @@ import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.FieldError;
 import org.springframework.web.ErrorResponseException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -53,6 +54,19 @@ public class GlobalExceptionHandler {
         buildResponse(ex.getErrorCode(), ex.getMessage(), request, ex.getDetails());
 
     return ResponseEntity.status(ex.getStatus()).body(response);
+  }
+
+  @ExceptionHandler(AccessDeniedException.class)
+  public ResponseEntity<ApiErrorResponse> handleAccessDenied(
+      AccessDeniedException ex, HttpServletRequest request) {
+    ApiErrorResponse response =
+        buildResponse(
+            ErrorCode.AUTH_FORBIDDEN_ROLE,
+            "Authenticated user does not have permission for this resource.",
+            request,
+            List.of());
+
+    return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
   }
 
   @ExceptionHandler(ErrorResponseException.class)
