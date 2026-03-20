@@ -107,4 +107,27 @@ class UpdateStoreUseCaseTest {
         .isInstanceOf(StoreSlugAlreadyExistsException.class)
         .hasMessageContaining("novo-slug");
   }
+
+  @Test
+  void shouldAllowKeepingCurrentSlugWithoutConflictCheck() {
+    var storeId = UUID.randomUUID();
+    var store =
+        new Store(
+            storeId,
+            "Loja do Bairro",
+            "loja-do-bairro",
+            "45.723.174/0001-10",
+            "21999990000",
+            "America/Sao_Paulo");
+    var request = new UpdateStoreRequest("Loja Premium", "loja-do-bairro", null, null, null);
+
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
+    when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
+    when(storeRepository.saveAndFlush(store)).thenReturn(store);
+
+    var response = updateStoreUseCase.execute(request);
+
+    assertThat(response.slug()).isEqualTo("loja-do-bairro");
+    assertThat(response.name()).isEqualTo("Loja Premium");
+  }
 }

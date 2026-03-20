@@ -115,6 +115,20 @@ class ChangeStoreStatusUseCaseTest {
         .hasMessageContaining("Changing status to SETUP is not allowed");
   }
 
+  @Test
+  void shouldThrowWhenStoreDoesNotExist() {
+    var storeId = UUID.randomUUID();
+
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
+    when(storeRepository.findById(storeId)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(
+            () ->
+                changeStoreStatusUseCase.execute(new ChangeStoreStatusRequest(StoreStatus.ACTIVE)))
+        .isInstanceOf(StoreNotFoundException.class)
+        .hasMessageContaining(storeId.toString());
+  }
+
   private Store store(UUID id) {
     return new Store(
         id,
