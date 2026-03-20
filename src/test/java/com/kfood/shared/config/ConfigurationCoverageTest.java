@@ -23,4 +23,9 @@ class ConfigurationCoverageTest {
   void shouldInstantiateJpaAuditingConfig() {
     assertThat(new JpaAuditingConfig()).isNotNull();
   }
+
+  @Test
+  void shouldInstantiatePasswordSecurityConfig() {
+    assertThat(new PasswordSecurityConfig()).isNotNull();
+  }
 }

@@ -58,6 +58,50 @@ class FlywayMigrationTest {
     }
   }
 
+  @Test
+  void shouldRegisterVersionTwoInFlywayHistory() throws Exception {
+    try (Connection connection = dataSource.getConnection();
+        Statement statement = connection.createStatement();
+        ResultSet resultSet =
+            statement.executeQuery(
+                """
+                     select count(*)
+                     from flyway_schema_history
+                     where version = '2'
+                       and success = true
+                     """)) {
+
+      assertThat(resultSet.next()).isTrue();
+      assertThat(resultSet.getInt(1)).isEqualTo(1);
+    }
+  }
+
+  @Test
+  void shouldRejectInvalidIdentityRoleAfterApplyingMigrations() throws Exception {
+    try (Connection connection = dataSource.getConnection();
+        Statement statement = connection.createStatement()) {
+      statement.executeUpdate(
+          """
+          insert into identity_user (id, store_id, email, password_hash, status, created_at, updated_at)
+          values ('11111111-1111-1111-1111-111111111111', null, 'flyway-role@kfood.local', 'hash', 'ACTIVE',
+                  current_timestamp, current_timestamp)
+          """);
+
+      org.assertj.core.api.Assertions.assertThatThrownBy(
+              () ->
+                  statement.executeUpdate(
+                      """
+                      insert into identity_user_role (id, user_id, store_id, role_name, created_at)
+                      values ('22222222-2222-2222-2222-222222222222',
+                              '11111111-1111-1111-1111-111111111111',
+                              null,
+                              'SUPER_ADMIN',
+                              current_timestamp)
+                      """))
+          .hasMessageContaining("chk_identity_user_role_name");
+    }
+  }
+
   private boolean tableExists(String tableName) throws Exception {
     try (Connection connection = dataSource.getConnection();
         ResultSet resultSet = connection.getMetaData().getTables(null, null, tableName, null)) {
