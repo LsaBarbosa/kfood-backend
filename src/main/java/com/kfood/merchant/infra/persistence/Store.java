@@ -103,6 +103,18 @@ public class Store extends AuditableEntity {
     return hoursVersion;
   }
 
+  public boolean isSetup() {
+    return status == StoreStatus.SETUP;
+  }
+
+  public boolean isActive() {
+    return status == StoreStatus.ACTIVE;
+  }
+
+  public boolean isSuspended() {
+    return status == StoreStatus.SUSPENDED;
+  }
+
   public void changeName(String name) {
     this.name = normalize(Objects.requireNonNull(name, "name is required"));
   }
@@ -128,15 +140,17 @@ public class Store extends AuditableEntity {
   }
 
   public void activate() {
+    if (status == StoreStatus.ACTIVE) {
+      throw new StoreStatusTransitionException(status, StoreStatus.ACTIVE);
+    }
     status = StoreStatus.ACTIVE;
   }
 
   public void suspend() {
+    if (status != StoreStatus.ACTIVE) {
+      throw new StoreStatusTransitionException(status, StoreStatus.SUSPENDED);
+    }
     status = StoreStatus.SUSPENDED;
-  }
-
-  public void moveToSetup() {
-    status = StoreStatus.SETUP;
   }
 
   private String normalize(String value) {

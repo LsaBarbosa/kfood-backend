@@ -1,6 +1,7 @@
 package com.kfood.merchant.infra.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.kfood.merchant.domain.StoreStatus;
 import java.lang.reflect.Constructor;
@@ -49,9 +50,6 @@ class StoreEntityTest {
 
     store.suspend();
     assertThat(store.getStatus()).isEqualTo(StoreStatus.SUSPENDED);
-
-    store.moveToSetup();
-    assertThat(store.getStatus()).isEqualTo(StoreStatus.SETUP);
 
     store.incrementHoursVersion();
     assertThat(store.getHoursVersion()).isEqualTo(1);
@@ -123,6 +121,61 @@ class StoreEntityTest {
     prePersist.invoke(store);
 
     assertThat(store.getHoursVersion()).isZero();
+  }
+
+  @Test
+  void shouldExposeStatusFlags() {
+    var store =
+        new Store(
+            UUID.randomUUID(),
+            "Loja do Bairro",
+            "loja-do-bairro",
+            "45.723.174/0001-10",
+            "21999990000",
+            "America/Sao_Paulo");
+
+    assertThat(store.isSetup()).isTrue();
+    assertThat(store.isActive()).isFalse();
+    assertThat(store.isSuspended()).isFalse();
+
+    store.activate();
+    assertThat(store.isActive()).isTrue();
+
+    store.suspend();
+    assertThat(store.isSuspended()).isTrue();
+  }
+
+  @Test
+  void shouldRejectInvalidActiveToActiveTransition() {
+    var store =
+        new Store(
+            UUID.randomUUID(),
+            "Loja do Bairro",
+            "loja-do-bairro",
+            "45.723.174/0001-10",
+            "21999990000",
+            "America/Sao_Paulo");
+    store.activate();
+
+    assertThatThrownBy(store::activate)
+        .isInstanceOf(StoreStatusTransitionException.class)
+        .hasMessageContaining("Invalid store status transition");
+  }
+
+  @Test
+  void shouldRejectInvalidSetupToSuspendedTransition() {
+    var store =
+        new Store(
+            UUID.randomUUID(),
+            "Loja do Bairro",
+            "loja-do-bairro",
+            "45.723.174/0001-10",
+            "21999990000",
+            "America/Sao_Paulo");
+
+    assertThatThrownBy(store::suspend)
+        .isInstanceOf(StoreStatusTransitionException.class)
+        .hasMessageContaining("Invalid store status transition");
   }
 
   @Test

@@ -1,12 +1,16 @@
 package com.kfood.merchant.api;
 
 import com.kfood.identity.app.Roles;
+import com.kfood.merchant.app.ChangeStoreStatusUseCase;
 import com.kfood.merchant.app.CreateStoreUseCase;
+import com.kfood.merchant.app.GetStoreDetailsUseCase;
 import com.kfood.merchant.app.UpdateStoreUseCase;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -20,12 +24,18 @@ public class StoreController {
 
   private final ObjectProvider<CreateStoreUseCase> createStoreUseCaseProvider;
   private final ObjectProvider<UpdateStoreUseCase> updateStoreUseCaseProvider;
+  private final ObjectProvider<GetStoreDetailsUseCase> getStoreDetailsUseCaseProvider;
+  private final ObjectProvider<ChangeStoreStatusUseCase> changeStoreStatusUseCaseProvider;
 
   public StoreController(
       ObjectProvider<CreateStoreUseCase> createStoreUseCaseProvider,
-      ObjectProvider<UpdateStoreUseCase> updateStoreUseCaseProvider) {
+      ObjectProvider<UpdateStoreUseCase> updateStoreUseCaseProvider,
+      ObjectProvider<GetStoreDetailsUseCase> getStoreDetailsUseCaseProvider,
+      ObjectProvider<ChangeStoreStatusUseCase> changeStoreStatusUseCaseProvider) {
     this.createStoreUseCaseProvider = createStoreUseCaseProvider;
     this.updateStoreUseCaseProvider = updateStoreUseCaseProvider;
+    this.getStoreDetailsUseCaseProvider = getStoreDetailsUseCaseProvider;
+    this.changeStoreStatusUseCaseProvider = changeStoreStatusUseCaseProvider;
   }
 
   @PostMapping
@@ -41,11 +51,31 @@ public class StoreController {
     return updateStoreUseCase().execute(request);
   }
 
+  @GetMapping
+  @PreAuthorize(Roles.OWNER_MANAGER_ATTENDANT)
+  public StoreDetailsResponse getCurrentStore() {
+    return getStoreDetailsUseCase().execute();
+  }
+
+  @PatchMapping("/status")
+  @PreAuthorize(Roles.OWNER)
+  public StoreDetailsResponse changeStatus(@Valid @RequestBody ChangeStoreStatusRequest request) {
+    return changeStoreStatusUseCase().execute(request);
+  }
+
   private CreateStoreUseCase createStoreUseCase() {
     return createStoreUseCaseProvider.getObject();
   }
 
   private UpdateStoreUseCase updateStoreUseCase() {
     return updateStoreUseCaseProvider.getObject();
+  }
+
+  private GetStoreDetailsUseCase getStoreDetailsUseCase() {
+    return getStoreDetailsUseCaseProvider.getObject();
+  }
+
+  private ChangeStoreStatusUseCase changeStoreStatusUseCase() {
+    return changeStoreStatusUseCaseProvider.getObject();
   }
 }
