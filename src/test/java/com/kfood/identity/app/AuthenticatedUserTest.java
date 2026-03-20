@@ -16,6 +16,7 @@ class AuthenticatedUserTest {
 
     assertThat(user.getUserId()).isNotNull();
     assertThat(user.getTenantId()).isNotNull();
+    assertThat(user.getStoreId()).isEqualTo(user.getTenantId());
     assertThat(user.getUsername()).isEqualTo("owner@kfood.local");
     assertThat(user.getPassword()).isNull();
     assertThat(user.getAuthorities())
