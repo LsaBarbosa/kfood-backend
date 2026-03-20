@@ -31,7 +31,11 @@ class StoreEntityTest {
     assertThat(store.getTimezone()).isEqualTo("America/Sao_Paulo");
     assertThat(store.getStatus()).isEqualTo(StoreStatus.SETUP);
 
-    store.updateBasicData("Loja Centro", "loja-centro", "54.550.752/0001-55", "21888887777", "UTC");
+    store.changeName("Loja Centro");
+    store.changeSlug("loja-centro");
+    store.changeCnpj("54.550.752/0001-55");
+    store.changePhone("21888887777");
+    store.changeTimezone("UTC");
 
     assertThat(store.getName()).isEqualTo("Loja Centro");
     assertThat(store.getSlug()).isEqualTo("loja-centro");
@@ -47,6 +51,30 @@ class StoreEntityTest {
 
     store.moveToSetup();
     assertThat(store.getStatus()).isEqualTo(StoreStatus.SETUP);
+  }
+
+  @Test
+  void shouldNormalizeFieldsWhenChangingData() {
+    var store =
+        new Store(
+            UUID.randomUUID(),
+            "Loja do Bairro",
+            "loja-do-bairro",
+            "45.723.174/0001-10",
+            "21999990000",
+            "America/Sao_Paulo");
+
+    store.changeName(" Loja Centro ");
+    store.changeSlug(" loja-centro ");
+    store.changeCnpj(" 54.550.752/0001-55 ");
+    store.changePhone(" 21888887777 ");
+    store.changeTimezone(" UTC ");
+
+    assertThat(store.getName()).isEqualTo("Loja Centro");
+    assertThat(store.getSlug()).isEqualTo("loja-centro");
+    assertThat(store.getCnpj()).isEqualTo("54.550.752/0001-55");
+    assertThat(store.getPhone()).isEqualTo("21888887777");
+    assertThat(store.getTimezone()).isEqualTo("UTC");
   }
 
   @Test

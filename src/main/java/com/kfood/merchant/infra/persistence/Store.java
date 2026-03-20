@@ -35,7 +35,7 @@ public class Store extends AuditableEntity {
   @Column(name = "cnpj", nullable = false, length = 20)
   private String cnpj;
 
-  @NotBlank @Size(max = 20) @Column(name = "phone", nullable = false, length = 20)
+  @NotBlank @Pattern(regexp = "^\\d{10,15}$", message = "phone must contain between 10 and 15 digits") @Size(max = 20) @Column(name = "phone", nullable = false, length = 20)
   private String phone;
 
   @NotBlank @Size(max = 60) @Column(name = "timezone", nullable = false, length = 60)
@@ -49,11 +49,11 @@ public class Store extends AuditableEntity {
 
   public Store(UUID id, String name, String slug, String cnpj, String phone, String timezone) {
     this.id = Objects.requireNonNull(id, "id is required");
-    this.name = Objects.requireNonNull(name, "name is required");
-    this.slug = Objects.requireNonNull(slug, "slug is required");
-    this.cnpj = Objects.requireNonNull(cnpj, "cnpj is required");
-    this.phone = Objects.requireNonNull(phone, "phone is required");
-    this.timezone = Objects.requireNonNull(timezone, "timezone is required");
+    this.name = normalize(Objects.requireNonNull(name, "name is required"));
+    this.slug = normalize(Objects.requireNonNull(slug, "slug is required"));
+    this.cnpj = normalize(Objects.requireNonNull(cnpj, "cnpj is required"));
+    this.phone = normalize(Objects.requireNonNull(phone, "phone is required"));
+    this.timezone = normalize(Objects.requireNonNull(timezone, "timezone is required"));
     status = StoreStatus.SETUP;
   }
 
@@ -92,13 +92,24 @@ public class Store extends AuditableEntity {
     return status;
   }
 
-  public void updateBasicData(
-      String name, String slug, String cnpj, String phone, String timezone) {
-    this.name = Objects.requireNonNull(name, "name is required");
-    this.slug = Objects.requireNonNull(slug, "slug is required");
-    this.cnpj = Objects.requireNonNull(cnpj, "cnpj is required");
-    this.phone = Objects.requireNonNull(phone, "phone is required");
-    this.timezone = Objects.requireNonNull(timezone, "timezone is required");
+  public void changeName(String name) {
+    this.name = normalize(Objects.requireNonNull(name, "name is required"));
+  }
+
+  public void changeSlug(String slug) {
+    this.slug = normalize(Objects.requireNonNull(slug, "slug is required"));
+  }
+
+  public void changeCnpj(String cnpj) {
+    this.cnpj = normalize(Objects.requireNonNull(cnpj, "cnpj is required"));
+  }
+
+  public void changePhone(String phone) {
+    this.phone = normalize(Objects.requireNonNull(phone, "phone is required"));
+  }
+
+  public void changeTimezone(String timezone) {
+    this.timezone = normalize(Objects.requireNonNull(timezone, "timezone is required"));
   }
 
   public void activate() {
@@ -111,5 +122,9 @@ public class Store extends AuditableEntity {
 
   public void moveToSetup() {
     status = StoreStatus.SETUP;
+  }
+
+  private String normalize(String value) {
+    return value.trim();
   }
 }

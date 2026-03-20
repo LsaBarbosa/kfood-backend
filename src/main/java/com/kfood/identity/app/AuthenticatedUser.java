@@ -1,5 +1,6 @@
 package com.kfood.identity.app;
 
+import com.kfood.shared.security.TenantAwarePrincipal;
 import java.util.Collection;
 import java.util.List;
 import java.util.UUID;
@@ -7,7 +8,7 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 
-public class AuthenticatedUser implements UserDetails {
+public class AuthenticatedUser implements UserDetails, TenantAwarePrincipal {
 
   private final UUID userId;
   private final String email;
@@ -29,6 +30,11 @@ public class AuthenticatedUser implements UserDetails {
   }
 
   public UUID getTenantId() {
+    return tenantId;
+  }
+
+  @Override
+  public UUID getStoreId() {
     return tenantId;
   }
 
