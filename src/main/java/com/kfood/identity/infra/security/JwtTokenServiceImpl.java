@@ -33,8 +33,9 @@ public class JwtTokenServiceImpl implements JwtTokenService {
 
     return Jwts.builder()
         .subject(user.getEmail())
-        .claim("userId", user.getId().toString())
-        .claim("tenantId", uuidToString(user.getStoreId()))
+        .id(UUID.randomUUID().toString())
+        .claim("user_id", user.getId().toString())
+        .claim("tenant_id", uuidToString(user.getStoreId()))
         .claim("roles", roles)
         .issuedAt(Date.from(now))
         .expiration(Date.from(expiresAt))

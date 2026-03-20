@@ -8,6 +8,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.kfood.identity.app.JwtTokenReader;
 import com.kfood.identity.app.LoginService;
 import com.kfood.shared.exceptions.BusinessException;
 import com.kfood.shared.exceptions.ErrorCode;
@@ -23,6 +24,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(AuthController.class)
@@ -102,6 +104,16 @@ class AuthControllerWebMvcTest {
     @Bean
     LoginService loginService() {
       return mock(LoginService.class);
+    }
+
+    @Bean
+    JwtTokenReader jwtTokenReader() {
+      return mock(JwtTokenReader.class);
+    }
+
+    @Bean
+    AuthenticationEntryPoint authenticationEntryPoint() {
+      return mock(AuthenticationEntryPoint.class);
     }
   }
 }
