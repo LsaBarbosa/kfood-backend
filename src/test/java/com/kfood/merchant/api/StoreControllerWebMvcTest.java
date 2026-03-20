@@ -3,6 +3,8 @@ package com.kfood.merchant.api;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -12,7 +14,10 @@ import com.kfood.identity.app.JwtTokenService;
 import com.kfood.identity.domain.UserRoleName;
 import com.kfood.identity.domain.UserStatus;
 import com.kfood.identity.persistence.IdentityUserEntity;
+import com.kfood.merchant.app.ChangeStoreStatusUseCase;
 import com.kfood.merchant.app.CreateStoreUseCase;
+import com.kfood.merchant.app.GetStoreDetailsUseCase;
+import com.kfood.merchant.app.StoreActivationRequirementsNotMetException;
 import com.kfood.merchant.app.StoreNotFoundException;
 import com.kfood.merchant.app.UpdateStoreUseCase;
 import com.kfood.merchant.domain.StoreStatus;
@@ -43,6 +48,10 @@ class StoreControllerWebMvcTest {
   @MockitoBean private CreateStoreUseCase createStoreUseCase;
 
   @MockitoBean private UpdateStoreUseCase updateStoreUseCase;
+
+  @MockitoBean private GetStoreDetailsUseCase getStoreDetailsUseCase;
+
+  @MockitoBean private ChangeStoreStatusUseCase changeStoreStatusUseCase;
 
   @Test
   void shouldCreateStoreSuccessfully() throws Exception {
@@ -178,6 +187,98 @@ class StoreControllerWebMvcTest {
                     """))
         .andExpect(status().isUnauthorized())
         .andExpect(jsonPath("$.code").value("AUTH_INVALID_CREDENTIALS"));
+  }
+
+  @Test
+  void shouldGetCurrentStoreDetails() throws Exception {
+    when(getStoreDetailsUseCase.execute())
+        .thenReturn(
+            new StoreDetailsResponse(
+                UUID.randomUUID(),
+                "loja-do-bairro",
+                "Loja do Bairro",
+                StoreStatus.SETUP,
+                "21999990000",
+                "America/Sao_Paulo",
+                true,
+                false));
+
+    mockMvc
+        .perform(
+            get("/v1/merchant/store")
+                .header("Authorization", "Bearer " + tokenOf(UserRoleName.ATTENDANT)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("SETUP"))
+        .andExpect(jsonPath("$.hoursConfigured").value(true))
+        .andExpect(jsonPath("$.deliveryZonesConfigured").value(false));
+  }
+
+  @Test
+  void shouldChangeStoreStatus() throws Exception {
+    when(changeStoreStatusUseCase.execute(any(ChangeStoreStatusRequest.class)))
+        .thenReturn(
+            new StoreDetailsResponse(
+                UUID.randomUUID(),
+                "loja-do-bairro",
+                "Loja do Bairro",
+                StoreStatus.ACTIVE,
+                "21999990000",
+                "America/Sao_Paulo",
+                true,
+                true));
+
+    mockMvc
+        .perform(
+            patch("/v1/merchant/store/status")
+                .header("Authorization", "Bearer " + tokenOf(UserRoleName.OWNER))
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "targetStatus": "ACTIVE"
+                    }
+                    """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("ACTIVE"));
+  }
+
+  @Test
+  void shouldReturnConflictWhenActivationRequirementsAreMissing() throws Exception {
+    when(changeStoreStatusUseCase.execute(any(ChangeStoreStatusRequest.class)))
+        .thenThrow(
+            new StoreActivationRequirementsNotMetException(
+                java.util.List.of("hoursConfigured", "deliveryZonesConfigured")));
+
+    mockMvc
+        .perform(
+            patch("/v1/merchant/store/status")
+                .header("Authorization", "Bearer " + tokenOf(UserRoleName.OWNER))
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "targetStatus": "ACTIVE"
+                    }
+                    """))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+  }
+
+  @Test
+  void shouldBlockStatusChangeForManager() throws Exception {
+    mockMvc
+        .perform(
+            patch("/v1/merchant/store/status")
+                .header("Authorization", "Bearer " + tokenOf(UserRoleName.MANAGER))
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "targetStatus": "ACTIVE"
+                    }
+                    """))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN_ROLE"));
   }
 
   private String tokenOf(UserRoleName role) {
