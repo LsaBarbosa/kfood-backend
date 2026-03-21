@@ -1,5 +1,6 @@
 package com.kfood.merchant.api;
 
+import com.kfood.merchant.app.GetPublicStoreMenuUseCase;
 import com.kfood.merchant.app.GetPublicStoreUseCase;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -12,10 +13,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class PublicStoreController {
 
   private final ObjectProvider<GetPublicStoreUseCase> getPublicStoreUseCaseProvider;
+  private final ObjectProvider<GetPublicStoreMenuUseCase> getPublicStoreMenuUseCaseProvider;
 
   public PublicStoreController(
-      ObjectProvider<GetPublicStoreUseCase> getPublicStoreUseCaseProvider) {
+      ObjectProvider<GetPublicStoreUseCase> getPublicStoreUseCaseProvider,
+      ObjectProvider<GetPublicStoreMenuUseCase> getPublicStoreMenuUseCaseProvider) {
     this.getPublicStoreUseCaseProvider = getPublicStoreUseCaseProvider;
+    this.getPublicStoreMenuUseCaseProvider = getPublicStoreMenuUseCaseProvider;
   }
 
   @GetMapping("/{slug}")
@@ -23,7 +27,16 @@ public class PublicStoreController {
     return getPublicStoreUseCase().execute(slug);
   }
 
+  @GetMapping("/{slug}/menu")
+  public PublicStoreMenuResponse getMenuBySlug(@PathVariable String slug) {
+    return getPublicStoreMenuUseCase().execute(slug);
+  }
+
   private GetPublicStoreUseCase getPublicStoreUseCase() {
     return getPublicStoreUseCaseProvider.getObject();
+  }
+
+  private GetPublicStoreMenuUseCase getPublicStoreMenuUseCase() {
+    return getPublicStoreMenuUseCaseProvider.getObject();
   }
 }
