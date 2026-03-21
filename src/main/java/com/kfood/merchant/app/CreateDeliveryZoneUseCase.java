@@ -15,21 +15,25 @@ import org.springframework.transaction.annotation.Transactional;
 @ConditionalOnBean({
   StoreRepository.class,
   DeliveryZoneRepository.class,
-  CurrentTenantProvider.class
+  CurrentTenantProvider.class,
+  StoreOperationalGuard.class
 })
 public class CreateDeliveryZoneUseCase {
 
   private final StoreRepository storeRepository;
   private final DeliveryZoneRepository deliveryZoneRepository;
   private final CurrentTenantProvider currentTenantProvider;
+  private final StoreOperationalGuard storeOperationalGuard;
 
   public CreateDeliveryZoneUseCase(
       StoreRepository storeRepository,
       DeliveryZoneRepository deliveryZoneRepository,
-      CurrentTenantProvider currentTenantProvider) {
+      CurrentTenantProvider currentTenantProvider,
+      StoreOperationalGuard storeOperationalGuard) {
     this.storeRepository = storeRepository;
     this.deliveryZoneRepository = deliveryZoneRepository;
     this.currentTenantProvider = currentTenantProvider;
+    this.storeOperationalGuard = storeOperationalGuard;
   }
 
   @Transactional
@@ -37,6 +41,9 @@ public class CreateDeliveryZoneUseCase {
     var storeId = currentTenantProvider.getRequiredStoreId();
     var store =
         storeRepository.findById(storeId).orElseThrow(() -> new StoreNotFoundException(storeId));
+
+    storeOperationalGuard.ensureStoreIsNotSuspended(store);
+
     var zoneName = request.zoneName().trim();
 
     if (deliveryZoneRepository.existsByStoreIdAndZoneName(storeId, zoneName)) {

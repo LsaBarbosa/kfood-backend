@@ -19,6 +19,7 @@ import com.kfood.merchant.app.CreateStoreTermsAcceptanceUseCase;
 import com.kfood.merchant.app.CreateStoreUseCase;
 import com.kfood.merchant.app.GetStoreDetailsUseCase;
 import com.kfood.merchant.app.StoreActivationRequirementsNotMetException;
+import com.kfood.merchant.app.StoreNotActiveException;
 import com.kfood.merchant.app.StoreNotFoundException;
 import com.kfood.merchant.app.UpdateStoreUseCase;
 import com.kfood.merchant.domain.LegalDocumentType;
@@ -286,6 +287,35 @@ class StoreControllerWebMvcTest {
   }
 
   @Test
+  void shouldAllowStatusChangeForAdmin() throws Exception {
+    when(changeStoreStatusUseCase.execute(any(ChangeStoreStatusRequest.class)))
+        .thenReturn(
+            new StoreDetailsResponse(
+                UUID.randomUUID(),
+                "loja-do-bairro",
+                "Loja do Bairro",
+                StoreStatus.SUSPENDED,
+                "21999990000",
+                "America/Sao_Paulo",
+                true,
+                true));
+
+    mockMvc
+        .perform(
+            patch("/v1/merchant/store/status")
+                .header("Authorization", "Bearer " + tokenOf(UserRoleName.ADMIN))
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "targetStatus": "SUSPENDED"
+                    }
+                    """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.status").value("SUSPENDED"));
+  }
+
+  @Test
   void shouldAcceptTermsSuccessfully() throws Exception {
     when(createStoreTermsAcceptanceUseCase.execute(any(CreateStoreTermsAcceptanceRequest.class)))
         .thenReturn(
@@ -348,6 +378,26 @@ class StoreControllerWebMvcTest {
                     """))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+  }
+
+  @Test
+  void shouldReturnConflictWhenStoreIsSuspendedForCriticalOperation() throws Exception {
+    when(updateStoreUseCase.execute(any(UpdateStoreRequest.class)))
+        .thenThrow(new StoreNotActiveException(UUID.randomUUID(), StoreStatus.SUSPENDED));
+
+    mockMvc
+        .perform(
+            put("/v1/merchant/store")
+                .header("Authorization", "Bearer " + tokenOf(UserRoleName.MANAGER))
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "name": "Novo nome"
+                    }
+                    """))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.code").value("STORE_NOT_ACTIVE"));
   }
 
   private String tokenOf(UserRoleName role) {

@@ -26,9 +26,13 @@ class UpdateStoreHoursUseCaseTest {
   private final StoreBusinessHourRepository storeBusinessHourRepository =
       mock(StoreBusinessHourRepository.class);
   private final CurrentTenantProvider currentTenantProvider = mock(CurrentTenantProvider.class);
+  private final StoreOperationalGuard storeOperationalGuard = new StoreOperationalGuard();
   private final UpdateStoreHoursUseCase updateStoreHoursUseCase =
       new UpdateStoreHoursUseCase(
-          storeRepository, storeBusinessHourRepository, currentTenantProvider);
+          storeRepository,
+          storeBusinessHourRepository,
+          currentTenantProvider,
+          storeOperationalGuard);
 
   @Test
   void shouldSaveValidWeeklyGrid() {
@@ -244,5 +248,32 @@ class UpdateStoreHoursUseCaseTest {
     assertThatThrownBy(() -> updateStoreHoursUseCase.execute(request))
         .isInstanceOf(StoreNotFoundException.class)
         .hasMessageContaining(storeId.toString());
+  }
+
+  @Test
+  void shouldBlockHoursUpdateWhenStoreIsSuspended() {
+    var storeId = UUID.randomUUID();
+    var store =
+        new Store(
+            storeId,
+            "Loja do Bairro",
+            "loja-do-bairro",
+            "45.723.174/0001-10",
+            "21999990000",
+            "America/Sao_Paulo");
+    store.activate();
+    store.suspend();
+    var request =
+        new UpdateStoreHoursRequest(
+            List.of(
+                new StoreHourRequest(
+                    DayOfWeek.MONDAY, LocalTime.of(10, 0), LocalTime.of(22, 0), false)));
+
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
+    when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
+
+    assertThatThrownBy(() -> updateStoreHoursUseCase.execute(request))
+        .isInstanceOf(StoreNotActiveException.class)
+        .hasMessageContaining("SUSPENDED");
   }
 }
