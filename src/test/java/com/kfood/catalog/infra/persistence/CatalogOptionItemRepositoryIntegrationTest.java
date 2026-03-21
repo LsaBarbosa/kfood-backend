@@ -24,7 +24,7 @@ import org.springframework.test.context.TestPropertySource;
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @TestPropertySource(
     properties = {"spring.flyway.enabled=false", "spring.jpa.hibernate.ddl-auto=create"})
-class CatalogOptionGroupRepositoryIntegrationTest extends PostgreSqlContainerIT {
+class CatalogOptionItemRepositoryIntegrationTest extends PostgreSqlContainerIT {
 
   @Autowired private StoreRepository storeRepository;
 
@@ -34,9 +34,11 @@ class CatalogOptionGroupRepositoryIntegrationTest extends PostgreSqlContainerIT 
 
   @Autowired private CatalogOptionGroupRepository catalogOptionGroupRepository;
 
+  @Autowired private CatalogOptionItemRepository catalogOptionItemRepository;
+
   @Test
-  @DisplayName("should persist valid option group")
-  void shouldPersistValidOptionGroup() {
+  @DisplayName("should persist valid option item through option group")
+  void shouldPersistValidOptionItemThroughOptionGroup() {
     var store = storeRepository.saveAndFlush(store("loja-do-bairro", "45.723.174/0001-10"));
     var category =
         catalogCategoryRepository.saveAndFlush(
@@ -56,29 +58,31 @@ class CatalogOptionGroupRepositoryIntegrationTest extends PostgreSqlContainerIT 
                 false));
     var optionGroup =
         new CatalogOptionGroup(UUID.randomUUID(), product, "Stuffed Crust", 0, 1, false, true);
-    optionGroup.addItem(
+    var optionItem =
         new CatalogOptionItem(
-            UUID.randomUUID(), optionGroup, "Catupiry", new BigDecimal("8.00"), true, 10));
+            UUID.randomUUID(), optionGroup, "Catupiry", new BigDecimal("8.00"), true, 10);
+    optionGroup.addItem(optionItem);
 
     var savedOptionGroup = catalogOptionGroupRepository.saveAndFlush(optionGroup);
+    var savedItems =
+        catalogOptionItemRepository.findAllByOptionGroupIdOrderBySortOrderAscIdAsc(
+            savedOptionGroup.getId());
 
-    assertThat(savedOptionGroup.getId()).isNotNull();
-    assertThat(savedOptionGroup.getCreatedAt()).isNotNull();
-    assertThat(savedOptionGroup.getUpdatedAt()).isNotNull();
-    assertThat(savedOptionGroup.getProduct().getId()).isEqualTo(product.getId());
-    assertThat(savedOptionGroup.getItems()).hasSize(1);
+    assertThat(savedItems).hasSize(1);
+    assertThat(savedItems.get(0).getName()).isEqualTo("Catupiry");
+    assertThat(savedItems.get(0).getExtraPrice()).isEqualByComparingTo("8.00");
   }
 
   @Test
-  @DisplayName("should reject option group without product")
-  void shouldRejectOptionGroupWithoutProduct() {
+  @DisplayName("should reject option item without existing group")
+  void shouldRejectOptionItemWithoutExistingGroup() {
     assertThatThrownBy(
             () ->
-                catalogOptionGroupRepository.saveAndFlush(
-                    new CatalogOptionGroup(
-                        UUID.randomUUID(), null, "Stuffed Crust", 0, 1, false, true)))
+                catalogOptionItemRepository.saveAndFlush(
+                    new CatalogOptionItem(
+                        UUID.randomUUID(), null, "Catupiry", new BigDecimal("8.00"), true, 10)))
         .isInstanceOf(NullPointerException.class)
-        .hasMessage("product is required");
+        .hasMessage("optionGroup is required");
   }
 
   private Store store(String slug, String cnpj) {

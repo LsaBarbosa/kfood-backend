@@ -14,6 +14,8 @@ import com.kfood.identity.app.JwtTokenService;
 import com.kfood.identity.domain.UserRoleName;
 import com.kfood.identity.domain.UserStatus;
 import com.kfood.identity.persistence.IdentityUserEntity;
+import java.math.BigDecimal;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -47,7 +49,16 @@ class CatalogOptionGroupControllerWebMvcTest {
             eq(productId), any(CreateCatalogOptionGroupRequest.class)))
         .thenReturn(
             new CatalogOptionGroupResponse(
-                optionGroupId, productId, "Stuffed Crust", 0, 1, false, true));
+                optionGroupId,
+                productId,
+                "Stuffed Crust",
+                0,
+                1,
+                false,
+                true,
+                List.of(
+                    new CatalogOptionItemResponse(
+                        UUID.randomUUID(), "Catupiry", new BigDecimal("8.00"), true, 10))));
 
     mockMvc
         .perform(
@@ -61,13 +72,22 @@ class CatalogOptionGroupControllerWebMvcTest {
                       "minSelect": 0,
                       "maxSelect": 1,
                       "required": false,
-                      "active": true
+                      "active": true,
+                      "items": [
+                        {
+                          "name": "Catupiry",
+                          "extraPrice": 8.00,
+                          "sortOrder": 10,
+                          "active": true
+                        }
+                      ]
                     }
                     """))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.id").value(optionGroupId.toString()))
         .andExpect(jsonPath("$.productId").value(productId.toString()))
-        .andExpect(jsonPath("$.name").value("Stuffed Crust"));
+        .andExpect(jsonPath("$.name").value("Stuffed Crust"))
+        .andExpect(jsonPath("$.items[0].name").value("Catupiry"));
   }
 
   @Test
@@ -89,7 +109,8 @@ class CatalogOptionGroupControllerWebMvcTest {
                       "minSelect": 0,
                       "maxSelect": 2,
                       "required": false,
-                      "active": true
+                      "active": true,
+                      "items": []
                     }
                     """))
         .andExpect(status().isNotFound())
@@ -112,12 +133,45 @@ class CatalogOptionGroupControllerWebMvcTest {
                       "minSelect": 0,
                       "maxSelect": 1,
                       "required": false,
-                      "active": true
+                      "active": true,
+                      "items": []
                     }
                     """))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
         .andExpect(jsonPath("$.details[0].field").value("name"));
+  }
+
+  @Test
+  void shouldReturnBadRequestWhenItemExtraPriceIsNegative() throws Exception {
+    var productId = UUID.randomUUID();
+
+    mockMvc
+        .perform(
+            post("/v1/catalog/products/" + productId + "/option-groups")
+                .header("Authorization", "Bearer " + tokenOf(UserRoleName.OWNER))
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "name": "Stuffed Crust",
+                      "minSelect": 0,
+                      "maxSelect": 1,
+                      "required": false,
+                      "active": true,
+                      "items": [
+                        {
+                          "name": "Catupiry",
+                          "extraPrice": -1.00,
+                          "sortOrder": 10,
+                          "active": true
+                        }
+                      ]
+                    }
+                    """))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+        .andExpect(jsonPath("$.details[0].field").value("items[0].extraPrice"));
   }
 
   private String tokenOf(UserRoleName role) {

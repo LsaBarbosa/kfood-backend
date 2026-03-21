@@ -7,12 +7,17 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -43,6 +48,13 @@ public class CatalogOptionGroup extends AuditableEntity {
 
   @Column(name = "active", nullable = false)
   private boolean active;
+
+  @OneToMany(
+      mappedBy = "optionGroup",
+      cascade = jakarta.persistence.CascadeType.ALL,
+      orphanRemoval = true)
+  @OrderBy("sortOrder ASC, id ASC")
+  private final List<CatalogOptionItem> items = new ArrayList<>();
 
   protected CatalogOptionGroup() {}
 
@@ -102,6 +114,10 @@ public class CatalogOptionGroup extends AuditableEntity {
     return active;
   }
 
+  public List<CatalogOptionItem> getItems() {
+    return Collections.unmodifiableList(items);
+  }
+
   public void changeName(String name) {
     this.name = normalize(Objects.requireNonNull(name, "name is required"));
     validateBusinessRules();
@@ -119,6 +135,14 @@ public class CatalogOptionGroup extends AuditableEntity {
 
   public void deactivate() {
     active = false;
+  }
+
+  public void addItem(CatalogOptionItem item) {
+    Objects.requireNonNull(item, "item is required");
+    if (item.getOptionGroup() != this) {
+      throw new IllegalArgumentException("item optionGroup must match current group");
+    }
+    items.add(item);
   }
 
   private void validateBusinessRules() {
