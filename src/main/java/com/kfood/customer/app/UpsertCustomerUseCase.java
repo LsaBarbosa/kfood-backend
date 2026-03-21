@@ -1,8 +1,11 @@
 package com.kfood.customer.app;
 
+import com.kfood.customer.api.CustomerAddressRequest;
 import com.kfood.customer.api.CustomerResponse;
 import com.kfood.customer.api.UpsertCustomerRequest;
 import com.kfood.customer.infra.persistence.Customer;
+import com.kfood.customer.infra.persistence.CustomerAddress;
+import com.kfood.customer.infra.persistence.CustomerAddressRepository;
 import com.kfood.customer.infra.persistence.CustomerRepository;
 import com.kfood.merchant.app.StoreSlugNotFoundException;
 import com.kfood.merchant.infra.persistence.StoreRepository;
@@ -18,16 +21,24 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@ConditionalOnBean({StoreRepository.class, CustomerRepository.class})
+@ConditionalOnBean({
+  StoreRepository.class,
+  CustomerRepository.class,
+  CustomerAddressRepository.class
+})
 public class UpsertCustomerUseCase {
 
   private final StoreRepository storeRepository;
   private final CustomerRepository customerRepository;
+  private final CustomerAddressRepository customerAddressRepository;
 
   public UpsertCustomerUseCase(
-      StoreRepository storeRepository, CustomerRepository customerRepository) {
+      StoreRepository storeRepository,
+      CustomerRepository customerRepository,
+      CustomerAddressRepository customerAddressRepository) {
     this.storeRepository = storeRepository;
     this.customerRepository = customerRepository;
+    this.customerAddressRepository = customerAddressRepository;
   }
 
   @Transactional
@@ -75,7 +86,16 @@ public class UpsertCustomerUseCase {
 
     customer.update(request.name(), normalizedPhone, normalizedEmail);
 
-    return CustomerMapper.toResponse(customerRepository.saveAndFlush(customer));
+    var savedCustomer = customerRepository.saveAndFlush(customer);
+    var mainAddress = upsertAddress(savedCustomer, request.address());
+    if (mainAddress == null || !mainAddress.isMainAddress()) {
+      mainAddress =
+          customerAddressRepository
+              .findByCustomerIdAndMainAddressTrue(savedCustomer.getId())
+              .orElse(null);
+    }
+
+    return CustomerMapper.toResponse(savedCustomer, mainAddress);
   }
 
   private String normalizeRequired(String value, String message) {
@@ -93,5 +113,39 @@ public class UpsertCustomerUseCase {
 
   private String normalize(String value) {
     return value.trim();
+  }
+
+  private CustomerAddress upsertAddress(Customer customer, CustomerAddressRequest request) {
+    if (request == null) {
+      return null;
+    }
+
+    var mainAddress = Boolean.TRUE.equals(request.mainAddress());
+
+    if (mainAddress) {
+      customerAddressRepository
+          .findByCustomerIdAndMainAddressTrue(customer.getId())
+          .ifPresent(
+              existingMain -> {
+                existingMain.unsetMainAddress();
+                customerAddressRepository.save(existingMain);
+              });
+    }
+
+    var address =
+        new CustomerAddress(
+            UUID.randomUUID(),
+            customer,
+            request.label(),
+            request.zipCode(),
+            request.street(),
+            request.number(),
+            request.district(),
+            request.city(),
+            request.state(),
+            request.complement(),
+            mainAddress);
+
+    return customerAddressRepository.saveAndFlush(address);
   }
 }
