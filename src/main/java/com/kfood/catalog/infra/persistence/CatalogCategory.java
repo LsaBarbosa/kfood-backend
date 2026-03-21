@@ -10,6 +10,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
@@ -18,7 +19,13 @@ import java.util.Objects;
 import java.util.UUID;
 
 @Entity
-@Table(name = "catalog_category")
+@Table(
+    name = "catalog_category",
+    uniqueConstraints = {
+      @UniqueConstraint(
+          name = "uk_catalog_category_store_name",
+          columnNames = {"store_id", "name"})
+    })
 public class CatalogCategory extends AuditableEntity {
 
   @Id private UUID id;

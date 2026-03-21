@@ -9,6 +9,10 @@ public interface CatalogCategoryRepository extends JpaRepository<CatalogCategory
 
   boolean existsByStoreId(UUID storeId);
 
+  boolean existsByStoreIdAndName(UUID storeId, String name);
+
+  boolean existsByStoreIdAndNameAndIdNot(UUID storeId, String name, UUID id);
+
   Optional<CatalogCategory> findByIdAndStoreId(UUID id, UUID storeId);
 
   List<CatalogCategory> findAllByStoreIdOrderBySortOrderAscNameAsc(UUID storeId);

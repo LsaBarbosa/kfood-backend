@@ -380,6 +380,21 @@ class FlywayMigrationTest {
                               current_timestamp)
                       """))
           .isInstanceOf(Exception.class);
+
+      org.assertj.core.api.Assertions.assertThatThrownBy(
+              () ->
+                  statement.executeUpdate(
+                      """
+                      insert into catalog_category (id, store_id, name, sort_order, active, created_at, updated_at)
+                      values ('dddddddd-dddd-dddd-dddd-dddddddddddd',
+                              'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+                              'Pizzas',
+                              20,
+                              true,
+                              current_timestamp,
+                              current_timestamp)
+                      """))
+          .isInstanceOf(Exception.class);
     }
   }
 

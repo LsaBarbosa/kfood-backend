@@ -1,6 +1,7 @@
 package com.kfood.catalog.infra.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.kfood.merchant.infra.persistence.Store;
 import com.kfood.merchant.infra.persistence.StoreRepository;
@@ -72,6 +73,20 @@ class CatalogCategoryRepositoryIntegrationTest extends PostgreSqlContainerIT {
             catalogCategoryRepository.findAllByStoreIdOrderBySortOrderAscNameAsc(
                 secondStore.getId()))
         .isEmpty();
+  }
+
+  @Test
+  @DisplayName("should reject duplicate category name within same store")
+  void shouldRejectDuplicateCategoryNameWithinSameStore() {
+    var store = storeRepository.saveAndFlush(store("loja-duplicada", "54.550.752/0001-55"));
+    catalogCategoryRepository.saveAndFlush(
+        new CatalogCategory(UUID.randomUUID(), store, "Pizzas", 10, true));
+
+    assertThatThrownBy(
+            () ->
+                catalogCategoryRepository.saveAndFlush(
+                    new CatalogCategory(UUID.randomUUID(), store, "Pizzas", 20, true)))
+        .isInstanceOf(Exception.class);
   }
 
   private Store store(String slug, String cnpj) {
