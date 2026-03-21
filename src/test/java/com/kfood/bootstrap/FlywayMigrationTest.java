@@ -45,6 +45,7 @@ class FlywayMigrationTest {
     assertThat(tableExists("customer")).isTrue();
     assertThat(tableExists("customer_address")).isTrue();
     assertThat(tableExists("catalog_product_availability")).isTrue();
+    assertThat(tableExists("sales_order")).isTrue();
   }
 
   @Test
@@ -291,6 +292,24 @@ class FlywayMigrationTest {
                      select count(*)
                      from flyway_schema_history
                      where version = '14'
+                       and success = true
+                     """)) {
+
+      assertThat(resultSet.next()).isTrue();
+      assertThat(resultSet.getInt(1)).isEqualTo(1);
+    }
+  }
+
+  @Test
+  void shouldRegisterVersionFifteenInFlywayHistory() throws Exception {
+    try (Connection connection = dataSource.getConnection();
+        Statement statement = connection.createStatement();
+        ResultSet resultSet =
+            statement.executeQuery(
+                """
+                     select count(*)
+                     from flyway_schema_history
+                     where version = '15'
                        and success = true
                      """)) {
 

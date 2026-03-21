@@ -1,7 +1,7 @@
 package com.kfood.checkout.api;
 
 import com.kfood.checkout.app.CalculateCheckoutQuoteCommand;
-import com.kfood.checkout.domain.FulfillmentType;
+import com.kfood.order.domain.FulfillmentType;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;

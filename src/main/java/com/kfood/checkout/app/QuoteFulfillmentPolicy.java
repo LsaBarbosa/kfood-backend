@@ -1,10 +1,10 @@
 package com.kfood.checkout.app;
 
-import com.kfood.checkout.domain.FulfillmentType;
 import com.kfood.customer.infra.persistence.Customer;
 import com.kfood.customer.infra.persistence.CustomerAddressRepository;
 import com.kfood.merchant.infra.persistence.DeliveryZoneRepository;
 import com.kfood.merchant.infra.persistence.Store;
+import com.kfood.order.domain.FulfillmentType;
 import com.kfood.shared.exceptions.ApiFieldError;
 import com.kfood.shared.exceptions.BusinessException;
 import com.kfood.shared.exceptions.ErrorCode;
