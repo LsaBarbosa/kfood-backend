@@ -39,6 +39,7 @@ class FlywayMigrationTest {
     assertThat(tableExists("delivery_zone")).isTrue();
     assertThat(tableExists("store_terms_acceptance")).isTrue();
     assertThat(tableExists("catalog_category")).isTrue();
+    assertThat(tableExists("catalog_product")).isTrue();
   }
 
   @Test
@@ -159,6 +160,24 @@ class FlywayMigrationTest {
                      select count(*)
                      from flyway_schema_history
                      where version = '7'
+                       and success = true
+                     """)) {
+
+      assertThat(resultSet.next()).isTrue();
+      assertThat(resultSet.getInt(1)).isEqualTo(1);
+    }
+  }
+
+  @Test
+  void shouldRegisterVersionEightInFlywayHistory() throws Exception {
+    try (Connection connection = dataSource.getConnection();
+        Statement statement = connection.createStatement();
+        ResultSet resultSet =
+            statement.executeQuery(
+                """
+                     select count(*)
+                     from flyway_schema_history
+                     where version = '8'
                        and success = true
                      """)) {
 
@@ -391,6 +410,78 @@ class FlywayMigrationTest {
                               'Pizzas',
                               20,
                               true,
+                              current_timestamp,
+                              current_timestamp)
+                      """))
+          .isInstanceOf(Exception.class);
+    }
+  }
+
+  @Test
+  void shouldApplyCatalogProductMigrationAfterApplyingMigrations() throws Exception {
+    assertThat(indexExists("catalog_product", "idx_catalog_product_store_active_paused_sort_order"))
+        .isTrue();
+    assertThat(indexExists("catalog_product", "idx_catalog_product_category_id")).isTrue();
+
+    try (Connection connection = dataSource.getConnection();
+        Statement statement = connection.createStatement()) {
+      statement.executeUpdate(
+          """
+          insert into store (id, slug, name, cnpj, phone, timezone, created_at, updated_at)
+          values ('eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+                  'store-product-constraint',
+                  'Loja Produto',
+                  '45.723.174/0001-10',
+                  '21999990000',
+                  'America/Sao_Paulo',
+                  current_timestamp,
+                  current_timestamp)
+          """);
+
+      statement.executeUpdate(
+          """
+          insert into catalog_category (id, store_id, name, sort_order, active, created_at, updated_at)
+          values ('ffffffff-ffff-ffff-ffff-ffffffffffff',
+                  'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+                  'Pizzas',
+                  10,
+                  true,
+                  current_timestamp,
+                  current_timestamp)
+          """);
+
+      statement.executeUpdate(
+          """
+          insert into catalog_product (id, store_id, category_id, name, description, base_price, image_url, sort_order, active, paused, created_at, updated_at)
+          values ('11111111-2222-3333-4444-555555555555',
+                  'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+                  'ffffffff-ffff-ffff-ffff-ffffffffffff',
+                  'Pizza Calabresa',
+                  'Pizza com calabresa e cebola',
+                  39.90,
+                  null,
+                  20,
+                  true,
+                  false,
+                  current_timestamp,
+                  current_timestamp)
+          """);
+
+      org.assertj.core.api.Assertions.assertThatThrownBy(
+              () ->
+                  statement.executeUpdate(
+                      """
+                      insert into catalog_product (id, store_id, category_id, name, description, base_price, image_url, sort_order, active, paused, created_at, updated_at)
+                      values ('66666666-7777-8888-9999-000000000000',
+                              'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+                              'ffffffff-ffff-ffff-ffff-ffffffffffff',
+                              'Pizza Negativa',
+                              'Pizza com preco invalido',
+                              -1.00,
+                              null,
+                              30,
+                              true,
+                              false,
                               current_timestamp,
                               current_timestamp)
                       """))
