@@ -131,6 +131,24 @@ class FlywayMigrationTest {
   }
 
   @Test
+  void shouldRegisterVersionSixInFlywayHistory() throws Exception {
+    try (Connection connection = dataSource.getConnection();
+        Statement statement = connection.createStatement();
+        ResultSet resultSet =
+            statement.executeQuery(
+                """
+                     select count(*)
+                     from flyway_schema_history
+                     where version = '6'
+                       and success = true
+                     """)) {
+
+      assertThat(resultSet.next()).isTrue();
+      assertThat(resultSet.getInt(1)).isEqualTo(1);
+    }
+  }
+
+  @Test
   void shouldApplySetupAsStoreDefaultStatusAfterApplyingMigrations() throws Exception {
     try (Connection connection = dataSource.getConnection();
         Statement statement = connection.createStatement()) {
@@ -287,6 +305,16 @@ class FlywayMigrationTest {
     }
   }
 
+  @Test
+  void shouldApplyPerformanceIndexesAfterApplyingMigrations() throws Exception {
+    assertThat(indexExists("store_terms_acceptance", "idx_store_terms_acceptance_store_doc"))
+        .isTrue();
+    assertThat(
+            indexExists("store_terms_acceptance", "idx_store_terms_acceptance_store_accepted_at"))
+        .isTrue();
+    assertThat(indexExists("delivery_zone", "idx_delivery_zone_store_active_zone_name")).isTrue();
+  }
+
   private boolean tableExists(String tableName) throws Exception {
     try (Connection connection = dataSource.getConnection();
         ResultSet resultSet = connection.getMetaData().getTables(null, null, tableName, null)) {
@@ -299,6 +327,20 @@ class FlywayMigrationTest {
         ResultSet resultSet =
             connection.getMetaData().getColumns(null, null, tableName, columnName)) {
       return resultSet.next();
+    }
+  }
+
+  private boolean indexExists(String tableName, String indexName) throws Exception {
+    try (Connection connection = dataSource.getConnection();
+        ResultSet resultSet =
+            connection.getMetaData().getIndexInfo(null, null, tableName, false, false)) {
+      while (resultSet.next()) {
+        var currentIndexName = resultSet.getString("INDEX_NAME");
+        if (currentIndexName != null && currentIndexName.equalsIgnoreCase(indexName)) {
+          return true;
+        }
+      }
+      return false;
     }
   }
 }
