@@ -2,6 +2,10 @@ package com.kfood.order.infra.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.kfood.catalog.infra.persistence.CatalogCategory;
+import com.kfood.catalog.infra.persistence.CatalogCategoryRepository;
+import com.kfood.catalog.infra.persistence.CatalogProduct;
+import com.kfood.catalog.infra.persistence.CatalogProductRepository;
 import com.kfood.customer.infra.persistence.Customer;
 import com.kfood.customer.infra.persistence.CustomerRepository;
 import com.kfood.merchant.infra.persistence.Store;
@@ -34,6 +38,10 @@ class SalesOrderRepositoryIntegrationTest extends PostgreSqlContainerIT {
   @Autowired private StoreRepository storeRepository;
 
   @Autowired private CustomerRepository customerRepository;
+
+  @Autowired private CatalogProductRepository catalogProductRepository;
+
+  @Autowired private CatalogCategoryRepository catalogCategoryRepository;
 
   @Test
   @DisplayName("should persist a valid order with store customer and frozen totals")
@@ -68,6 +76,101 @@ class SalesOrderRepositoryIntegrationTest extends PostgreSqlContainerIT {
     assertThat(savedOrder.getTotalAmount()).isEqualByComparingTo("57.50");
     assertThat(salesOrderRepository.findByIdAndStoreId(savedOrder.getId(), store.getId()))
         .isPresent();
+  }
+
+  @Test
+  @DisplayName("should persist order item with frozen snapshots and options")
+  void shouldPersistOrderWithItemsAndOptions() {
+    var store = storeRepository.saveAndFlush(store("loja-com-itens", "54.550.752/0001-55"));
+    var customer =
+        customerRepository.saveAndFlush(
+            new Customer(UUID.randomUUID(), store, "Joao Silva", "21988887777", "joao@email.com"));
+    var order =
+        SalesOrder.create(
+            UUID.randomUUID(),
+            store,
+            customer,
+            FulfillmentType.DELIVERY,
+            new BigDecimal("50.00"),
+            new BigDecimal("7.50"),
+            new BigDecimal("57.50"),
+            null,
+            "Pedido com adicional");
+    var item =
+        SalesOrderItem.create(
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            "Pizza Calabresa",
+            new BigDecimal("42.00"),
+            1,
+            null);
+    item.addOption(
+        SalesOrderItemOption.create(
+            UUID.randomUUID(), "Borda Catupiry", new BigDecimal("8.00"), 1));
+    order.addItem(item);
+
+    var savedOrder = salesOrderRepository.saveAndFlush(order);
+
+    assertThat(savedOrder.getItems()).hasSize(1);
+    var savedItem = savedOrder.getItems().get(0);
+    assertThat(savedItem.getProductNameSnapshot()).isEqualTo("Pizza Calabresa");
+    assertThat(savedItem.getUnitPriceSnapshot()).isEqualByComparingTo("42.00");
+    assertThat(savedItem.getTotalItemAmount()).isEqualByComparingTo("50.00");
+    assertThat(savedItem.getOptions()).hasSize(1);
+    assertThat(savedItem.getOptions().get(0).getOptionNameSnapshot()).isEqualTo("Borda Catupiry");
+    assertThat(savedItem.getOptions().get(0).getExtraPriceSnapshot()).isEqualByComparingTo("8.00");
+  }
+
+  @Test
+  @DisplayName("should keep item snapshot unchanged after product catalog update")
+  void shouldKeepSnapshotUnchangedAfterCatalogUpdate() {
+    var store = storeRepository.saveAndFlush(store("loja-snapshot", "54.550.752/0001-55"));
+    var customer =
+        customerRepository.saveAndFlush(
+            new Customer(UUID.randomUUID(), store, "Ana Silva", "21977776666", "ana@email.com"));
+    var category =
+        catalogCategoryRepository.saveAndFlush(
+            new CatalogCategory(UUID.randomUUID(), store, "Pizzas", 1, true));
+    var product =
+        catalogProductRepository.saveAndFlush(
+            new CatalogProduct(
+                UUID.randomUUID(),
+                store,
+                category,
+                "Pizza Calabresa",
+                "Pizza com calabresa",
+                new BigDecimal("42.00"),
+                null,
+                1,
+                true,
+                false));
+
+    var order =
+        SalesOrder.create(
+            UUID.randomUUID(),
+            store,
+            customer,
+            FulfillmentType.PICKUP,
+            new BigDecimal("42.00"),
+            BigDecimal.ZERO.setScale(2),
+            new BigDecimal("42.00"),
+            null,
+            null);
+    var item =
+        SalesOrderItem.create(
+            UUID.randomUUID(), product.getId(), product.getName(), product.getBasePrice(), 1, null);
+    order.addItem(item);
+    var savedOrder = salesOrderRepository.saveAndFlush(order);
+
+    product.changeName("Pizza Calabresa Promocional");
+    product.changeBasePrice(new BigDecimal("49.90"));
+    catalogProductRepository.saveAndFlush(product);
+
+    var reloadedOrder = salesOrderRepository.findById(savedOrder.getId()).orElseThrow();
+    var reloadedItem = reloadedOrder.getItems().get(0);
+
+    assertThat(reloadedItem.getProductNameSnapshot()).isEqualTo("Pizza Calabresa");
+    assertThat(reloadedItem.getUnitPriceSnapshot()).isEqualByComparingTo("42.00");
   }
 
   private Store store(String slug, String cnpj) {

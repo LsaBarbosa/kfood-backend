@@ -13,12 +13,16 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -61,6 +65,12 @@ public class SalesOrder extends AuditableEntity {
 
   @Column(name = "notes", length = 1000)
   private String notes;
+
+  @OneToMany(
+      mappedBy = "order",
+      cascade = jakarta.persistence.CascadeType.ALL,
+      orphanRemoval = true)
+  private final List<SalesOrderItem> items = new ArrayList<>();
 
   protected SalesOrder() {}
 
@@ -160,11 +170,21 @@ public class SalesOrder extends AuditableEntity {
     return notes;
   }
 
+  public List<SalesOrderItem> getItems() {
+    return Collections.unmodifiableList(items);
+  }
+
   public void assignOrderNumber(String orderNumber) {
     if (orderNumber == null || orderNumber.isBlank()) {
       throw new IllegalArgumentException("orderNumber must not be blank");
     }
     this.orderNumber = orderNumber.trim();
+  }
+
+  public void addItem(SalesOrderItem item) {
+    var validatedItem = Objects.requireNonNull(item, "item must not be null");
+    validatedItem.attachToOrder(this);
+    items.add(validatedItem);
   }
 
   private void validateBusinessRules() {
