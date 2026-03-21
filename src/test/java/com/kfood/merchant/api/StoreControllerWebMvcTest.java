@@ -70,7 +70,7 @@ class StoreControllerWebMvcTest {
     mockMvc
         .perform(
             post("/v1/merchant/store")
-                .header("Authorization", "Bearer " + tokenOf(UserRoleName.OWNER))
+                .header("Authorization", "Bearer " + tokenOf(UserRoleName.OWNER, null))
                 .contentType(APPLICATION_JSON)
                 .content(
                     """
@@ -351,10 +351,14 @@ class StoreControllerWebMvcTest {
   }
 
   private String tokenOf(UserRoleName role) {
+    return tokenOf(role, UUID.randomUUID());
+  }
+
+  private String tokenOf(UserRoleName role, UUID storeId) {
     var user =
         new IdentityUserEntity(
             UUID.randomUUID(),
-            UUID.randomUUID(),
+            storeId,
             role.name().toLowerCase() + "@kfood.local",
             "$2a$10$hash",
             UserStatus.ACTIVE);

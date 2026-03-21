@@ -2,6 +2,7 @@ package com.kfood.identity.infra.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.kfood.shared.tenancy.TenantScopeAccessDeniedException;
 import jakarta.servlet.http.HttpServletResponse;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
@@ -26,5 +27,37 @@ class RestAccessDeniedHandlerTest {
     assertThat(response.getContentAsString())
         .contains("Authenticated user does not have permission for this resource.");
     assertThat(response.getContentAsString()).contains("/v1/admin/\\\"audit\\\"\\\\logs");
+  }
+
+  @Test
+  void shouldWriteTenantAccessDeniedJsonResponse() throws Exception {
+    var request = new MockHttpServletRequest();
+    request.setRequestURI("/v1/merchant/store");
+    var response = new MockHttpServletResponse();
+
+    handler.handle(
+        request,
+        response,
+        new TenantScopeAccessDeniedException("Authenticated user cannot access another tenant."));
+
+    assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+    assertThat(response.getContentType()).isEqualTo("application/json");
+    assertThat(response.getContentAsString()).contains("TENANT_ACCESS_DENIED");
+    assertThat(response.getContentAsString())
+        .contains("Authenticated user cannot access another tenant.");
+  }
+
+  @Test
+  void shouldUseDefaultTenantAccessDeniedMessageWhenExceptionMessageIsNull() throws Exception {
+    var request = new MockHttpServletRequest();
+    request.setRequestURI("/v1/merchant/store");
+    var response = new MockHttpServletResponse();
+
+    handler.handle(request, response, new TenantScopeAccessDeniedException(null));
+
+    assertThat(response.getStatus()).isEqualTo(HttpServletResponse.SC_FORBIDDEN);
+    assertThat(response.getContentAsString()).contains("TENANT_ACCESS_DENIED");
+    assertThat(response.getContentAsString())
+        .contains("Authenticated user cannot access another tenant.");
   }
 }
