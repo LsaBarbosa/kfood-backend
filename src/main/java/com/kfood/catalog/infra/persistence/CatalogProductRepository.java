@@ -1,5 +1,7 @@
 package com.kfood.catalog.infra.persistence;
 
+import java.time.DayOfWeek;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -12,6 +14,9 @@ public interface CatalogProductRepository extends JpaRepository<CatalogProduct, 
   boolean existsByStoreId(UUID storeId);
 
   Optional<CatalogProduct> findByIdAndStoreId(UUID id, UUID storeId);
+
+  @EntityGraph(attributePaths = {"category", "availabilityWindows"})
+  Optional<CatalogProduct> findDetailedByIdAndStoreId(UUID id, UUID storeId);
 
   @EntityGraph(attributePaths = "category")
   List<CatalogProduct> findAllByStoreIdAndActiveTrueAndPausedFalseOrderBySortOrderAscNameAsc(
@@ -30,7 +35,25 @@ public interface CatalogProductRepository extends JpaRepository<CatalogProduct, 
         and product.paused = false
         and category.store.id = :storeId
         and category.active = true
+        and (
+          not exists (
+            select 1
+            from CatalogProductAvailabilityWindow configuredWindow
+            where configuredWindow.product = product
+              and configuredWindow.active = true
+          )
+          or exists (
+            select 1
+            from CatalogProductAvailabilityWindow matchingWindow
+            where matchingWindow.product = product
+              and matchingWindow.active = true
+              and matchingWindow.dayOfWeek = :dayOfWeek
+              and :localTime >= matchingWindow.startTime
+              and :localTime < matchingWindow.endTime
+          )
+        )
       order by category.sortOrder asc, category.name asc, product.sortOrder asc, product.name asc
       """)
-  List<CatalogProduct> findAllVisibleForPublicMenu(UUID storeId);
+  List<CatalogProduct> findAllVisibleForPublicMenu(
+      UUID storeId, DayOfWeek dayOfWeek, LocalTime localTime);
 }

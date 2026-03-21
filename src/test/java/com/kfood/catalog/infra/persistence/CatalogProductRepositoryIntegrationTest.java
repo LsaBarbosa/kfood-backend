@@ -8,6 +8,9 @@ import com.kfood.merchant.infra.persistence.StoreRepository;
 import com.kfood.shared.persistence.TestJpaAuditingConfig;
 import com.kfood.support.PostgreSqlContainerIT;
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
+import java.time.LocalTime;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -170,10 +173,73 @@ class CatalogProductRepositoryIntegrationTest extends PostgreSqlContainerIT {
             true,
             true));
 
-    var products = catalogProductRepository.findAllVisibleForPublicMenu(store.getId());
+    var products =
+        catalogProductRepository.findAllVisibleForPublicMenu(
+            store.getId(), DayOfWeek.MONDAY, LocalTime.of(12, 0));
 
     assertThat(products).extracting(CatalogProduct::getId).containsExactly(visibleProduct.getId());
     assertThat(products).extracting(CatalogProduct::isPaused).containsOnly(false);
+  }
+
+  @Test
+  @DisplayName("should not return products outside availability window to public menu")
+  void shouldNotReturnProductsOutsideAvailabilityWindowToPublicMenu() {
+    var store = storeRepository.saveAndFlush(store("loja-janela", "45.723.174/0001-10"));
+    var category =
+        catalogCategoryRepository.saveAndFlush(
+            new CatalogCategory(UUID.randomUUID(), store, "Pizzas", 10, true));
+
+    var lunchProduct =
+        new CatalogProduct(
+            UUID.randomUUID(),
+            store,
+            category,
+            "Pizza Lunch",
+            "Lunch only",
+            new BigDecimal("34.90"),
+            null,
+            10,
+            true,
+            false);
+    lunchProduct.replaceAvailabilityWindows(
+        List.of(
+            new CatalogProductAvailabilityWindow(
+                UUID.randomUUID(),
+                lunchProduct,
+                DayOfWeek.MONDAY,
+                LocalTime.of(11, 0),
+                LocalTime.of(14, 0),
+                true)));
+    catalogProductRepository.saveAndFlush(lunchProduct);
+
+    var dinnerProduct =
+        new CatalogProduct(
+            UUID.randomUUID(),
+            store,
+            category,
+            "Pizza Dinner",
+            "Dinner only",
+            new BigDecimal("39.90"),
+            null,
+            20,
+            true,
+            false);
+    dinnerProduct.replaceAvailabilityWindows(
+        List.of(
+            new CatalogProductAvailabilityWindow(
+                UUID.randomUUID(),
+                dinnerProduct,
+                DayOfWeek.MONDAY,
+                LocalTime.of(18, 0),
+                LocalTime.of(22, 0),
+                true)));
+    catalogProductRepository.saveAndFlush(dinnerProduct);
+
+    var products =
+        catalogProductRepository.findAllVisibleForPublicMenu(
+            store.getId(), DayOfWeek.MONDAY, LocalTime.of(12, 0));
+
+    assertThat(products).extracting(CatalogProduct::getId).containsExactly(lunchProduct.getId());
   }
 
   private Store store(String slug, String cnpj) {

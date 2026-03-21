@@ -2,6 +2,7 @@ package com.kfood.merchant.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -38,7 +39,10 @@ class GetPublicStoreMenuUseCaseTest {
     var pizzas = new CatalogCategory(UUID.randomUUID(), store, "Pizzas", 20, true);
 
     when(storeRepository.findBySlug("loja-do-bairro")).thenReturn(Optional.of(store));
-    when(catalogProductRepository.findAllVisibleForPublicMenu(store.getId()))
+    when(catalogProductRepository.findAllVisibleForPublicMenu(
+            org.mockito.ArgumentMatchers.eq(store.getId()),
+            any(java.time.DayOfWeek.class),
+            any(java.time.LocalTime.class)))
         .thenReturn(
             List.of(
                 product(store, drinks, "Refrigerante", "Lata 350ml", "7.50", 10, true, false),
@@ -70,11 +74,37 @@ class GetPublicStoreMenuUseCaseTest {
     var store = store("loja-vazia", "45.723.174/0001-10");
 
     when(storeRepository.findBySlug("loja-vazia")).thenReturn(Optional.of(store));
-    when(catalogProductRepository.findAllVisibleForPublicMenu(store.getId())).thenReturn(List.of());
+    when(catalogProductRepository.findAllVisibleForPublicMenu(
+            org.mockito.ArgumentMatchers.eq(store.getId()),
+            any(java.time.DayOfWeek.class),
+            any(java.time.LocalTime.class)))
+        .thenReturn(List.of());
 
     var response = getPublicStoreMenuUseCase.execute("loja-vazia");
 
     assertThat(response.categories()).isEmpty();
+  }
+
+  @Test
+  void shouldHideProductsOutsideAvailabilityWindow() {
+    var store = store("loja-com-janela", "45.723.174/0001-10");
+    var pizzas = new CatalogCategory(UUID.randomUUID(), store, "Pizzas", 20, true);
+    var visibleProduct =
+        product(store, pizzas, "Pizza Almoco", "Disponivel no almoco", "39.90", 10, true, false);
+
+    when(storeRepository.findBySlug("loja-com-janela")).thenReturn(Optional.of(store));
+    when(catalogProductRepository.findAllVisibleForPublicMenu(
+            org.mockito.ArgumentMatchers.eq(store.getId()),
+            any(java.time.DayOfWeek.class),
+            any(java.time.LocalTime.class)))
+        .thenReturn(List.of(visibleProduct));
+
+    var response = getPublicStoreMenuUseCase.execute("loja-com-janela");
+
+    assertThat(response.categories()).hasSize(1);
+    assertThat(response.categories().getFirst().products())
+        .extracting(item -> item.name())
+        .containsExactly("Pizza Almoco");
   }
 
   @Test
