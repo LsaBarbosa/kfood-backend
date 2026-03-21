@@ -53,6 +53,81 @@ class IdentityEntityCoverageTest {
   }
 
   @Test
+  void shouldBindUserAndRolesToStore() {
+    var user =
+        new IdentityUserEntity(
+            UUID.randomUUID(), null, "owner@kfood.local", "$2a$10$hash", UserStatus.ACTIVE);
+    user.replaceRoles(Set.of(UserRoleName.OWNER));
+
+    var storeId = UUID.randomUUID();
+    user.bindToStore(storeId);
+
+    assertThat(user.getStoreId()).isEqualTo(storeId);
+    assertThat(user.getRoles())
+        .extracting(IdentityUserRoleEntity::getStoreId)
+        .containsOnly(storeId);
+  }
+
+  @Test
+  void shouldRejectBindingUserToAnotherStore() {
+    var firstStoreId = UUID.randomUUID();
+    var secondStoreId = UUID.randomUUID();
+    var user =
+        new IdentityUserEntity(
+            UUID.randomUUID(), firstStoreId, "owner@kfood.local", "$2a$10$hash", UserStatus.ACTIVE);
+    user.replaceRoles(Set.of(UserRoleName.OWNER));
+
+    assertThatThrownBy(() -> user.bindToStore(secondStoreId))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessage("User is already bound to another store.");
+  }
+
+  @Test
+  void shouldAllowBindingUserToSameStoreAgain() {
+    var storeId = UUID.randomUUID();
+    var user =
+        new IdentityUserEntity(
+            UUID.randomUUID(), storeId, "owner@kfood.local", "$2a$10$hash", UserStatus.ACTIVE);
+    user.replaceRoles(Set.of(UserRoleName.OWNER));
+
+    user.bindToStore(storeId);
+
+    assertThat(user.getStoreId()).isEqualTo(storeId);
+  }
+
+  @Test
+  void shouldRejectBindingRoleToAnotherStore() {
+    var firstStoreId = UUID.randomUUID();
+    var secondStoreId = UUID.randomUUID();
+    var user =
+        new IdentityUserEntity(
+            UUID.randomUUID(),
+            firstStoreId,
+            "manager@kfood.local",
+            "$2a$10$hash",
+            UserStatus.ACTIVE);
+    var role =
+        new IdentityUserRoleEntity(UUID.randomUUID(), user, firstStoreId, UserRoleName.MANAGER);
+
+    assertThatThrownBy(() -> role.bindToStore(secondStoreId))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessage("Role is already bound to another store.");
+  }
+
+  @Test
+  void shouldAllowBindingRoleToSameStoreAgain() {
+    var storeId = UUID.randomUUID();
+    var user =
+        new IdentityUserEntity(
+            UUID.randomUUID(), storeId, "manager@kfood.local", "$2a$10$hash", UserStatus.ACTIVE);
+    var role = new IdentityUserRoleEntity(UUID.randomUUID(), user, storeId, UserRoleName.MANAGER);
+
+    role.bindToStore(storeId);
+
+    assertThat(role.getStoreId()).isEqualTo(storeId);
+  }
+
+  @Test
   void shouldConstructDefaultUserEntityViaReflection() throws Exception {
     Constructor<IdentityUserEntity> constructor = IdentityUserEntity.class.getDeclaredConstructor();
     constructor.setAccessible(true);

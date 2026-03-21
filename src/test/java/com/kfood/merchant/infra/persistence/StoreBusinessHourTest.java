@@ -55,6 +55,32 @@ class StoreBusinessHourTest {
   }
 
   @Test
+  void shouldRejectClosedDayWhenOnlyCloseTimeIsDefined() {
+    assertThatThrownBy(
+            () -> invokeConstructor(store(), DayOfWeek.SUNDAY, null, LocalTime.of(22, 0), true))
+        .isInstanceOf(InvocationTargetException.class)
+        .hasCauseInstanceOf(IllegalArgumentException.class)
+        .rootCause()
+        .hasMessage("closed day must not define openTime or closeTime");
+  }
+
+  @Test
+  void shouldRejectOpenDayWhenOnlyCloseTimeIsDefined() {
+    assertThatThrownBy(
+            () -> StoreBusinessHour.open(store(), DayOfWeek.MONDAY, null, LocalTime.of(22, 0)))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("openTime and closeTime are required for open day");
+  }
+
+  @Test
+  void shouldRejectOpenDayWhenOnlyOpenTimeIsDefined() {
+    assertThatThrownBy(
+            () -> StoreBusinessHour.open(store(), DayOfWeek.MONDAY, LocalTime.of(10, 0), null))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("openTime and closeTime are required for open day");
+  }
+
+  @Test
   void shouldRejectOpenTimeNotBeforeCloseTime() {
     assertThatThrownBy(
             () ->

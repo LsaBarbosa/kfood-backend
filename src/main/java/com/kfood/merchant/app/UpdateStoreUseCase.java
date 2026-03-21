@@ -9,16 +9,24 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@ConditionalOnBean({StoreRepository.class, CurrentTenantProvider.class})
+@ConditionalOnBean({
+  StoreRepository.class,
+  CurrentTenantProvider.class,
+  StoreOperationalGuard.class
+})
 public class UpdateStoreUseCase {
 
   private final StoreRepository storeRepository;
   private final CurrentTenantProvider currentTenantProvider;
+  private final StoreOperationalGuard storeOperationalGuard;
 
   public UpdateStoreUseCase(
-      StoreRepository storeRepository, CurrentTenantProvider currentTenantProvider) {
+      StoreRepository storeRepository,
+      CurrentTenantProvider currentTenantProvider,
+      StoreOperationalGuard storeOperationalGuard) {
     this.storeRepository = storeRepository;
     this.currentTenantProvider = currentTenantProvider;
+    this.storeOperationalGuard = storeOperationalGuard;
   }
 
   @Transactional
@@ -26,6 +34,8 @@ public class UpdateStoreUseCase {
     var storeId = currentTenantProvider.getRequiredStoreId();
     var store =
         storeRepository.findById(storeId).orElseThrow(() -> new StoreNotFoundException(storeId));
+
+    storeOperationalGuard.ensureStoreIsNotSuspended(store);
 
     if (request.slug() != null
         && !request.slug().equals(store.getSlug())

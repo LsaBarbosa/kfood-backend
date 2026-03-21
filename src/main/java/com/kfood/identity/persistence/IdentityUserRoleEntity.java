@@ -52,6 +52,16 @@ public class IdentityUserRoleEntity {
     }
   }
 
+  public void bindToStore(UUID storeId) {
+    Objects.requireNonNull(storeId, "storeId is required");
+
+    if (this.storeId != null && !this.storeId.equals(storeId)) {
+      throw new IllegalStateException("Role is already bound to another store.");
+    }
+
+    this.storeId = storeId;
+  }
+
   public UUID getId() {
     return id;
   }

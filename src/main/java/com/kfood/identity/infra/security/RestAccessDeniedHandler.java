@@ -1,6 +1,7 @@
 package com.kfood.identity.infra.security;
 
 import com.kfood.shared.exceptions.ErrorCode;
+import com.kfood.shared.tenancy.TenantScopeAccessDeniedException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -32,12 +33,28 @@ public class RestAccessDeniedHandler implements AccessDeniedHandler {
         }
         """
             .formatted(
-                ErrorCode.AUTH_FORBIDDEN_ROLE.name(),
-                "Authenticated user does not have permission for this resource.",
+                codeOf(accessDeniedException),
+                escapeJson(messageOf(accessDeniedException)),
                 OffsetDateTime.now(),
                 escapeJson(request.getRequestURI()));
 
     response.getWriter().write(body);
+  }
+
+  private String codeOf(AccessDeniedException accessDeniedException) {
+    if (accessDeniedException instanceof TenantScopeAccessDeniedException) {
+      return ErrorCode.TENANT_ACCESS_DENIED.name();
+    }
+    return ErrorCode.AUTH_FORBIDDEN_ROLE.name();
+  }
+
+  private String messageOf(AccessDeniedException accessDeniedException) {
+    if (accessDeniedException instanceof TenantScopeAccessDeniedException) {
+      return accessDeniedException.getMessage() == null
+          ? "Authenticated user cannot access another tenant."
+          : accessDeniedException.getMessage();
+    }
+    return "Authenticated user does not have permission for this resource.";
   }
 
   private String escapeJson(String value) {

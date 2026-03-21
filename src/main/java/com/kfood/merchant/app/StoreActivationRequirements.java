@@ -4,10 +4,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 public record StoreActivationRequirements(
-    boolean hoursConfigured, boolean deliveryZonesConfigured) {
+    boolean hoursConfigured, boolean deliveryZonesConfigured, boolean termsAccepted) {
 
   public boolean canActivate() {
-    return hoursConfigured && deliveryZonesConfigured;
+    return hoursConfigured && deliveryZonesConfigured && termsAccepted;
   }
 
   public List<String> missingRequirements() {
@@ -17,6 +17,9 @@ public record StoreActivationRequirements(
     }
     if (!deliveryZonesConfigured) {
       missing.add("deliveryZonesConfigured");
+    }
+    if (!termsAccepted) {
+      missing.add("termsAccepted");
     }
     return List.copyOf(missing);
   }

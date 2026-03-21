@@ -26,14 +26,33 @@ class ChangeStoreStatusUseCaseTest {
           storeRepository, currentTenantProvider, storeActivationRequirementsService);
 
   @Test
-  void shouldRemainInSetupWhenRequirementsAreMissing() {
+  void shouldRemainInSetupWhenTermsWereNotAccepted() {
     var storeId = UUID.randomUUID();
     var store = store(storeId);
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
     when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
     when(storeActivationRequirementsService.evaluate(storeId))
-        .thenReturn(new StoreActivationRequirements(false, true));
+        .thenReturn(new StoreActivationRequirements(true, true, false));
+
+    assertThatThrownBy(
+            () ->
+                changeStoreStatusUseCase.execute(new ChangeStoreStatusRequest(StoreStatus.ACTIVE)))
+        .isInstanceOf(StoreActivationRequirementsNotMetException.class)
+        .hasMessageContaining("termsAccepted");
+
+    assertThat(store.getStatus()).isEqualTo(StoreStatus.SETUP);
+  }
+
+  @Test
+  void shouldRemainInSetupWhenHoursAreMissing() {
+    var storeId = UUID.randomUUID();
+    var store = store(storeId);
+
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
+    when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
+    when(storeActivationRequirementsService.evaluate(storeId))
+        .thenReturn(new StoreActivationRequirements(false, true, true));
 
     assertThatThrownBy(
             () ->
@@ -52,7 +71,7 @@ class ChangeStoreStatusUseCaseTest {
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
     when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
     when(storeActivationRequirementsService.evaluate(storeId))
-        .thenReturn(new StoreActivationRequirements(true, true));
+        .thenReturn(new StoreActivationRequirements(true, true, true));
     when(storeRepository.saveAndFlush(store)).thenReturn(store);
 
     var response =
@@ -71,7 +90,7 @@ class ChangeStoreStatusUseCaseTest {
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
     when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
     when(storeActivationRequirementsService.evaluate(storeId))
-        .thenReturn(new StoreActivationRequirements(true, true));
+        .thenReturn(new StoreActivationRequirements(true, true, true));
     when(storeRepository.saveAndFlush(store)).thenReturn(store);
 
     var response =
@@ -82,6 +101,26 @@ class ChangeStoreStatusUseCaseTest {
   }
 
   @Test
+  void shouldReactivateSuspendedStoreWhenRequirementsAreMet() {
+    var storeId = UUID.randomUUID();
+    var store = store(storeId);
+    store.activate();
+    store.suspend();
+
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
+    when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
+    when(storeActivationRequirementsService.evaluate(storeId))
+        .thenReturn(new StoreActivationRequirements(true, true, true));
+    when(storeRepository.saveAndFlush(store)).thenReturn(store);
+
+    var response =
+        changeStoreStatusUseCase.execute(new ChangeStoreStatusRequest(StoreStatus.ACTIVE));
+
+    assertThat(response.status()).isEqualTo(StoreStatus.ACTIVE);
+    assertThat(store.getStatus()).isEqualTo(StoreStatus.ACTIVE);
+  }
+
+  @Test
   void shouldRejectInvalidTransition() {
     var storeId = UUID.randomUUID();
     var store = store(storeId);
@@ -89,7 +128,7 @@ class ChangeStoreStatusUseCaseTest {
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
     when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
     when(storeActivationRequirementsService.evaluate(storeId))
-        .thenReturn(new StoreActivationRequirements(true, true));
+        .thenReturn(new StoreActivationRequirements(true, true, true));
 
     assertThatThrownBy(
             () ->
@@ -107,12 +146,26 @@ class ChangeStoreStatusUseCaseTest {
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
     when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
     when(storeActivationRequirementsService.evaluate(storeId))
-        .thenReturn(new StoreActivationRequirements(true, true));
+        .thenReturn(new StoreActivationRequirements(true, true, true));
 
     assertThatThrownBy(
             () -> changeStoreStatusUseCase.execute(new ChangeStoreStatusRequest(StoreStatus.SETUP)))
         .isInstanceOf(BusinessException.class)
         .hasMessageContaining("Changing status to SETUP is not allowed");
+  }
+
+  @Test
+  void shouldThrowWhenStoreDoesNotExist() {
+    var storeId = UUID.randomUUID();
+
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
+    when(storeRepository.findById(storeId)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(
+            () ->
+                changeStoreStatusUseCase.execute(new ChangeStoreStatusRequest(StoreStatus.ACTIVE)))
+        .isInstanceOf(StoreNotFoundException.class)
+        .hasMessageContaining(storeId.toString());
   }
 
   private Store store(UUID id) {

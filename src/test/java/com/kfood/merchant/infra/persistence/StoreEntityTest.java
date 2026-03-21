@@ -139,6 +139,7 @@ class StoreEntityTest {
     assertThat(store.isSuspended()).isFalse();
 
     store.activate();
+    assertThat(store.isSetup()).isFalse();
     assertThat(store.isActive()).isTrue();
 
     store.suspend();
@@ -176,6 +177,24 @@ class StoreEntityTest {
     assertThatThrownBy(store::suspend)
         .isInstanceOf(StoreStatusTransitionException.class)
         .hasMessageContaining("Invalid store status transition");
+  }
+
+  @Test
+  void shouldReactivateStoreFromSuspendedStatus() {
+    var store =
+        new Store(
+            UUID.randomUUID(),
+            "Loja do Bairro",
+            "loja-do-bairro",
+            "45.723.174/0001-10",
+            "21999990000",
+            "America/Sao_Paulo");
+
+    store.activate();
+    store.suspend();
+    store.activate();
+
+    assertThat(store.getStatus()).isEqualTo(StoreStatus.ACTIVE);
   }
 
   @Test

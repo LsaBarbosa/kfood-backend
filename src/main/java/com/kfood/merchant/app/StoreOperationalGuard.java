@@ -11,4 +11,10 @@ public class StoreOperationalGuard {
       throw new StoreNotActiveException(store.getId(), store.getStatus());
     }
   }
+
+  public void ensureStoreIsNotSuspended(Store store) {
+    if (store.isSuspended()) {
+      throw new StoreNotActiveException(store.getId(), store.getStatus());
+    }
+  }
 }

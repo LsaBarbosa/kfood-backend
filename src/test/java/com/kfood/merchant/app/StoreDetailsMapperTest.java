@@ -19,7 +19,7 @@ class StoreDetailsMapperTest {
             "45.723.174/0001-10",
             "21999990000",
             "America/Sao_Paulo");
-    var requirements = new StoreActivationRequirements(true, false);
+    var requirements = new StoreActivationRequirements(true, false, false);
 
     var response = StoreDetailsMapper.toResponse(store, requirements);
 

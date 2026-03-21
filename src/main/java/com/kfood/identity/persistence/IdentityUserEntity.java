@@ -64,6 +64,21 @@ public class IdentityUserEntity extends AuditableEntity {
     roleNames.stream().distinct().map(this::newRole).forEach(roles::add);
   }
 
+  public boolean hasRole(UserRoleName roleName) {
+    return roles.stream().anyMatch(role -> role.getRoleName() == roleName);
+  }
+
+  public void bindToStore(UUID storeId) {
+    Objects.requireNonNull(storeId, "storeId is required");
+
+    if (this.storeId != null && !this.storeId.equals(storeId)) {
+      throw new IllegalStateException("User is already bound to another store.");
+    }
+
+    this.storeId = storeId;
+    roles.forEach(role -> role.bindToStore(storeId));
+  }
+
   private IdentityUserRoleEntity newRole(UserRoleName roleName) {
     return new IdentityUserRoleEntity(UUID.randomUUID(), this, storeId, roleName);
   }

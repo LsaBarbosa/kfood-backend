@@ -1,6 +1,7 @@
 package com.kfood.merchant.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -38,12 +39,24 @@ class GetStoreDetailsUseCaseTest {
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
     when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
     when(storeActivationRequirementsService.evaluate(storeId))
-        .thenReturn(new StoreActivationRequirements(true, true));
+        .thenReturn(new StoreActivationRequirements(true, true, true));
 
     var response = getStoreDetailsUseCase.execute();
 
     assertThat(response.status()).isEqualTo(StoreStatus.ACTIVE);
     assertThat(response.hoursConfigured()).isTrue();
     assertThat(response.deliveryZonesConfigured()).isTrue();
+  }
+
+  @Test
+  void shouldThrowWhenStoreDoesNotExist() {
+    var storeId = UUID.randomUUID();
+
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
+    when(storeRepository.findById(storeId)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> getStoreDetailsUseCase.execute())
+        .isInstanceOf(StoreNotFoundException.class)
+        .hasMessageContaining(storeId.toString());
   }
 }
