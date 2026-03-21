@@ -26,14 +26,33 @@ class ChangeStoreStatusUseCaseTest {
           storeRepository, currentTenantProvider, storeActivationRequirementsService);
 
   @Test
-  void shouldRemainInSetupWhenRequirementsAreMissing() {
+  void shouldRemainInSetupWhenTermsWereNotAccepted() {
     var storeId = UUID.randomUUID();
     var store = store(storeId);
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
     when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
     when(storeActivationRequirementsService.evaluate(storeId))
-        .thenReturn(new StoreActivationRequirements(false, true));
+        .thenReturn(new StoreActivationRequirements(true, true, false));
+
+    assertThatThrownBy(
+            () ->
+                changeStoreStatusUseCase.execute(new ChangeStoreStatusRequest(StoreStatus.ACTIVE)))
+        .isInstanceOf(StoreActivationRequirementsNotMetException.class)
+        .hasMessageContaining("termsAccepted");
+
+    assertThat(store.getStatus()).isEqualTo(StoreStatus.SETUP);
+  }
+
+  @Test
+  void shouldRemainInSetupWhenHoursAreMissing() {
+    var storeId = UUID.randomUUID();
+    var store = store(storeId);
+
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
+    when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
+    when(storeActivationRequirementsService.evaluate(storeId))
+        .thenReturn(new StoreActivationRequirements(false, true, true));
 
     assertThatThrownBy(
             () ->
@@ -52,7 +71,7 @@ class ChangeStoreStatusUseCaseTest {
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
     when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
     when(storeActivationRequirementsService.evaluate(storeId))
-        .thenReturn(new StoreActivationRequirements(true, true));
+        .thenReturn(new StoreActivationRequirements(true, true, true));
     when(storeRepository.saveAndFlush(store)).thenReturn(store);
 
     var response =
@@ -71,7 +90,7 @@ class ChangeStoreStatusUseCaseTest {
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
     when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
     when(storeActivationRequirementsService.evaluate(storeId))
-        .thenReturn(new StoreActivationRequirements(true, true));
+        .thenReturn(new StoreActivationRequirements(true, true, true));
     when(storeRepository.saveAndFlush(store)).thenReturn(store);
 
     var response =
@@ -89,7 +108,7 @@ class ChangeStoreStatusUseCaseTest {
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
     when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
     when(storeActivationRequirementsService.evaluate(storeId))
-        .thenReturn(new StoreActivationRequirements(true, true));
+        .thenReturn(new StoreActivationRequirements(true, true, true));
 
     assertThatThrownBy(
             () ->
@@ -107,7 +126,7 @@ class ChangeStoreStatusUseCaseTest {
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
     when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
     when(storeActivationRequirementsService.evaluate(storeId))
-        .thenReturn(new StoreActivationRequirements(true, true));
+        .thenReturn(new StoreActivationRequirements(true, true, true));
 
     assertThatThrownBy(
             () -> changeStoreStatusUseCase.execute(new ChangeStoreStatusRequest(StoreStatus.SETUP)))

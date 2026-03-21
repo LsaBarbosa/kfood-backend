@@ -73,6 +73,14 @@ class StoreBusinessHourTest {
   }
 
   @Test
+  void shouldRejectOpenDayWhenOnlyOpenTimeIsDefined() {
+    assertThatThrownBy(
+            () -> StoreBusinessHour.open(store(), DayOfWeek.MONDAY, LocalTime.of(10, 0), null))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("openTime and closeTime are required for open day");
+  }
+
+  @Test
   void shouldRejectOpenTimeNotBeforeCloseTime() {
     assertThatThrownBy(
             () ->

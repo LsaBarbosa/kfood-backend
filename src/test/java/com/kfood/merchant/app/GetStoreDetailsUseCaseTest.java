@@ -39,7 +39,7 @@ class GetStoreDetailsUseCaseTest {
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
     when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
     when(storeActivationRequirementsService.evaluate(storeId))
-        .thenReturn(new StoreActivationRequirements(true, true));
+        .thenReturn(new StoreActivationRequirements(true, true, true));
 
     var response = getStoreDetailsUseCase.execute();
 
