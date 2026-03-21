@@ -11,7 +11,9 @@ import com.kfood.customer.infra.persistence.CustomerAddressRepository;
 import com.kfood.customer.infra.persistence.CustomerRepository;
 import com.kfood.merchant.app.StoreSlugNotFoundException;
 import com.kfood.merchant.infra.persistence.DeliveryZoneRepository;
+import com.kfood.merchant.infra.persistence.StoreBusinessHourRepository;
 import com.kfood.merchant.infra.persistence.StoreRepository;
+import com.kfood.shared.exceptions.ApiFieldError;
 import com.kfood.shared.exceptions.BusinessException;
 import com.kfood.shared.exceptions.ErrorCode;
 import java.math.BigDecimal;
@@ -33,7 +35,8 @@ import org.springframework.transaction.annotation.Transactional;
   CustomerRepository.class,
   CustomerAddressRepository.class,
   CatalogProductRepository.class,
-  DeliveryZoneRepository.class
+  DeliveryZoneRepository.class,
+  StoreBusinessHourRepository.class
 })
 public class CalculateCheckoutQuoteUseCase {
 
@@ -43,6 +46,7 @@ public class CalculateCheckoutQuoteUseCase {
   private final CatalogProductRepository catalogProductRepository;
   private final DeliveryZoneRepository deliveryZoneRepository;
   private final CatalogProductAvailabilityValidator catalogProductAvailabilityValidator;
+  private final StoreCheckoutRulesValidator storeCheckoutRulesValidator;
 
   public CalculateCheckoutQuoteUseCase(
       StoreRepository storeRepository,
@@ -50,13 +54,15 @@ public class CalculateCheckoutQuoteUseCase {
       CustomerAddressRepository customerAddressRepository,
       CatalogProductRepository catalogProductRepository,
       DeliveryZoneRepository deliveryZoneRepository,
-      CatalogProductAvailabilityValidator catalogProductAvailabilityValidator) {
+      CatalogProductAvailabilityValidator catalogProductAvailabilityValidator,
+      StoreCheckoutRulesValidator storeCheckoutRulesValidator) {
     this.storeRepository = storeRepository;
     this.customerRepository = customerRepository;
     this.customerAddressRepository = customerAddressRepository;
     this.catalogProductRepository = catalogProductRepository;
     this.deliveryZoneRepository = deliveryZoneRepository;
     this.catalogProductAvailabilityValidator = catalogProductAvailabilityValidator;
+    this.storeCheckoutRulesValidator = storeCheckoutRulesValidator;
   }
 
   @Transactional(readOnly = true)
@@ -66,6 +72,8 @@ public class CalculateCheckoutQuoteUseCase {
         storeRepository
             .findBySlug(normalizedSlug)
             .orElseThrow(() -> new StoreSlugNotFoundException(normalizedSlug));
+    storeCheckoutRulesValidator.ensureStoreOperational(store);
+    storeCheckoutRulesValidator.ensureStoreWithinBusinessHours(store);
     var customer =
         customerRepository
             .findByIdAndStoreId(command.customerId(), store.getId())
@@ -104,7 +112,8 @@ public class CalculateCheckoutQuoteUseCase {
       totalUnits += item.quantity();
     }
 
-    var deliveryFeeAmount = calculateDeliveryFee(command, store.getId(), customer.getId());
+    var deliveryFeeAmount =
+        calculateDeliveryFee(command, store.getId(), customer.getId(), subtotalAmount);
     var totalAmount = subtotalAmount.add(deliveryFeeAmount).setScale(2, RoundingMode.HALF_UP);
 
     return new QuoteCheckoutResponse(
@@ -201,7 +210,10 @@ public class CalculateCheckoutQuoteUseCase {
   }
 
   private BigDecimal calculateDeliveryFee(
-      CalculateCheckoutQuoteCommand command, UUID storeId, UUID customerId) {
+      CalculateCheckoutQuoteCommand command,
+      UUID storeId,
+      UUID customerId,
+      BigDecimal subtotalAmount) {
     if (command.fulfillmentType() == FulfillmentType.PICKUP) {
       return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
     }
@@ -221,13 +233,31 @@ public class CalculateCheckoutQuoteUseCase {
                         ErrorCode.RESOURCE_NOT_FOUND,
                         "Address not found for this customer.",
                         HttpStatus.NOT_FOUND));
-    return resolveDeliveryZoneFee(storeId, address);
+    return resolveDeliveryZoneFee(storeId, address, subtotalAmount);
   }
 
-  private BigDecimal resolveDeliveryZoneFee(UUID storeId, CustomerAddress address) {
+  private BigDecimal resolveDeliveryZoneFee(
+      UUID storeId, CustomerAddress address, BigDecimal subtotalAmount) {
     return deliveryZoneRepository
         .findByStoreIdAndZoneNameIgnoreCaseAndActiveTrue(storeId, address.getDistrict())
-        .map(zone -> zone.getFeeAmount().setScale(2, RoundingMode.HALF_UP))
+        .map(
+            zone -> {
+              var minimumOrderAmount = zone.getMinOrderAmount().setScale(2, RoundingMode.HALF_UP);
+              if (subtotalAmount.compareTo(minimumOrderAmount) < 0) {
+                throw new BusinessException(
+                    ErrorCode.MIN_ORDER_NOT_REACHED,
+                    "Order total is below the minimum for the selected delivery zone.",
+                    HttpStatus.UNPROCESSABLE_CONTENT,
+                    List.of(
+                        new ApiFieldError(
+                            "items",
+                            "Total current: "
+                                + subtotalAmount
+                                + ", minimum: "
+                                + minimumOrderAmount)));
+              }
+              return zone.getFeeAmount().setScale(2, RoundingMode.HALF_UP);
+            })
         .orElseThrow(
             () ->
                 new BusinessException(

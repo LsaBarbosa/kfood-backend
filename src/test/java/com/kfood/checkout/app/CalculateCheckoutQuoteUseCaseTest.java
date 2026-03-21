@@ -39,6 +39,8 @@ class CalculateCheckoutQuoteUseCaseTest {
   private final DeliveryZoneRepository deliveryZoneRepository = mock(DeliveryZoneRepository.class);
   private final CatalogProductAvailabilityValidator catalogProductAvailabilityValidator =
       mock(CatalogProductAvailabilityValidator.class);
+  private final StoreCheckoutRulesValidator storeCheckoutRulesValidator =
+      mock(StoreCheckoutRulesValidator.class);
   private final CalculateCheckoutQuoteUseCase useCase =
       new CalculateCheckoutQuoteUseCase(
           storeRepository,
@@ -46,7 +48,8 @@ class CalculateCheckoutQuoteUseCaseTest {
           customerAddressRepository,
           catalogProductRepository,
           deliveryZoneRepository,
-          catalogProductAvailabilityValidator);
+          catalogProductAvailabilityValidator,
+          storeCheckoutRulesValidator);
 
   @Test
   void shouldCalculateSubtotalCorrectly() {
@@ -173,6 +176,33 @@ class CalculateCheckoutQuoteUseCaseTest {
         .isInstanceOf(BusinessException.class)
         .extracting("errorCode")
         .isEqualTo(ErrorCode.DELIVERY_ZONE_NOT_SUPPORTED);
+  }
+
+  @Test
+  void shouldRejectWhenOrderBelowMinimum() {
+    var store = store("loja-do-bairro");
+    var customer = customer(store);
+    var address = address(customer, true, "Centro");
+    var product = product(store, new BigDecimal("20.00"));
+    var zone = deliveryZone(store, "Centro", new BigDecimal("6.50"));
+    var command =
+        new CalculateCheckoutQuoteCommand(
+            customer.getId(),
+            FulfillmentType.DELIVERY,
+            address.getId(),
+            List.of(new CalculateCheckoutQuoteItemCommand(product.getId(), 1, null, List.of())));
+
+    mockBase(store, customer, List.of(product));
+    when(customerAddressRepository.findByIdAndCustomerId(address.getId(), customer.getId()))
+        .thenReturn(Optional.of(address));
+    when(deliveryZoneRepository.findByStoreIdAndZoneNameIgnoreCaseAndActiveTrue(
+            store.getId(), "Centro"))
+        .thenReturn(Optional.of(zone));
+
+    assertThatThrownBy(() -> useCase.execute("loja-do-bairro", command))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.MIN_ORDER_NOT_REACHED);
   }
 
   private void mockBase(Store store, Customer customer, List<CatalogProduct> products) {
