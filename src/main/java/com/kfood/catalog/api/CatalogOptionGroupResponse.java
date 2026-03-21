@@ -1,5 +1,6 @@
 package com.kfood.catalog.api;
 
+import java.util.List;
 import java.util.UUID;
 
 public record CatalogOptionGroupResponse(
@@ -9,4 +10,5 @@ public record CatalogOptionGroupResponse(
     int minSelect,
     int maxSelect,
     boolean required,
-    boolean active) {}
+    boolean active,
+    List<CatalogOptionItemResponse> items) {}

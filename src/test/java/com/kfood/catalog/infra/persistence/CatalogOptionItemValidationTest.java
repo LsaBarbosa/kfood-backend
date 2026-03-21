@@ -13,7 +13,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
-class CatalogOptionGroupValidationTest {
+class CatalogOptionItemValidationTest {
 
   private Validator validator;
 
@@ -23,37 +23,30 @@ class CatalogOptionGroupValidationTest {
   }
 
   @Test
-  void shouldRejectNullProduct() throws Exception {
-    var optionGroup = optionGroup();
-    setField(optionGroup, "product", null);
+  void shouldRejectNullOptionGroup() throws Exception {
+    var optionItem = optionItem();
+    setField(optionItem, "optionGroup", null);
 
-    Set<ConstraintViolation<CatalogOptionGroup>> violations = validator.validate(optionGroup);
-
-    assertThat(violations)
-        .extracting(violation -> violation.getPropertyPath().toString())
-        .contains("product");
-  }
-
-  @Test
-  void shouldRejectNegativeMinSelect() throws Exception {
-    var optionGroup = optionGroup();
-    setField(optionGroup, "minSelect", -1);
-
-    Set<ConstraintViolation<CatalogOptionGroup>> violations = validator.validate(optionGroup);
+    Set<ConstraintViolation<CatalogOptionItem>> violations = validator.validate(optionItem);
 
     assertThat(violations)
         .extracting(violation -> violation.getPropertyPath().toString())
-        .contains("minSelect");
+        .contains("optionGroup");
   }
 
   @Test
-  void shouldExposeReadOnlyItemsView() {
-    var optionGroup = optionGroup();
+  void shouldRejectNegativeSortOrder() throws Exception {
+    var optionItem = optionItem();
+    setField(optionItem, "sortOrder", -1);
 
-    assertThat(optionGroup.getItems()).isEmpty();
+    Set<ConstraintViolation<CatalogOptionItem>> violations = validator.validate(optionItem);
+
+    assertThat(violations)
+        .extracting(violation -> violation.getPropertyPath().toString())
+        .contains("sortOrder");
   }
 
-  private CatalogOptionGroup optionGroup() {
+  private CatalogOptionItem optionItem() {
     var store =
         new Store(
             UUID.randomUUID(),
@@ -75,14 +68,17 @@ class CatalogOptionGroupValidationTest {
             20,
             true,
             false);
+    var optionGroup =
+        new CatalogOptionGroup(UUID.randomUUID(), product, "Stuffed Crust", 0, 1, false, true);
 
-    return new CatalogOptionGroup(UUID.randomUUID(), product, "Sauces", 0, 2, false, true);
+    return new CatalogOptionItem(
+        UUID.randomUUID(), optionGroup, "Catupiry", new BigDecimal("8.00"), true, 10);
   }
 
-  private void setField(CatalogOptionGroup optionGroup, String fieldName, Object value)
+  private void setField(CatalogOptionItem optionItem, String fieldName, Object value)
       throws Exception {
-    Field field = CatalogOptionGroup.class.getDeclaredField(fieldName);
+    Field field = CatalogOptionItem.class.getDeclaredField(fieldName);
     field.setAccessible(true);
-    field.set(optionGroup, value);
+    field.set(optionItem, value);
   }
 }

@@ -25,6 +25,7 @@ class CatalogOptionGroupTest {
     assertThat(optionGroup.getMaxSelect()).isEqualTo(1);
     assertThat(optionGroup.isRequired()).isFalse();
     assertThat(optionGroup.isActive()).isTrue();
+    assertThat(optionGroup.getItems()).isEmpty();
   }
 
   @Test
@@ -44,6 +45,37 @@ class CatalogOptionGroupTest {
     optionGroup.activate();
 
     assertThat(optionGroup.isActive()).isTrue();
+  }
+
+  @Test
+  void shouldAddItemToOptionGroup() {
+    var optionGroup =
+        new CatalogOptionGroup(UUID.randomUUID(), product(store()), "Sauces", 0, 2, false, true);
+    var optionItem =
+        new CatalogOptionItem(
+            UUID.randomUUID(), optionGroup, " Catupiry ", new BigDecimal("8.0"), true, 10);
+
+    optionGroup.addItem(optionItem);
+
+    assertThat(optionGroup.getItems()).hasSize(1);
+    assertThat(optionGroup.getItems())
+        .extracting(CatalogOptionItem::getName)
+        .containsExactly("Catupiry");
+  }
+
+  @Test
+  void shouldRejectItemFromAnotherGroup() {
+    var firstGroup =
+        new CatalogOptionGroup(UUID.randomUUID(), product(store()), "Sauces", 0, 2, false, true);
+    var secondGroup =
+        new CatalogOptionGroup(UUID.randomUUID(), product(store()), "Toppings", 0, 2, false, true);
+    var optionItem =
+        new CatalogOptionItem(
+            UUID.randomUUID(), secondGroup, "Catupiry", new BigDecimal("8.00"), true, 10);
+
+    assertThatThrownBy(() -> firstGroup.addItem(optionItem))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("item optionGroup must match current group");
   }
 
   @Test

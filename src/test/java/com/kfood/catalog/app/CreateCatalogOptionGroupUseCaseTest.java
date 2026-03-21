@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.kfood.catalog.api.CreateCatalogOptionGroupRequest;
+import com.kfood.catalog.api.CreateCatalogOptionItemRequest;
 import com.kfood.catalog.infra.persistence.CatalogCategory;
 import com.kfood.catalog.infra.persistence.CatalogOptionGroup;
 import com.kfood.catalog.infra.persistence.CatalogOptionGroupRepository;
@@ -22,6 +23,7 @@ import com.kfood.merchant.infra.persistence.StoreRepository;
 import com.kfood.shared.exceptions.BusinessException;
 import com.kfood.shared.tenancy.CurrentTenantProvider;
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -49,7 +51,16 @@ class CreateCatalogOptionGroupUseCaseTest {
     var productId = UUID.randomUUID();
     var store = store(storeId);
     var product = product(store, productId);
-    var request = new CreateCatalogOptionGroupRequest(" Stuffed Crust ", null, null, null, null);
+    var request =
+        new CreateCatalogOptionGroupRequest(
+            " Stuffed Crust ",
+            null,
+            null,
+            null,
+            null,
+            List.of(
+                new CreateCatalogOptionItemRequest("Catupiry", new BigDecimal("8.00"), true, 10),
+                new CreateCatalogOptionItemRequest("Cheddar", new BigDecimal("7.50"), null, null)));
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
     when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
@@ -66,6 +77,12 @@ class CreateCatalogOptionGroupUseCaseTest {
     assertThat(response.maxSelect()).isEqualTo(1);
     assertThat(response.required()).isFalse();
     assertThat(response.active()).isTrue();
+    assertThat(response.items()).hasSize(2);
+    assertThat(response.items().get(0).name()).isEqualTo("Catupiry");
+    assertThat(response.items().get(0).extraPrice()).isEqualByComparingTo("8.00");
+    assertThat(response.items().get(0).sortOrder()).isEqualTo(10);
+    assertThat(response.items().get(1).name()).isEqualTo("Cheddar");
+    assertThat(response.items().get(1).sortOrder()).isZero();
   }
 
   @Test
@@ -73,7 +90,7 @@ class CreateCatalogOptionGroupUseCaseTest {
     var storeId = UUID.randomUUID();
     var productId = UUID.randomUUID();
     var store = store(storeId);
-    var request = new CreateCatalogOptionGroupRequest("Sauces", 0, 2, false, true);
+    var request = new CreateCatalogOptionGroupRequest("Sauces", 0, 2, false, true, null);
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
     when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
@@ -93,7 +110,7 @@ class CreateCatalogOptionGroupUseCaseTest {
     var productId = UUID.randomUUID();
     var store = store(storeId);
     var product = product(store, productId);
-    var request = new CreateCatalogOptionGroupRequest("Sauces", 2, 1, false, true);
+    var request = new CreateCatalogOptionGroupRequest("Sauces", 2, 1, false, true, null);
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
     when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
@@ -111,7 +128,7 @@ class CreateCatalogOptionGroupUseCaseTest {
   void shouldThrowWhenStoreDoesNotExist() {
     var storeId = UUID.randomUUID();
     var productId = UUID.randomUUID();
-    var request = new CreateCatalogOptionGroupRequest("Sauces", 0, 1, false, true);
+    var request = new CreateCatalogOptionGroupRequest("Sauces", 0, 1, false, true, null);
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
     when(storeRepository.findById(storeId)).thenReturn(Optional.empty());
@@ -128,7 +145,7 @@ class CreateCatalogOptionGroupUseCaseTest {
     var store = store(storeId);
     store.activate();
     store.suspend();
-    var request = new CreateCatalogOptionGroupRequest("Sauces", 0, 1, false, true);
+    var request = new CreateCatalogOptionGroupRequest("Sauces", 0, 1, false, true, null);
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
     when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
@@ -136,6 +153,34 @@ class CreateCatalogOptionGroupUseCaseTest {
     assertThatThrownBy(() -> createCatalogOptionGroupUseCase.execute(productId, request))
         .isInstanceOf(StoreNotActiveException.class)
         .hasMessageContaining("SUSPENDED");
+  }
+
+  @Test
+  void shouldRejectNegativeExtraPrice() {
+    var storeId = UUID.randomUUID();
+    var productId = UUID.randomUUID();
+    var store = store(storeId);
+    var product = product(store, productId);
+    var request =
+        new CreateCatalogOptionGroupRequest(
+            "Stuffed Crust",
+            0,
+            1,
+            false,
+            true,
+            List.of(
+                new CreateCatalogOptionItemRequest("Catupiry", new BigDecimal("-1.00"), true, 10)));
+
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
+    when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
+    when(catalogProductRepository.findByIdAndStoreId(productId, storeId))
+        .thenReturn(Optional.of(product));
+
+    assertThatThrownBy(() -> createCatalogOptionGroupUseCase.execute(productId, request))
+        .isInstanceOf(BusinessException.class)
+        .hasMessage("extraPrice must be greater than or equal to zero");
+
+    verify(catalogOptionGroupRepository, never()).saveAndFlush(any(CatalogOptionGroup.class));
   }
 
   private CatalogProduct product(Store store, UUID productId) {
