@@ -126,6 +126,35 @@ public class CatalogProduct extends AuditableEntity {
     return paused;
   }
 
+  public void changeCategory(CatalogCategory category) {
+    this.category = Objects.requireNonNull(category, "category is required");
+    validateBusinessRules();
+  }
+
+  public void changeName(String name) {
+    this.name = normalize(Objects.requireNonNull(name, "name is required"));
+    validateBusinessRules();
+  }
+
+  public void changeDescription(String description) {
+    this.description = normalize(Objects.requireNonNull(description, "description is required"));
+    validateBusinessRules();
+  }
+
+  public void changeBasePrice(BigDecimal basePrice) {
+    this.basePrice = normalize(Objects.requireNonNull(basePrice, "basePrice is required"));
+    validateBusinessRules();
+  }
+
+  public void changeImageUrl(String imageUrl) {
+    this.imageUrl = normalizeNullable(imageUrl);
+  }
+
+  public void changeSortOrder(int sortOrder) {
+    this.sortOrder = sortOrder;
+    validateBusinessRules();
+  }
+
   public void activate() {
     active = true;
   }

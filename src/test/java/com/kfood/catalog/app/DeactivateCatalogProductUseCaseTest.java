@@ -6,61 +6,74 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.kfood.catalog.infra.persistence.CatalogCategory;
-import com.kfood.catalog.infra.persistence.CatalogCategoryRepository;
+import com.kfood.catalog.infra.persistence.CatalogProduct;
+import com.kfood.catalog.infra.persistence.CatalogProductRepository;
 import com.kfood.merchant.app.StoreNotActiveException;
 import com.kfood.merchant.app.StoreNotFoundException;
 import com.kfood.merchant.app.StoreOperationalGuard;
 import com.kfood.merchant.infra.persistence.Store;
 import com.kfood.merchant.infra.persistence.StoreRepository;
 import com.kfood.shared.tenancy.CurrentTenantProvider;
+import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
-class DeactivateCatalogCategoryUseCaseTest {
+class DeactivateCatalogProductUseCaseTest {
 
   private final StoreRepository storeRepository = mock(StoreRepository.class);
-  private final CatalogCategoryRepository catalogCategoryRepository =
-      mock(CatalogCategoryRepository.class);
+  private final CatalogProductRepository catalogProductRepository =
+      mock(CatalogProductRepository.class);
   private final CurrentTenantProvider currentTenantProvider = mock(CurrentTenantProvider.class);
   private final StoreOperationalGuard storeOperationalGuard = new StoreOperationalGuard();
-  private final DeactivateCatalogCategoryUseCase deactivateCatalogCategoryUseCase =
-      new DeactivateCatalogCategoryUseCase(
-          storeRepository, catalogCategoryRepository, currentTenantProvider, storeOperationalGuard);
+  private final DeactivateCatalogProductUseCase deactivateCatalogProductUseCase =
+      new DeactivateCatalogProductUseCase(
+          storeRepository, catalogProductRepository, currentTenantProvider, storeOperationalGuard);
 
   @Test
-  void shouldDeactivateCategory() {
+  void shouldDeactivateProduct() {
     var storeId = UUID.randomUUID();
-    var categoryId = UUID.randomUUID();
+    var productId = UUID.randomUUID();
     var store = store(storeId);
-    var category = new CatalogCategory(categoryId, store, "Pizzas", 10, true);
+    var category = new CatalogCategory(UUID.randomUUID(), store, "Pizzas", 10, true);
+    var product =
+        new CatalogProduct(
+            productId,
+            store,
+            category,
+            "Pizza Calabresa",
+            "Pizza com calabresa",
+            new BigDecimal("39.90"),
+            null,
+            20,
+            true,
+            false);
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
     when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
-    when(catalogCategoryRepository.findByIdAndStoreId(categoryId, storeId))
-        .thenReturn(Optional.of(category));
-    when(catalogCategoryRepository.saveAndFlush(category)).thenReturn(category);
+    when(catalogProductRepository.findByIdAndStoreId(productId, storeId))
+        .thenReturn(Optional.of(product));
+    when(catalogProductRepository.saveAndFlush(product)).thenReturn(product);
 
-    var response = deactivateCatalogCategoryUseCase.execute(categoryId);
+    var response = deactivateCatalogProductUseCase.execute(productId);
 
     assertThat(response.active()).isFalse();
-    assertThat(response.name()).isEqualTo("Pizzas");
+    assertThat(response.name()).isEqualTo("Pizza Calabresa");
   }
 
   @Test
-  void shouldThrowWhenCategoryDoesNotExist() {
+  void shouldThrowWhenProductDoesNotExist() {
     var storeId = UUID.randomUUID();
-    var categoryId = UUID.randomUUID();
-    var store = store(storeId);
+    var productId = UUID.randomUUID();
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
-    when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
-    when(catalogCategoryRepository.findByIdAndStoreId(categoryId, storeId))
+    when(storeRepository.findById(storeId)).thenReturn(Optional.of(store(storeId)));
+    when(catalogProductRepository.findByIdAndStoreId(productId, storeId))
         .thenReturn(Optional.empty());
 
-    assertThatThrownBy(() -> deactivateCatalogCategoryUseCase.execute(categoryId))
-        .isInstanceOf(CatalogCategoryNotFoundException.class)
-        .hasMessageContaining(categoryId.toString());
+    assertThatThrownBy(() -> deactivateCatalogProductUseCase.execute(productId))
+        .isInstanceOf(CatalogProductNotFoundException.class)
+        .hasMessageContaining(productId.toString());
   }
 
   @Test
@@ -70,15 +83,15 @@ class DeactivateCatalogCategoryUseCaseTest {
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
     when(storeRepository.findById(storeId)).thenReturn(Optional.empty());
 
-    assertThatThrownBy(() -> deactivateCatalogCategoryUseCase.execute(UUID.randomUUID()))
+    assertThatThrownBy(() -> deactivateCatalogProductUseCase.execute(UUID.randomUUID()))
         .isInstanceOf(StoreNotFoundException.class)
         .hasMessageContaining(storeId.toString());
   }
 
   @Test
-  void shouldBlockDeactivationWhenStoreIsSuspended() {
+  void shouldBlockDeactivateWhenStoreIsSuspended() {
     var storeId = UUID.randomUUID();
-    var categoryId = UUID.randomUUID();
+    var productId = UUID.randomUUID();
     var store = store(storeId);
     store.activate();
     store.suspend();
@@ -86,7 +99,7 @@ class DeactivateCatalogCategoryUseCaseTest {
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
     when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
 
-    assertThatThrownBy(() -> deactivateCatalogCategoryUseCase.execute(categoryId))
+    assertThatThrownBy(() -> deactivateCatalogProductUseCase.execute(productId))
         .isInstanceOf(StoreNotActiveException.class)
         .hasMessageContaining("SUSPENDED");
   }
