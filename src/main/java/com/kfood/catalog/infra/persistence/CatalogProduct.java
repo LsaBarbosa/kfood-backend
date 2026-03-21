@@ -10,6 +10,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
@@ -21,7 +22,13 @@ import java.util.Objects;
 import java.util.UUID;
 
 @Entity
-@Table(name = "catalog_product")
+@Table(
+    name = "catalog_product",
+    uniqueConstraints = {
+      @UniqueConstraint(
+          name = "uk_catalog_product_store_id_id",
+          columnNames = {"store_id", "id"})
+    })
 public class CatalogProduct extends AuditableEntity {
 
   @Id private UUID id;
@@ -29,6 +36,9 @@ public class CatalogProduct extends AuditableEntity {
   @NotNull @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "store_id", nullable = false)
   private Store store;
+
+  @Column(name = "store_id", nullable = false, insertable = false, updatable = false)
+  private UUID storeId;
 
   @NotNull @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "category_id", nullable = false)
@@ -92,6 +102,10 @@ public class CatalogProduct extends AuditableEntity {
 
   public Store getStore() {
     return store;
+  }
+
+  public UUID getStoreId() {
+    return storeId;
   }
 
   public CatalogCategory getCategory() {
