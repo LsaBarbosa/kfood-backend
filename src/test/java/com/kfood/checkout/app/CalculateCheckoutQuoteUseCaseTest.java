@@ -41,6 +41,8 @@ class CalculateCheckoutQuoteUseCaseTest {
       mock(CatalogProductAvailabilityValidator.class);
   private final StoreCheckoutRulesValidator storeCheckoutRulesValidator =
       mock(StoreCheckoutRulesValidator.class);
+  private final QuoteFulfillmentPolicy quoteFulfillmentPolicy =
+      new QuoteFulfillmentPolicy(customerAddressRepository, deliveryZoneRepository);
   private final CalculateCheckoutQuoteUseCase useCase =
       new CalculateCheckoutQuoteUseCase(
           storeRepository,
@@ -49,7 +51,8 @@ class CalculateCheckoutQuoteUseCaseTest {
           catalogProductRepository,
           deliveryZoneRepository,
           catalogProductAvailabilityValidator,
-          storeCheckoutRulesValidator);
+          storeCheckoutRulesValidator,
+          quoteFulfillmentPolicy);
 
   @Test
   void shouldCalculateSubtotalCorrectly() {
@@ -70,6 +73,7 @@ class CalculateCheckoutQuoteUseCaseTest {
     assertThat(response.subtotalAmount()).isEqualByComparingTo("84.00");
     assertThat(response.deliveryFeeAmount()).isEqualByComparingTo("0.00");
     assertThat(response.totalAmount()).isEqualByComparingTo("84.00");
+    assertThat(response.messages()).containsExactly("Pickup at the store.");
   }
 
   @Test
@@ -98,6 +102,7 @@ class CalculateCheckoutQuoteUseCaseTest {
     assertThat(response.subtotalAmount()).isEqualByComparingTo("42.00");
     assertThat(response.deliveryFeeAmount()).isEqualByComparingTo("6.50");
     assertThat(response.totalAmount()).isEqualByComparingTo("48.50");
+    assertThat(response.messages()).containsExactly("Delivery to zone Centro.");
   }
 
   @Test
@@ -203,6 +208,42 @@ class CalculateCheckoutQuoteUseCaseTest {
         .isInstanceOf(BusinessException.class)
         .extracting("errorCode")
         .isEqualTo(ErrorCode.MIN_ORDER_NOT_REACHED);
+  }
+
+  @Test
+  void shouldCalculateDifferentTotalsForPickupAndDelivery() {
+    var store = store("loja-do-bairro");
+    var customer = customer(store);
+    var address = address(customer, true, "Centro");
+    var product = product(store, new BigDecimal("40.00"));
+    var zone = deliveryZone(store, "Centro", new BigDecimal("6.50"));
+    var pickupCommand =
+        new CalculateCheckoutQuoteCommand(
+            customer.getId(),
+            FulfillmentType.PICKUP,
+            null,
+            List.of(new CalculateCheckoutQuoteItemCommand(product.getId(), 1, null, List.of())));
+    var deliveryCommand =
+        new CalculateCheckoutQuoteCommand(
+            customer.getId(),
+            FulfillmentType.DELIVERY,
+            address.getId(),
+            List.of(new CalculateCheckoutQuoteItemCommand(product.getId(), 1, null, List.of())));
+
+    mockBase(store, customer, List.of(product));
+    when(customerAddressRepository.findByIdAndCustomerId(address.getId(), customer.getId()))
+        .thenReturn(Optional.of(address));
+    when(deliveryZoneRepository.findByStoreIdAndZoneNameIgnoreCaseAndActiveTrue(
+            store.getId(), "Centro"))
+        .thenReturn(Optional.of(zone));
+
+    var pickupResponse = useCase.execute("loja-do-bairro", pickupCommand);
+    var deliveryResponse = useCase.execute("loja-do-bairro", deliveryCommand);
+
+    assertThat(pickupResponse.totalAmount()).isEqualByComparingTo("40.00");
+    assertThat(deliveryResponse.totalAmount()).isEqualByComparingTo("46.50");
+    assertThat(pickupResponse.estimatedPreparationMinutes()).isEqualTo(20);
+    assertThat(deliveryResponse.estimatedPreparationMinutes()).isEqualTo(35);
   }
 
   private void mockBase(Store store, Customer customer, List<CatalogProduct> products) {

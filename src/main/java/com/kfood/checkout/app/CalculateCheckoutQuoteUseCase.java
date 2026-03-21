@@ -5,22 +5,18 @@ import com.kfood.catalog.infra.persistence.CatalogOptionItem;
 import com.kfood.catalog.infra.persistence.CatalogProduct;
 import com.kfood.catalog.infra.persistence.CatalogProductRepository;
 import com.kfood.checkout.api.QuoteCheckoutResponse;
-import com.kfood.checkout.domain.FulfillmentType;
-import com.kfood.customer.infra.persistence.CustomerAddress;
 import com.kfood.customer.infra.persistence.CustomerAddressRepository;
 import com.kfood.customer.infra.persistence.CustomerRepository;
 import com.kfood.merchant.app.StoreSlugNotFoundException;
 import com.kfood.merchant.infra.persistence.DeliveryZoneRepository;
 import com.kfood.merchant.infra.persistence.StoreBusinessHourRepository;
 import com.kfood.merchant.infra.persistence.StoreRepository;
-import com.kfood.shared.exceptions.ApiFieldError;
 import com.kfood.shared.exceptions.BusinessException;
 import com.kfood.shared.exceptions.ErrorCode;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -47,6 +43,7 @@ public class CalculateCheckoutQuoteUseCase {
   private final DeliveryZoneRepository deliveryZoneRepository;
   private final CatalogProductAvailabilityValidator catalogProductAvailabilityValidator;
   private final StoreCheckoutRulesValidator storeCheckoutRulesValidator;
+  private final QuoteFulfillmentPolicy quoteFulfillmentPolicy;
 
   public CalculateCheckoutQuoteUseCase(
       StoreRepository storeRepository,
@@ -55,7 +52,8 @@ public class CalculateCheckoutQuoteUseCase {
       CatalogProductRepository catalogProductRepository,
       DeliveryZoneRepository deliveryZoneRepository,
       CatalogProductAvailabilityValidator catalogProductAvailabilityValidator,
-      StoreCheckoutRulesValidator storeCheckoutRulesValidator) {
+      StoreCheckoutRulesValidator storeCheckoutRulesValidator,
+      QuoteFulfillmentPolicy quoteFulfillmentPolicy) {
     this.storeRepository = storeRepository;
     this.customerRepository = customerRepository;
     this.customerAddressRepository = customerAddressRepository;
@@ -63,6 +61,7 @@ public class CalculateCheckoutQuoteUseCase {
     this.deliveryZoneRepository = deliveryZoneRepository;
     this.catalogProductAvailabilityValidator = catalogProductAvailabilityValidator;
     this.storeCheckoutRulesValidator = storeCheckoutRulesValidator;
+    this.quoteFulfillmentPolicy = quoteFulfillmentPolicy;
   }
 
   @Transactional(readOnly = true)
@@ -112,18 +111,25 @@ public class CalculateCheckoutQuoteUseCase {
       totalUnits += item.quantity();
     }
 
-    var deliveryFeeAmount =
-        calculateDeliveryFee(command, store.getId(), customer.getId(), subtotalAmount);
-    var totalAmount = subtotalAmount.add(deliveryFeeAmount).setScale(2, RoundingMode.HALF_UP);
+    var fulfillment =
+        quoteFulfillmentPolicy.resolve(
+            store,
+            customer,
+            command.fulfillmentType(),
+            command.addressId(),
+            subtotalAmount,
+            totalUnits);
+    var totalAmount =
+        subtotalAmount.add(fulfillment.deliveryFee()).setScale(2, RoundingMode.HALF_UP);
 
     return new QuoteCheckoutResponse(
         generateQuoteId(),
         store.getId(),
         subtotalAmount,
-        deliveryFeeAmount,
+        fulfillment.deliveryFee(),
         totalAmount,
-        estimatePreparationMinutes(command.fulfillmentType(), totalUnits),
-        List.of());
+        fulfillment.estimatedPreparationMinutes(),
+        fulfillment.messages());
   }
 
   private BigDecimal calculateItemTotal(
@@ -207,69 +213,6 @@ public class CalculateCheckoutQuoteUseCase {
             HttpStatus.BAD_REQUEST);
       }
     }
-  }
-
-  private BigDecimal calculateDeliveryFee(
-      CalculateCheckoutQuoteCommand command,
-      UUID storeId,
-      UUID customerId,
-      BigDecimal subtotalAmount) {
-    if (command.fulfillmentType() == FulfillmentType.PICKUP) {
-      return BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
-    }
-    if (command.addressId() == null) {
-      throw new BusinessException(
-          ErrorCode.VALIDATION_ERROR,
-          "addressId is required when fulfillmentType is DELIVERY.",
-          HttpStatus.BAD_REQUEST);
-    }
-
-    var address =
-        customerAddressRepository
-            .findByIdAndCustomerId(command.addressId(), customerId)
-            .orElseThrow(
-                () ->
-                    new BusinessException(
-                        ErrorCode.RESOURCE_NOT_FOUND,
-                        "Address not found for this customer.",
-                        HttpStatus.NOT_FOUND));
-    return resolveDeliveryZoneFee(storeId, address, subtotalAmount);
-  }
-
-  private BigDecimal resolveDeliveryZoneFee(
-      UUID storeId, CustomerAddress address, BigDecimal subtotalAmount) {
-    return deliveryZoneRepository
-        .findByStoreIdAndZoneNameIgnoreCaseAndActiveTrue(storeId, address.getDistrict())
-        .map(
-            zone -> {
-              var minimumOrderAmount = zone.getMinOrderAmount().setScale(2, RoundingMode.HALF_UP);
-              if (subtotalAmount.compareTo(minimumOrderAmount) < 0) {
-                throw new BusinessException(
-                    ErrorCode.MIN_ORDER_NOT_REACHED,
-                    "Order total is below the minimum for the selected delivery zone.",
-                    HttpStatus.UNPROCESSABLE_CONTENT,
-                    List.of(
-                        new ApiFieldError(
-                            "items",
-                            "Total current: "
-                                + subtotalAmount
-                                + ", minimum: "
-                                + minimumOrderAmount)));
-              }
-              return zone.getFeeAmount().setScale(2, RoundingMode.HALF_UP);
-            })
-        .orElseThrow(
-            () ->
-                new BusinessException(
-                    ErrorCode.DELIVERY_ZONE_NOT_SUPPORTED,
-                    "Address is outside the supported delivery area.",
-                    HttpStatus.UNPROCESSABLE_CONTENT));
-  }
-
-  private int estimatePreparationMinutes(FulfillmentType fulfillmentType, int totalUnits) {
-    var base = fulfillmentType == FulfillmentType.PICKUP ? 20 : 35;
-    var extra = Math.max(0, totalUnits - 1) * 2;
-    return base + extra;
   }
 
   private String generateQuoteId() {
