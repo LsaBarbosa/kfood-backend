@@ -5,10 +5,8 @@ import com.kfood.catalog.infra.persistence.CatalogOptionItem;
 import com.kfood.catalog.infra.persistence.CatalogProduct;
 import com.kfood.catalog.infra.persistence.CatalogProductRepository;
 import com.kfood.checkout.api.QuoteCheckoutResponse;
-import com.kfood.customer.infra.persistence.CustomerAddressRepository;
 import com.kfood.customer.infra.persistence.CustomerRepository;
 import com.kfood.merchant.app.StoreSlugNotFoundException;
-import com.kfood.merchant.infra.persistence.DeliveryZoneRepository;
 import com.kfood.merchant.infra.persistence.StoreBusinessHourRepository;
 import com.kfood.merchant.infra.persistence.StoreRepository;
 import com.kfood.shared.exceptions.BusinessException;
@@ -29,18 +27,14 @@ import org.springframework.transaction.annotation.Transactional;
 @ConditionalOnBean({
   StoreRepository.class,
   CustomerRepository.class,
-  CustomerAddressRepository.class,
   CatalogProductRepository.class,
-  DeliveryZoneRepository.class,
   StoreBusinessHourRepository.class
 })
 public class CalculateCheckoutQuoteUseCase {
 
   private final StoreRepository storeRepository;
   private final CustomerRepository customerRepository;
-  private final CustomerAddressRepository customerAddressRepository;
   private final CatalogProductRepository catalogProductRepository;
-  private final DeliveryZoneRepository deliveryZoneRepository;
   private final CatalogProductAvailabilityValidator catalogProductAvailabilityValidator;
   private final StoreCheckoutRulesValidator storeCheckoutRulesValidator;
   private final QuoteFulfillmentPolicy quoteFulfillmentPolicy;
@@ -48,17 +42,13 @@ public class CalculateCheckoutQuoteUseCase {
   public CalculateCheckoutQuoteUseCase(
       StoreRepository storeRepository,
       CustomerRepository customerRepository,
-      CustomerAddressRepository customerAddressRepository,
       CatalogProductRepository catalogProductRepository,
-      DeliveryZoneRepository deliveryZoneRepository,
       CatalogProductAvailabilityValidator catalogProductAvailabilityValidator,
       StoreCheckoutRulesValidator storeCheckoutRulesValidator,
       QuoteFulfillmentPolicy quoteFulfillmentPolicy) {
     this.storeRepository = storeRepository;
     this.customerRepository = customerRepository;
-    this.customerAddressRepository = customerAddressRepository;
     this.catalogProductRepository = catalogProductRepository;
-    this.deliveryZoneRepository = deliveryZoneRepository;
     this.catalogProductAvailabilityValidator = catalogProductAvailabilityValidator;
     this.storeCheckoutRulesValidator = storeCheckoutRulesValidator;
     this.quoteFulfillmentPolicy = quoteFulfillmentPolicy;

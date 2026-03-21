@@ -1,5 +1,6 @@
 package com.kfood.merchant.infra.persistence;
 
+import java.time.DayOfWeek;
 import java.util.List;
 import java.util.UUID;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -9,6 +10,8 @@ import org.springframework.data.jpa.repository.Query;
 public interface StoreBusinessHourRepository extends JpaRepository<StoreBusinessHour, UUID> {
 
   List<StoreBusinessHour> findByStoreId(UUID storeId);
+
+  List<StoreBusinessHour> findAllByStoreIdAndDayOfWeek(UUID storeId, DayOfWeek dayOfWeek);
 
   @Modifying(clearAutomatically = true, flushAutomatically = true)
   @Query("delete from StoreBusinessHour hour where hour.store.id = :storeId")

@@ -30,7 +30,7 @@ class StoreCheckoutRulesValidatorTest {
     var clock = Clock.fixed(Instant.parse("2026-03-23T15:00:00Z"), ZoneId.of("UTC"));
     var validator = new StoreCheckoutRulesValidator(storeBusinessHourRepository, clock);
 
-    when(storeBusinessHourRepository.findByStoreId(store.getId()))
+    when(storeBusinessHourRepository.findAllByStoreIdAndDayOfWeek(store.getId(), DayOfWeek.MONDAY))
         .thenReturn(
             List.of(
                 StoreBusinessHour.open(
@@ -46,7 +46,7 @@ class StoreCheckoutRulesValidatorTest {
     var clock = Clock.fixed(Instant.parse("2026-03-23T15:00:00Z"), ZoneId.of("UTC"));
     var validator = new StoreCheckoutRulesValidator(storeBusinessHourRepository, clock);
 
-    when(storeBusinessHourRepository.findByStoreId(store.getId()))
+    when(storeBusinessHourRepository.findAllByStoreIdAndDayOfWeek(store.getId(), DayOfWeek.MONDAY))
         .thenReturn(
             List.of(
                 StoreBusinessHour.open(

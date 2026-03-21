@@ -47,9 +47,7 @@ class CalculateCheckoutQuoteUseCaseTest {
       new CalculateCheckoutQuoteUseCase(
           storeRepository,
           customerRepository,
-          customerAddressRepository,
           catalogProductRepository,
-          deliveryZoneRepository,
           catalogProductAvailabilityValidator,
           storeCheckoutRulesValidator,
           quoteFulfillmentPolicy);

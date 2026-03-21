@@ -19,8 +19,7 @@ public interface CatalogProductRepository extends JpaRepository<CatalogProduct, 
   @EntityGraph(attributePaths = {"category", "availabilityWindows"})
   Optional<CatalogProduct> findDetailedByIdAndStoreId(UUID id, UUID storeId);
 
-  @EntityGraph(
-      attributePaths = {"store", "availabilityWindows", "optionGroups", "optionGroups.items"})
+  @EntityGraph(attributePaths = {"availabilityWindows", "optionGroups", "optionGroups.items"})
   List<CatalogProduct> findAllByStoreIdAndIdIn(UUID storeId, Collection<UUID> ids);
 
   @EntityGraph(attributePaths = "category")

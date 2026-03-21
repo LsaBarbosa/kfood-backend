@@ -40,8 +40,9 @@ public class StoreCheckoutRulesValidator {
     var currentTime = currentDateTime.toLocalTime();
 
     var openNow =
-        storeBusinessHourRepository.findByStoreId(store.getId()).stream()
-            .filter(hour -> hour.getDayOfWeek() == currentDayOfWeek)
+        storeBusinessHourRepository
+            .findAllByStoreIdAndDayOfWeek(store.getId(), currentDayOfWeek)
+            .stream()
             .filter(hour -> !hour.isClosed())
             .anyMatch(
                 hour ->
