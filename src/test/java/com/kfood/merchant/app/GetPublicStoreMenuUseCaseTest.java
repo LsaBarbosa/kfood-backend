@@ -20,8 +20,11 @@ import org.junit.jupiter.api.Test;
 class GetPublicStoreMenuUseCaseTest {
 
   private final StoreRepository storeRepository = mock(StoreRepository.class);
+
+  @SuppressWarnings("unused")
   private final CatalogCategoryRepository catalogCategoryRepository =
       mock(CatalogCategoryRepository.class);
+
   private final CatalogProductRepository catalogProductRepository =
       mock(CatalogProductRepository.class);
   private final GetPublicStoreMenuUseCase getPublicStoreMenuUseCase =
@@ -31,19 +34,11 @@ class GetPublicStoreMenuUseCaseTest {
   @Test
   void shouldReturnOnlyVisibleOrderedMenuForStore() {
     var store = store("loja-do-bairro", "45.723.174/0001-10");
-    var anotherStore = store("outra-loja", "54.550.752/0001-55");
     var drinks = new CatalogCategory(UUID.randomUUID(), store, "Bebidas", 10, true);
     var pizzas = new CatalogCategory(UUID.randomUUID(), store, "Pizzas", 20, true);
-    var hidden = new CatalogCategory(UUID.randomUUID(), store, "Oculta", 30, false);
-    var foreignCategory =
-        new CatalogCategory(UUID.randomUUID(), anotherStore, "Estrangeira", 5, true);
 
     when(storeRepository.findBySlug("loja-do-bairro")).thenReturn(Optional.of(store));
-    when(catalogCategoryRepository.findAllByStoreIdAndActiveTrueOrderBySortOrderAscNameAsc(
-            store.getId()))
-        .thenReturn(List.of(drinks, pizzas, foreignCategory));
-    when(catalogProductRepository
-            .findAllByStoreIdAndActiveTrueAndPausedFalseOrderBySortOrderAscNameAsc(store.getId()))
+    when(catalogProductRepository.findAllVisibleForPublicMenu(store.getId()))
         .thenReturn(
             List.of(
                 product(store, drinks, "Refrigerante", "Lata 350ml", "7.50", 10, true, false),
@@ -55,18 +50,7 @@ class GetPublicStoreMenuUseCaseTest {
                     "39.90",
                     20,
                     true,
-                    false),
-                product(store, hidden, "Produto Oculto", "Nao deve sair", "10.00", 30, true, false),
-                product(
-                    anotherStore,
-                    foreignCategory,
-                    "Produto Estrangeiro",
-                    "Nao deve sair",
-                    "11.00",
-                    40,
-                    true,
-                    false),
-                product(store, pizzas, "Pizza Pausada", "Nao deve sair", "42.00", 50, true, true)));
+                    false)));
 
     var response = getPublicStoreMenuUseCase.execute(" loja-do-bairro ");
 
@@ -79,6 +63,18 @@ class GetPublicStoreMenuUseCaseTest {
     assertThat(response.categories().getLast().products())
         .extracting(item -> item.name())
         .containsExactly("Pizza Calabresa");
+  }
+
+  @Test
+  void shouldReturnEmptyCategoriesWhenStoreHasNoVisibleProducts() {
+    var store = store("loja-vazia", "45.723.174/0001-10");
+
+    when(storeRepository.findBySlug("loja-vazia")).thenReturn(Optional.of(store));
+    when(catalogProductRepository.findAllVisibleForPublicMenu(store.getId())).thenReturn(List.of());
+
+    var response = getPublicStoreMenuUseCase.execute("loja-vazia");
+
+    assertThat(response.categories()).isEmpty();
   }
 
   @Test

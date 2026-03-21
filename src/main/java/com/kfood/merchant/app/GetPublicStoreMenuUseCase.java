@@ -9,7 +9,6 @@ import com.kfood.merchant.api.PublicStoreMenuResponse;
 import com.kfood.merchant.infra.persistence.StoreRepository;
 import java.util.LinkedHashMap;
 import java.util.Objects;
-import java.util.UUID;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,52 +42,25 @@ public class GetPublicStoreMenuUseCase {
             .findBySlug(normalizedSlug)
             .orElseThrow(() -> new StoreSlugNotFoundException(normalizedSlug));
 
-    var storeId = store.getId();
-    var activeCategories =
-        catalogCategoryRepository
-            .findAllByStoreIdAndActiveTrueOrderBySortOrderAscNameAsc(storeId)
-            .stream()
-            .filter(category -> category.getStore().getId().equals(storeId))
-            .toList();
-    var visibleCategoryIds = activeCategories.stream().map(category -> category.getId()).toList();
-
-    var visibleProducts =
-        catalogProductRepository
-            .findAllByStoreIdAndActiveTrueAndPausedFalseOrderBySortOrderAscNameAsc(storeId)
-            .stream()
-            .filter(
-                product -> belongsToStoreAndVisibleCategory(product, storeId, visibleCategoryIds))
-            .toList();
-
-    var productsByCategoryId =
-        new LinkedHashMap<UUID, java.util.List<PublicStoreMenuProductResponse>>();
-    for (var product : visibleProducts) {
-      productsByCategoryId
-          .computeIfAbsent(product.getCategory().getId(), ignored -> new java.util.ArrayList<>())
+    var categoriesById = new LinkedHashMap<java.util.UUID, PublicStoreMenuCategoryAccumulator>();
+    for (var product : catalogProductRepository.findAllVisibleForPublicMenu(store.getId())) {
+      var category = product.getCategory();
+      categoriesById
+          .computeIfAbsent(
+              category.getId(),
+              ignored ->
+                  new PublicStoreMenuCategoryAccumulator(category.getId(), category.getName()))
+          .products()
           .add(toProductResponse(product));
     }
 
-    var categories =
-        activeCategories.stream()
-            .filter(category -> productsByCategoryId.containsKey(category.getId()))
+    return new PublicStoreMenuResponse(
+        categoriesById.values().stream()
             .map(
                 category ->
                     new PublicStoreMenuCategoryResponse(
-                        category.getId(),
-                        category.getName(),
-                        productsByCategoryId.get(category.getId())))
-            .toList();
-
-    return new PublicStoreMenuResponse(categories);
-  }
-
-  private boolean belongsToStoreAndVisibleCategory(
-      CatalogProduct product, UUID storeId, java.util.List<UUID> visibleCategoryIds) {
-    return product.getStore().getId().equals(storeId)
-        && product.getCategory().getStore().getId().equals(storeId)
-        && visibleCategoryIds.contains(product.getCategory().getId())
-        && product.isActive()
-        && !product.isPaused();
+                        category.id(), category.name(), java.util.List.copyOf(category.products())))
+            .toList());
   }
 
   private PublicStoreMenuProductResponse toProductResponse(CatalogProduct product) {
@@ -103,5 +75,13 @@ public class GetPublicStoreMenuUseCase {
 
   private String normalize(String slug) {
     return Objects.requireNonNull(slug, "slug is required").trim();
+  }
+
+  private record PublicStoreMenuCategoryAccumulator(
+      java.util.UUID id, String name, java.util.List<PublicStoreMenuProductResponse> products) {
+
+    private PublicStoreMenuCategoryAccumulator(java.util.UUID id, String name) {
+      this(id, name, new java.util.ArrayList<>());
+    }
   }
 }
