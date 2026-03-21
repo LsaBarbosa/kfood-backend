@@ -9,4 +9,7 @@ public interface IdentityUserRepository extends JpaRepository<IdentityUserEntity
 
   @EntityGraph(attributePaths = "roles")
   Optional<IdentityUserEntity> findByEmail(String email);
+
+  @EntityGraph(attributePaths = "roles")
+  Optional<IdentityUserEntity> findDetailedById(UUID id);
 }
