@@ -1,5 +1,6 @@
 package com.kfood.merchant.app;
 
+import com.kfood.shared.exceptions.ApiFieldError;
 import com.kfood.shared.exceptions.BusinessException;
 import com.kfood.shared.exceptions.ErrorCode;
 import java.util.List;
@@ -9,9 +10,12 @@ public class StoreActivationRequirementsNotMetException extends BusinessExceptio
 
   public StoreActivationRequirementsNotMetException(List<String> missingRequirements) {
     super(
-        ErrorCode.VALIDATION_ERROR,
-        "Store cannot be activated. Missing requirements: "
+        ErrorCode.STORE_NOT_ACTIVE,
+        "Store is not ready to be activated. Missing requirements: "
             + String.join(", ", missingRequirements),
-        HttpStatus.CONFLICT);
+        HttpStatus.CONFLICT,
+        missingRequirements.stream()
+            .map(requirement -> new ApiFieldError(requirement, "Required for store activation."))
+            .toList());
   }
 }

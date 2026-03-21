@@ -250,8 +250,7 @@ class StoreControllerWebMvcTest {
   void shouldReturnConflictWhenActivationRequirementsAreMissing() throws Exception {
     when(changeStoreStatusUseCase.execute(any(ChangeStoreStatusRequest.class)))
         .thenThrow(
-            new StoreActivationRequirementsNotMetException(
-                java.util.List.of("hoursConfigured", "deliveryZonesConfigured")));
+            new StoreActivationRequirementsNotMetException(java.util.List.of("termsAccepted")));
 
     mockMvc
         .perform(
@@ -265,7 +264,8 @@ class StoreControllerWebMvcTest {
                     }
                     """))
         .andExpect(status().isConflict())
-        .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+        .andExpect(jsonPath("$.code").value("STORE_NOT_ACTIVE"))
+        .andExpect(jsonPath("$.details[0].field").value("termsAccepted"));
   }
 
   @Test
