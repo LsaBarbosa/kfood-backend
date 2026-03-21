@@ -15,6 +15,7 @@ import com.kfood.catalog.app.CatalogProductNotFoundException;
 import com.kfood.catalog.app.CreateCatalogProductUseCase;
 import com.kfood.catalog.app.DeactivateCatalogProductUseCase;
 import com.kfood.catalog.app.ListCatalogProductsUseCase;
+import com.kfood.catalog.app.UpdateCatalogProductPauseUseCase;
 import com.kfood.catalog.app.UpdateCatalogProductUseCase;
 import com.kfood.identity.app.JwtTokenService;
 import com.kfood.identity.domain.UserRoleName;
@@ -50,6 +51,8 @@ class CatalogProductControllerWebMvcTest {
   @MockitoBean private ListCatalogProductsUseCase listCatalogProductsUseCase;
 
   @MockitoBean private UpdateCatalogProductUseCase updateCatalogProductUseCase;
+
+  @MockitoBean private UpdateCatalogProductPauseUseCase updateCatalogProductPauseUseCase;
 
   @MockitoBean private DeactivateCatalogProductUseCase deactivateCatalogProductUseCase;
 
@@ -197,6 +200,32 @@ class CatalogProductControllerWebMvcTest {
   }
 
   @Test
+  void shouldPauseProductSuccessfully() throws Exception {
+    var productId = UUID.randomUUID();
+    when(updateCatalogProductPauseUseCase.execute(
+            org.mockito.ArgumentMatchers.eq(productId),
+            any(UpdateCatalogProductPauseRequest.class)))
+        .thenReturn(new CatalogProductPauseResponse(productId, true, true));
+
+    mockMvc
+        .perform(
+            patch("/v1/catalog/products/" + productId + "/pause")
+                .header("Authorization", "Bearer " + tokenOf(UserRoleName.OWNER))
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "paused": true,
+                      "reason": "Ingredient unavailable"
+                    }
+                    """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(productId.toString()))
+        .andExpect(jsonPath("$.paused").value(true))
+        .andExpect(jsonPath("$.active").value(true));
+  }
+
+  @Test
   void shouldReturnNotFoundWhenUpdatingMissingProduct() throws Exception {
     var productId = UUID.randomUUID();
     when(updateCatalogProductUseCase.execute(
@@ -276,6 +305,24 @@ class CatalogProductControllerWebMvcTest {
                     }
                     """
                         .formatted(UUID.randomUUID())))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN_ROLE"));
+  }
+
+  @Test
+  void shouldForbidAttendantFromPausingProduct() throws Exception {
+    mockMvc
+        .perform(
+            patch("/v1/catalog/products/" + UUID.randomUUID() + "/pause")
+                .header("Authorization", "Bearer " + tokenOf(UserRoleName.ATTENDANT))
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "paused": true,
+                      "reason": "Ingredient unavailable"
+                    }
+                    """))
         .andExpect(status().isForbidden())
         .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN_ROLE"));
   }

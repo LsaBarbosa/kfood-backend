@@ -136,6 +136,46 @@ class CatalogProductRepositoryIntegrationTest extends PostgreSqlContainerIT {
         .isPresent();
   }
 
+  @Test
+  @DisplayName("should not return paused products to public menu")
+  void shouldNotReturnPausedProductsToPublicMenu() {
+    var store = storeRepository.saveAndFlush(store("loja-publica", "54.550.752/0001-55"));
+    var category =
+        catalogCategoryRepository.saveAndFlush(
+            new CatalogCategory(UUID.randomUUID(), store, "Pizzas", 10, true));
+
+    var visibleProduct =
+        catalogProductRepository.saveAndFlush(
+            new CatalogProduct(
+                UUID.randomUUID(),
+                store,
+                category,
+                "Pizza Mussarela",
+                "Pizza com mussarela",
+                new BigDecimal("34.90"),
+                null,
+                10,
+                true,
+                false));
+    catalogProductRepository.saveAndFlush(
+        new CatalogProduct(
+            UUID.randomUUID(),
+            store,
+            category,
+            "Pizza Calabresa",
+            "Pizza com calabresa",
+            new BigDecimal("39.90"),
+            null,
+            20,
+            true,
+            true));
+
+    var products = catalogProductRepository.findAllVisibleForPublicMenu(store.getId());
+
+    assertThat(products).extracting(CatalogProduct::getId).containsExactly(visibleProduct.getId());
+    assertThat(products).extracting(CatalogProduct::isPaused).containsOnly(false);
+  }
+
   private Store store(String slug, String cnpj) {
     return new Store(
         UUID.randomUUID(), "Loja do Bairro", slug, cnpj, "21999990000", "America/Sao_Paulo");
