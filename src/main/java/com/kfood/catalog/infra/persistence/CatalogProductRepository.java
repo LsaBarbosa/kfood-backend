@@ -11,5 +11,8 @@ public interface CatalogProductRepository extends JpaRepository<CatalogProduct, 
 
   Optional<CatalogProduct> findByIdAndStoreId(UUID id, UUID storeId);
 
+  List<CatalogProduct> findAllByStoreIdAndActiveTrueAndPausedFalseOrderBySortOrderAscNameAsc(
+      UUID storeId);
+
   List<CatalogProduct> findAllByStoreIdOrderBySortOrderAscNameAsc(UUID storeId);
 }
