@@ -178,6 +178,9 @@ public class SalesOrder extends AuditableEntity {
     if (orderNumber == null || orderNumber.isBlank()) {
       throw new IllegalArgumentException("orderNumber must not be blank");
     }
+    if (this.orderNumber != null && !this.orderNumber.isBlank()) {
+      throw new IllegalStateException("orderNumber is already assigned");
+    }
     this.orderNumber = orderNumber.trim();
   }
 

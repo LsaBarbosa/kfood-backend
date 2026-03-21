@@ -3,6 +3,7 @@ package com.kfood.order.infra.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.kfood.customer.infra.persistence.Customer;
 import com.kfood.merchant.infra.persistence.Store;
@@ -99,5 +100,29 @@ class SalesOrderTest {
                     null))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessage("totalAmount must be equal to subtotalAmount + deliveryFeeAmount");
+  }
+
+  @Test
+  void shouldRejectReassigningOrderNumber() {
+    var store = mock(Store.class);
+    var customer = mock(Customer.class);
+    when(store.getTimezone()).thenReturn("America/Sao_Paulo");
+
+    var order =
+        SalesOrder.create(
+            UUID.randomUUID(),
+            store,
+            customer,
+            FulfillmentType.DELIVERY,
+            new BigDecimal("40.00"),
+            new BigDecimal("8.00"),
+            new BigDecimal("48.00"),
+            null,
+            null);
+    order.assignOrderNumber("PED-20260321-000001");
+
+    assertThatThrownBy(() -> order.assignOrderNumber("PED-20260321-000002"))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessage("orderNumber is already assigned");
   }
 }
