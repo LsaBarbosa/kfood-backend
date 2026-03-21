@@ -5,6 +5,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.kfood.merchant.app.GetPublicStoreMenuUseCase;
 import com.kfood.merchant.app.GetPublicStoreUseCase;
 import com.kfood.merchant.app.StoreSlugNotFoundException;
 import com.kfood.merchant.domain.StoreStatus;
@@ -32,6 +33,8 @@ class PublicStoreControllerWebMvcTest {
   @Autowired private MockMvc mockMvc;
 
   @MockitoBean private GetPublicStoreUseCase getPublicStoreUseCase;
+
+  @MockitoBean private GetPublicStoreMenuUseCase getPublicStoreMenuUseCase;
 
   @Test
   void shouldReturnPublicStoreWithoutAuthentication() throws Exception {
@@ -73,6 +76,44 @@ class PublicStoreControllerWebMvcTest {
 
     mockMvc
         .perform(get("/v1/public/stores/nao-existe"))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
+  }
+
+  @Test
+  void shouldReturnPublicMenuWithoutAuthentication() throws Exception {
+    when(getPublicStoreMenuUseCase.execute("loja-do-bairro"))
+        .thenReturn(
+            new PublicStoreMenuResponse(
+                List.of(
+                    new PublicStoreMenuCategoryResponse(
+                        java.util.UUID.randomUUID(),
+                        "Bebidas",
+                        List.of(
+                            new PublicStoreMenuProductResponse(
+                                java.util.UUID.randomUUID(),
+                                "Refrigerante",
+                                "Lata 350ml",
+                                new BigDecimal("7.50"),
+                                null,
+                                false))))));
+
+    mockMvc
+        .perform(get("/v1/public/stores/loja-do-bairro/menu"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.categories[0].name").value("Bebidas"))
+        .andExpect(jsonPath("$.categories[0].products[0].name").value("Refrigerante"))
+        .andExpect(jsonPath("$.categories[0].products[0].basePrice").value(7.5))
+        .andExpect(jsonPath("$.categories[0].products[0].paused").value(false));
+  }
+
+  @Test
+  void shouldReturnNotFoundWhenStoreMenuSlugDoesNotExist() throws Exception {
+    when(getPublicStoreMenuUseCase.execute("nao-existe"))
+        .thenThrow(new StoreSlugNotFoundException("nao-existe"));
+
+    mockMvc
+        .perform(get("/v1/public/stores/nao-existe/menu"))
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
   }
