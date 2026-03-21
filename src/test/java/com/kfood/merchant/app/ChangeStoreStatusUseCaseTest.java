@@ -101,6 +101,26 @@ class ChangeStoreStatusUseCaseTest {
   }
 
   @Test
+  void shouldReactivateSuspendedStoreWhenRequirementsAreMet() {
+    var storeId = UUID.randomUUID();
+    var store = store(storeId);
+    store.activate();
+    store.suspend();
+
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
+    when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
+    when(storeActivationRequirementsService.evaluate(storeId))
+        .thenReturn(new StoreActivationRequirements(true, true, true));
+    when(storeRepository.saveAndFlush(store)).thenReturn(store);
+
+    var response =
+        changeStoreStatusUseCase.execute(new ChangeStoreStatusRequest(StoreStatus.ACTIVE));
+
+    assertThat(response.status()).isEqualTo(StoreStatus.ACTIVE);
+    assertThat(store.getStatus()).isEqualTo(StoreStatus.ACTIVE);
+  }
+
+  @Test
   void shouldRejectInvalidTransition() {
     var storeId = UUID.randomUUID();
     var store = store(storeId);

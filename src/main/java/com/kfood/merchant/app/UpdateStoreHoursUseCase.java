@@ -18,21 +18,25 @@ import org.springframework.transaction.annotation.Transactional;
 @ConditionalOnBean({
   StoreRepository.class,
   StoreBusinessHourRepository.class,
-  CurrentTenantProvider.class
+  CurrentTenantProvider.class,
+  StoreOperationalGuard.class
 })
 public class UpdateStoreHoursUseCase {
 
   private final StoreRepository storeRepository;
   private final StoreBusinessHourRepository storeBusinessHourRepository;
   private final CurrentTenantProvider currentTenantProvider;
+  private final StoreOperationalGuard storeOperationalGuard;
 
   public UpdateStoreHoursUseCase(
       StoreRepository storeRepository,
       StoreBusinessHourRepository storeBusinessHourRepository,
-      CurrentTenantProvider currentTenantProvider) {
+      CurrentTenantProvider currentTenantProvider,
+      StoreOperationalGuard storeOperationalGuard) {
     this.storeRepository = storeRepository;
     this.storeBusinessHourRepository = storeBusinessHourRepository;
     this.currentTenantProvider = currentTenantProvider;
+    this.storeOperationalGuard = storeOperationalGuard;
   }
 
   @Transactional
@@ -40,6 +44,8 @@ public class UpdateStoreHoursUseCase {
     var storeId = currentTenantProvider.getRequiredStoreId();
     var store =
         storeRepository.findById(storeId).orElseThrow(() -> new StoreNotFoundException(storeId));
+
+    storeOperationalGuard.ensureStoreIsNotSuspended(store);
 
     validate(request.hours());
 

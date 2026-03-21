@@ -180,6 +180,24 @@ class StoreEntityTest {
   }
 
   @Test
+  void shouldReactivateStoreFromSuspendedStatus() {
+    var store =
+        new Store(
+            UUID.randomUUID(),
+            "Loja do Bairro",
+            "loja-do-bairro",
+            "45.723.174/0001-10",
+            "21999990000",
+            "America/Sao_Paulo");
+
+    store.activate();
+    store.suspend();
+    store.activate();
+
+    assertThat(store.getStatus()).isEqualTo(StoreStatus.ACTIVE);
+  }
+
+  @Test
   void shouldInstantiateProtectedConstructorForJpa() throws Exception {
     Constructor<Store> constructor = Store.class.getDeclaredConstructor();
     constructor.setAccessible(true);

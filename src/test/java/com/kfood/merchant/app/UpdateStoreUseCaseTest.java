@@ -17,8 +17,9 @@ class UpdateStoreUseCaseTest {
 
   private final StoreRepository storeRepository = mock(StoreRepository.class);
   private final CurrentTenantProvider currentTenantProvider = mock(CurrentTenantProvider.class);
+  private final StoreOperationalGuard storeOperationalGuard = new StoreOperationalGuard();
   private final UpdateStoreUseCase updateStoreUseCase =
-      new UpdateStoreUseCase(storeRepository, currentTenantProvider);
+      new UpdateStoreUseCase(storeRepository, currentTenantProvider, storeOperationalGuard);
 
   @Test
   void shouldUpdateOnlyInformedFields() {
@@ -129,5 +130,30 @@ class UpdateStoreUseCaseTest {
 
     assertThat(response.slug()).isEqualTo("loja-do-bairro");
     assertThat(response.name()).isEqualTo("Loja Premium");
+  }
+
+  @Test
+  void shouldBlockStoreUpdateWhenStoreIsSuspended() {
+    var storeId = UUID.randomUUID();
+    var store =
+        new Store(
+            storeId,
+            "Loja do Bairro",
+            "loja-do-bairro",
+            "45.723.174/0001-10",
+            "21999990000",
+            "America/Sao_Paulo");
+    store.activate();
+    store.suspend();
+
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
+    when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
+
+    assertThatThrownBy(
+            () ->
+                updateStoreUseCase.execute(
+                    new UpdateStoreRequest("Novo nome", null, null, null, null)))
+        .isInstanceOf(StoreNotActiveException.class)
+        .hasMessageContaining("SUSPENDED");
   }
 }

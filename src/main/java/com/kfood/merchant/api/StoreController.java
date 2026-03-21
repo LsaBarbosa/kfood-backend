@@ -71,7 +71,7 @@ public class StoreController {
   }
 
   @PatchMapping("/status")
-  @PreAuthorize(Roles.OWNER)
+  @PreAuthorize(Roles.OWNER_OR_ADMIN)
   public StoreDetailsResponse changeStatus(@Valid @RequestBody ChangeStoreStatusRequest request) {
     return changeStoreStatusUseCase().execute(request);
   }
