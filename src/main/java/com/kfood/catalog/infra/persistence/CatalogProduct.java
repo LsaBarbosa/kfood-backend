@@ -77,6 +77,13 @@ public class CatalogProduct extends AuditableEntity {
   @OrderBy("dayOfWeek ASC, startTime ASC")
   private final List<CatalogProductAvailabilityWindow> availabilityWindows = new ArrayList<>();
 
+  @OneToMany(
+      mappedBy = "product",
+      orphanRemoval = true,
+      cascade = jakarta.persistence.CascadeType.ALL)
+  @OrderBy("id ASC")
+  private final List<CatalogOptionGroup> optionGroups = new ArrayList<>();
+
   protected CatalogProduct() {}
 
   public CatalogProduct(
@@ -154,6 +161,10 @@ public class CatalogProduct extends AuditableEntity {
 
   public List<CatalogProductAvailabilityWindow> getAvailabilityWindows() {
     return Collections.unmodifiableList(availabilityWindows);
+  }
+
+  public List<CatalogOptionGroup> getOptionGroups() {
+    return Collections.unmodifiableList(optionGroups);
   }
 
   public void changeCategory(CatalogCategory category) {

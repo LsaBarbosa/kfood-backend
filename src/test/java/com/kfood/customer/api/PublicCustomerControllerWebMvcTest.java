@@ -38,7 +38,8 @@ class PublicCustomerControllerWebMvcTest {
     var customerId = UUID.randomUUID();
     when(upsertCustomerUseCase.execute(eq("loja-do-bairro"), any(UpsertCustomerRequest.class)))
         .thenReturn(
-            new CustomerResponse(customerId, "Maria Silva", "21999990000", "maria@email.com"));
+            new CustomerResponse(
+                customerId, "Maria Silva", "21999990000", "maria@email.com", null));
 
     mockMvc
         .perform(
@@ -55,6 +56,42 @@ class PublicCustomerControllerWebMvcTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.id").value(customerId.toString()))
         .andExpect(jsonPath("$.name").value("Maria Silva"));
+  }
+
+  @Test
+  void shouldUpsertCustomerWithAddressAndReturnMainAddressId() throws Exception {
+    var customerId = UUID.randomUUID();
+    var mainAddressId = UUID.randomUUID();
+    when(upsertCustomerUseCase.execute(eq("loja-do-bairro"), any(UpsertCustomerRequest.class)))
+        .thenReturn(
+            new CustomerResponse(
+                customerId, "Maria Silva", "21999990000", "maria@email.com", mainAddressId));
+
+    mockMvc
+        .perform(
+            post("/v1/public/stores/loja-do-bairro/customers")
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "name": "Maria Silva",
+                      "phone": "21999990000",
+                      "email": "maria@email.com",
+                      "address": {
+                        "label": "Casa",
+                        "zipCode": "25000-000",
+                        "street": "Rua das Flores",
+                        "number": "45",
+                        "district": "Centro",
+                        "city": "Mage",
+                        "state": "RJ",
+                        "mainAddress": true
+                      }
+                    }
+                    """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(customerId.toString()))
+        .andExpect(jsonPath("$.mainAddressId").value(mainAddressId.toString()));
   }
 
   @Test
@@ -114,5 +151,54 @@ class PublicCustomerControllerWebMvcTest {
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
         .andExpect(jsonPath("$.details[0].field").value("name"));
+  }
+
+  @Test
+  void shouldReturnBadRequestWhenZipCodeIsInvalid() throws Exception {
+    mockMvc
+        .perform(
+            post("/v1/public/stores/loja-do-bairro/customers")
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "name": "Maria Silva",
+                      "phone": "21999990000",
+                      "address": {
+                        "label": "Casa",
+                        "zipCode": "2500-000",
+                        "street": "Rua das Flores",
+                        "number": "45",
+                        "district": "Centro",
+                        "city": "Mage",
+                        "state": "RJ",
+                        "mainAddress": true
+                      }
+                    }
+                    """))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+        .andExpect(jsonPath("$.details[0].field").value("address.zipCode"));
+  }
+
+  @Test
+  void shouldReturnBadRequestWhenAddressFieldsAreMissing() throws Exception {
+    mockMvc
+        .perform(
+            post("/v1/public/stores/loja-do-bairro/customers")
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "name": "Maria Silva",
+                      "phone": "21999990000",
+                      "address": {
+                        "label": "Casa",
+                        "zipCode": "25000-000"
+                      }
+                    }
+                    """))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
   }
 }

@@ -2,6 +2,7 @@ package com.kfood.catalog.infra.persistence;
 
 import java.time.DayOfWeek;
 import java.time.LocalTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -17,6 +18,9 @@ public interface CatalogProductRepository extends JpaRepository<CatalogProduct, 
 
   @EntityGraph(attributePaths = {"category", "availabilityWindows"})
   Optional<CatalogProduct> findDetailedByIdAndStoreId(UUID id, UUID storeId);
+
+  @EntityGraph(attributePaths = {"availabilityWindows", "optionGroups", "optionGroups.items"})
+  List<CatalogProduct> findAllByStoreIdAndIdIn(UUID storeId, Collection<UUID> ids);
 
   @EntityGraph(attributePaths = "category")
   List<CatalogProduct> findAllByStoreIdAndActiveTrueAndPausedFalseOrderBySortOrderAscNameAsc(

@@ -13,6 +13,9 @@ public interface DeliveryZoneRepository extends JpaRepository<DeliveryZone, UUID
 
   Optional<DeliveryZone> findByStoreIdAndZoneName(UUID storeId, String zoneName);
 
+  Optional<DeliveryZone> findByStoreIdAndZoneNameIgnoreCaseAndActiveTrue(
+      UUID storeId, String zoneName);
+
   List<DeliveryZone> findAllByStoreIdOrderByZoneNameAsc(UUID storeId);
 
   List<DeliveryZone> findAllByStoreIdAndActiveTrueOrderByZoneNameAsc(UUID storeId);
