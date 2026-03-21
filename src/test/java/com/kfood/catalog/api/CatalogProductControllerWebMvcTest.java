@@ -15,12 +15,16 @@ import com.kfood.catalog.app.CatalogProductNotFoundException;
 import com.kfood.catalog.app.CreateCatalogProductUseCase;
 import com.kfood.catalog.app.DeactivateCatalogProductUseCase;
 import com.kfood.catalog.app.ListCatalogProductsUseCase;
+import com.kfood.catalog.app.UpdateCatalogProductAvailabilityUseCase;
+import com.kfood.catalog.app.UpdateCatalogProductPauseUseCase;
 import com.kfood.catalog.app.UpdateCatalogProductUseCase;
 import com.kfood.identity.app.JwtTokenService;
 import com.kfood.identity.domain.UserRoleName;
 import com.kfood.identity.domain.UserStatus;
 import com.kfood.identity.persistence.IdentityUserEntity;
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -50,6 +54,11 @@ class CatalogProductControllerWebMvcTest {
   @MockitoBean private ListCatalogProductsUseCase listCatalogProductsUseCase;
 
   @MockitoBean private UpdateCatalogProductUseCase updateCatalogProductUseCase;
+
+  @MockitoBean private UpdateCatalogProductPauseUseCase updateCatalogProductPauseUseCase;
+
+  @MockitoBean
+  private UpdateCatalogProductAvailabilityUseCase updateCatalogProductAvailabilityUseCase;
 
   @MockitoBean private DeactivateCatalogProductUseCase deactivateCatalogProductUseCase;
 
@@ -197,6 +206,74 @@ class CatalogProductControllerWebMvcTest {
   }
 
   @Test
+  void shouldPauseProductSuccessfully() throws Exception {
+    var productId = UUID.randomUUID();
+    when(updateCatalogProductPauseUseCase.execute(
+            org.mockito.ArgumentMatchers.eq(productId),
+            any(UpdateCatalogProductPauseRequest.class)))
+        .thenReturn(new CatalogProductPauseResponse(productId, true, true));
+
+    mockMvc
+        .perform(
+            patch("/v1/catalog/products/" + productId + "/pause")
+                .header("Authorization", "Bearer " + tokenOf(UserRoleName.OWNER))
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "paused": true,
+                      "reason": "Ingredient unavailable"
+                    }
+                    """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.id").value(productId.toString()))
+        .andExpect(jsonPath("$.paused").value(true))
+        .andExpect(jsonPath("$.active").value(true));
+  }
+
+  @Test
+  void shouldUpdateProductAvailabilityWindowsSuccessfully() throws Exception {
+    var productId = UUID.randomUUID();
+    var windowId = UUID.randomUUID();
+    when(updateCatalogProductAvailabilityUseCase.execute(
+            org.mockito.ArgumentMatchers.eq(productId),
+            any(UpdateCatalogProductAvailabilityRequest.class)))
+        .thenReturn(
+            new CatalogProductAvailabilityResponse(
+                productId,
+                List.of(
+                    new CatalogProductAvailabilityWindowResponse(
+                        windowId,
+                        DayOfWeek.MONDAY,
+                        LocalTime.of(11, 0),
+                        LocalTime.of(14, 0),
+                        true))));
+
+    mockMvc
+        .perform(
+            put("/v1/catalog/products/" + productId + "/availability-windows")
+                .header("Authorization", "Bearer " + tokenOf(UserRoleName.MANAGER))
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "windows": [
+                        {
+                          "dayOfWeek": "MONDAY",
+                          "startTime": "11:00:00",
+                          "endTime": "14:00:00",
+                          "active": true
+                        }
+                      ]
+                    }
+                    """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.productId").value(productId.toString()))
+        .andExpect(jsonPath("$.windows[0].id").value(windowId.toString()))
+        .andExpect(jsonPath("$.windows[0].dayOfWeek").value("MONDAY"));
+  }
+
+  @Test
   void shouldReturnNotFoundWhenUpdatingMissingProduct() throws Exception {
     var productId = UUID.randomUUID();
     when(updateCatalogProductUseCase.execute(
@@ -276,6 +353,48 @@ class CatalogProductControllerWebMvcTest {
                     }
                     """
                         .formatted(UUID.randomUUID())))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN_ROLE"));
+  }
+
+  @Test
+  void shouldForbidAttendantFromPausingProduct() throws Exception {
+    mockMvc
+        .perform(
+            patch("/v1/catalog/products/" + UUID.randomUUID() + "/pause")
+                .header("Authorization", "Bearer " + tokenOf(UserRoleName.ATTENDANT))
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "paused": true,
+                      "reason": "Ingredient unavailable"
+                    }
+                    """))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN_ROLE"));
+  }
+
+  @Test
+  void shouldForbidAttendantFromUpdatingProductAvailabilityWindows() throws Exception {
+    mockMvc
+        .perform(
+            put("/v1/catalog/products/" + UUID.randomUUID() + "/availability-windows")
+                .header("Authorization", "Bearer " + tokenOf(UserRoleName.ATTENDANT))
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "windows": [
+                        {
+                          "dayOfWeek": "MONDAY",
+                          "startTime": "11:00:00",
+                          "endTime": "14:00:00",
+                          "active": true
+                        }
+                      ]
+                    }
+                    """))
         .andExpect(status().isForbidden())
         .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN_ROLE"));
   }

@@ -3,6 +3,8 @@ package com.kfood.catalog.api;
 import com.kfood.catalog.app.CreateCatalogProductUseCase;
 import com.kfood.catalog.app.DeactivateCatalogProductUseCase;
 import com.kfood.catalog.app.ListCatalogProductsUseCase;
+import com.kfood.catalog.app.UpdateCatalogProductAvailabilityUseCase;
+import com.kfood.catalog.app.UpdateCatalogProductPauseUseCase;
 import com.kfood.catalog.app.UpdateCatalogProductUseCase;
 import com.kfood.identity.app.Roles;
 import jakarta.validation.Valid;
@@ -28,6 +30,10 @@ public class CatalogProductController {
   private final ObjectProvider<CreateCatalogProductUseCase> createCatalogProductUseCaseProvider;
   private final ObjectProvider<ListCatalogProductsUseCase> listCatalogProductsUseCaseProvider;
   private final ObjectProvider<UpdateCatalogProductUseCase> updateCatalogProductUseCaseProvider;
+  private final ObjectProvider<UpdateCatalogProductPauseUseCase>
+      updateCatalogProductPauseUseCaseProvider;
+  private final ObjectProvider<UpdateCatalogProductAvailabilityUseCase>
+      updateCatalogProductAvailabilityUseCaseProvider;
   private final ObjectProvider<DeactivateCatalogProductUseCase>
       deactivateCatalogProductUseCaseProvider;
 
@@ -35,10 +41,16 @@ public class CatalogProductController {
       ObjectProvider<CreateCatalogProductUseCase> createCatalogProductUseCaseProvider,
       ObjectProvider<ListCatalogProductsUseCase> listCatalogProductsUseCaseProvider,
       ObjectProvider<UpdateCatalogProductUseCase> updateCatalogProductUseCaseProvider,
+      ObjectProvider<UpdateCatalogProductPauseUseCase> updateCatalogProductPauseUseCaseProvider,
+      ObjectProvider<UpdateCatalogProductAvailabilityUseCase>
+          updateCatalogProductAvailabilityUseCaseProvider,
       ObjectProvider<DeactivateCatalogProductUseCase> deactivateCatalogProductUseCaseProvider) {
     this.createCatalogProductUseCaseProvider = createCatalogProductUseCaseProvider;
     this.listCatalogProductsUseCaseProvider = listCatalogProductsUseCaseProvider;
     this.updateCatalogProductUseCaseProvider = updateCatalogProductUseCaseProvider;
+    this.updateCatalogProductPauseUseCaseProvider = updateCatalogProductPauseUseCaseProvider;
+    this.updateCatalogProductAvailabilityUseCaseProvider =
+        updateCatalogProductAvailabilityUseCaseProvider;
     this.deactivateCatalogProductUseCaseProvider = deactivateCatalogProductUseCaseProvider;
   }
 
@@ -68,6 +80,21 @@ public class CatalogProductController {
     return deactivateCatalogProductUseCase().execute(productId);
   }
 
+  @PatchMapping("/{productId}/pause")
+  @PreAuthorize(Roles.OWNER_OR_MANAGER)
+  public CatalogProductPauseResponse updatePause(
+      @PathVariable UUID productId, @Valid @RequestBody UpdateCatalogProductPauseRequest request) {
+    return updateCatalogProductPauseUseCase().execute(productId, request);
+  }
+
+  @PutMapping("/{productId}/availability-windows")
+  @PreAuthorize(Roles.OWNER_OR_MANAGER)
+  public CatalogProductAvailabilityResponse updateAvailabilityWindows(
+      @PathVariable UUID productId,
+      @Valid @RequestBody UpdateCatalogProductAvailabilityRequest request) {
+    return updateCatalogProductAvailabilityUseCase().execute(productId, request);
+  }
+
   private CreateCatalogProductUseCase createCatalogProductUseCase() {
     return createCatalogProductUseCaseProvider.getObject();
   }
@@ -82,5 +109,13 @@ public class CatalogProductController {
 
   private DeactivateCatalogProductUseCase deactivateCatalogProductUseCase() {
     return deactivateCatalogProductUseCaseProvider.getObject();
+  }
+
+  private UpdateCatalogProductPauseUseCase updateCatalogProductPauseUseCase() {
+    return updateCatalogProductPauseUseCaseProvider.getObject();
+  }
+
+  private UpdateCatalogProductAvailabilityUseCase updateCatalogProductAvailabilityUseCase() {
+    return updateCatalogProductAvailabilityUseCaseProvider.getObject();
   }
 }

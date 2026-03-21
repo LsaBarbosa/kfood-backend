@@ -8,8 +8,11 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
 import jakarta.validation.constraints.NotBlank;
@@ -17,11 +20,20 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
 @Entity
-@Table(name = "catalog_product")
+@Table(
+    name = "catalog_product",
+    uniqueConstraints = {
+      @UniqueConstraint(
+          name = "uk_catalog_product_store_id_id",
+          columnNames = {"store_id", "id"})
+    })
 public class CatalogProduct extends AuditableEntity {
 
   @Id private UUID id;
@@ -29,6 +41,9 @@ public class CatalogProduct extends AuditableEntity {
   @NotNull @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "store_id", nullable = false)
   private Store store;
+
+  @Column(name = "store_id", nullable = false, insertable = false, updatable = false)
+  private UUID storeId;
 
   @NotNull @ManyToOne(fetch = FetchType.LAZY, optional = false)
   @JoinColumn(name = "category_id", nullable = false)
@@ -54,6 +69,13 @@ public class CatalogProduct extends AuditableEntity {
 
   @Column(name = "paused", nullable = false)
   private boolean paused;
+
+  @OneToMany(
+      mappedBy = "product",
+      orphanRemoval = true,
+      cascade = jakarta.persistence.CascadeType.ALL)
+  @OrderBy("dayOfWeek ASC, startTime ASC")
+  private final List<CatalogProductAvailabilityWindow> availabilityWindows = new ArrayList<>();
 
   protected CatalogProduct() {}
 
@@ -94,6 +116,10 @@ public class CatalogProduct extends AuditableEntity {
     return store;
   }
 
+  public UUID getStoreId() {
+    return storeId;
+  }
+
   public CatalogCategory getCategory() {
     return category;
   }
@@ -124,6 +150,10 @@ public class CatalogProduct extends AuditableEntity {
 
   public boolean isPaused() {
     return paused;
+  }
+
+  public List<CatalogProductAvailabilityWindow> getAvailabilityWindows() {
+    return Collections.unmodifiableList(availabilityWindows);
   }
 
   public void changeCategory(CatalogCategory category) {
@@ -169,6 +199,22 @@ public class CatalogProduct extends AuditableEntity {
 
   public void resume() {
     paused = false;
+  }
+
+  public void replaceAvailabilityWindows(List<CatalogProductAvailabilityWindow> windows) {
+    availabilityWindows.clear();
+    if (windows != null) {
+      for (var window : windows) {
+        if (window == null) {
+          throw new IllegalArgumentException("availabilityWindow must not be null");
+        }
+        if (window.getProduct() != this) {
+          throw new IllegalArgumentException(
+              "availabilityWindow product must match catalog product");
+        }
+        availabilityWindows.add(window);
+      }
+    }
   }
 
   private void validateBusinessRules() {
