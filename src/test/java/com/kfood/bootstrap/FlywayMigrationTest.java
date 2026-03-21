@@ -43,6 +43,7 @@ class FlywayMigrationTest {
     assertThat(tableExists("catalog_option_group")).isTrue();
     assertThat(tableExists("catalog_option_item")).isTrue();
     assertThat(tableExists("customer")).isTrue();
+    assertThat(tableExists("catalog_product_availability")).isTrue();
   }
 
   @Test
@@ -253,6 +254,24 @@ class FlywayMigrationTest {
                      select count(*)
                      from flyway_schema_history
                      where version = '12'
+                       and success = true
+                     """)) {
+
+      assertThat(resultSet.next()).isTrue();
+      assertThat(resultSet.getInt(1)).isEqualTo(1);
+    }
+  }
+
+  @Test
+  void shouldRegisterVersionThirteenInFlywayHistory() throws Exception {
+    try (Connection connection = dataSource.getConnection();
+        Statement statement = connection.createStatement();
+        ResultSet resultSet =
+            statement.executeQuery(
+                """
+                     select count(*)
+                     from flyway_schema_history
+                     where version = '13'
                        and success = true
                      """)) {
 
@@ -570,6 +589,79 @@ class FlywayMigrationTest {
         .isTrue();
     assertThat(indexExists("catalog_product", "idx_catalog_product_store_active_paused_sort_name"))
         .isTrue();
+  }
+
+  @Test
+  void shouldApplyCatalogProductAvailabilityMigrationAfterApplyingMigrations() throws Exception {
+    assertThat(
+            indexExists("catalog_product_availability", "idx_catalog_product_availability_product"))
+        .isTrue();
+    assertThat(
+            indexExists(
+                "catalog_product_availability",
+                "idx_catalog_product_availability_product_day_active"))
+        .isTrue();
+
+    try (Connection connection = dataSource.getConnection();
+        Statement statement = connection.createStatement()) {
+      statement.executeUpdate(
+          """
+          insert into store (id, slug, name, cnpj, phone, timezone, created_at, updated_at)
+          values ('12121212-1212-1212-1212-121212121212',
+                  'store-availability-constraint',
+                  'Loja Janela',
+                  '45.723.174/0001-10',
+                  '21999990000',
+                  'America/Sao_Paulo',
+                  current_timestamp,
+                  current_timestamp)
+          """);
+
+      statement.executeUpdate(
+          """
+          insert into catalog_category (id, store_id, name, sort_order, active, created_at, updated_at)
+          values ('13131313-1313-1313-1313-131313131313',
+                  '12121212-1212-1212-1212-121212121212',
+                  'Pizzas',
+                  10,
+                  true,
+                  current_timestamp,
+                  current_timestamp)
+          """);
+
+      statement.executeUpdate(
+          """
+          insert into catalog_product (id, store_id, category_id, name, description, base_price, image_url, sort_order, active, paused, created_at, updated_at)
+          values ('14141414-1414-1414-1414-141414141414',
+                  '12121212-1212-1212-1212-121212121212',
+                  '13131313-1313-1313-1313-131313131313',
+                  'Pizza Almoco',
+                  'Disponivel no almoco',
+                  39.90,
+                  null,
+                  10,
+                  true,
+                  false,
+                  current_timestamp,
+                  current_timestamp)
+          """);
+
+      org.assertj.core.api.Assertions.assertThatThrownBy(
+              () ->
+                  statement.executeUpdate(
+                      """
+                      insert into catalog_product_availability (id, product_id, day_of_week, start_time, end_time, active, created_at, updated_at)
+                      values ('15151515-1515-1515-1515-151515151515',
+                              '14141414-1414-1414-1414-141414141414',
+                              'MONDAY',
+                              '18:00:00',
+                              '12:00:00',
+                              true,
+                              current_timestamp,
+                              current_timestamp)
+                      """))
+          .isInstanceOf(Exception.class);
+    }
   }
 
   private boolean tableExists(String tableName) throws Exception {

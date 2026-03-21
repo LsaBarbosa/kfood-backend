@@ -7,6 +7,7 @@ import com.kfood.merchant.api.PublicStoreMenuCategoryResponse;
 import com.kfood.merchant.api.PublicStoreMenuProductResponse;
 import com.kfood.merchant.api.PublicStoreMenuResponse;
 import com.kfood.merchant.infra.persistence.StoreRepository;
+import java.time.ZoneId;
 import java.util.LinkedHashMap;
 import java.util.Objects;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -43,7 +44,11 @@ public class GetPublicStoreMenuUseCase {
             .orElseThrow(() -> new StoreSlugNotFoundException(normalizedSlug));
 
     var categoriesById = new LinkedHashMap<java.util.UUID, PublicStoreMenuCategoryAccumulator>();
-    for (var product : catalogProductRepository.findAllVisibleForPublicMenu(store.getId())) {
+    var storeZoneId = ZoneId.of(store.getTimezone());
+    var now = java.time.ZonedDateTime.now(storeZoneId);
+    for (var product :
+        catalogProductRepository.findAllVisibleForPublicMenu(
+            store.getId(), now.getDayOfWeek(), now.toLocalTime())) {
       var category = product.getCategory();
       categoriesById
           .computeIfAbsent(

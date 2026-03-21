@@ -8,6 +8,8 @@ import jakarta.persistence.FetchType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.OrderBy;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
@@ -18,6 +20,9 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -64,6 +69,13 @@ public class CatalogProduct extends AuditableEntity {
 
   @Column(name = "paused", nullable = false)
   private boolean paused;
+
+  @OneToMany(
+      mappedBy = "product",
+      orphanRemoval = true,
+      cascade = jakarta.persistence.CascadeType.ALL)
+  @OrderBy("dayOfWeek ASC, startTime ASC")
+  private final List<CatalogProductAvailabilityWindow> availabilityWindows = new ArrayList<>();
 
   protected CatalogProduct() {}
 
@@ -140,6 +152,10 @@ public class CatalogProduct extends AuditableEntity {
     return paused;
   }
 
+  public List<CatalogProductAvailabilityWindow> getAvailabilityWindows() {
+    return Collections.unmodifiableList(availabilityWindows);
+  }
+
   public void changeCategory(CatalogCategory category) {
     this.category = Objects.requireNonNull(category, "category is required");
     validateBusinessRules();
@@ -183,6 +199,22 @@ public class CatalogProduct extends AuditableEntity {
 
   public void resume() {
     paused = false;
+  }
+
+  public void replaceAvailabilityWindows(List<CatalogProductAvailabilityWindow> windows) {
+    availabilityWindows.clear();
+    if (windows != null) {
+      for (var window : windows) {
+        if (window == null) {
+          throw new IllegalArgumentException("availabilityWindow must not be null");
+        }
+        if (window.getProduct() != this) {
+          throw new IllegalArgumentException(
+              "availabilityWindow product must match catalog product");
+        }
+        availabilityWindows.add(window);
+      }
+    }
   }
 
   private void validateBusinessRules() {
