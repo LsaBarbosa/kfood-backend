@@ -8,6 +8,8 @@ create table if not exists catalog_category (
     updated_at timestamp not null default current_timestamp,
     constraint fk_catalog_category_store
         foreign key (store_id) references store (id),
+    constraint uk_catalog_category_store_name
+        unique (store_id, name),
     constraint chk_catalog_category_sort_order
         check (sort_order >= 0)
 );
