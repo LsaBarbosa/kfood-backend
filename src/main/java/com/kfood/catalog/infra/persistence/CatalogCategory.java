@@ -23,6 +23,9 @@ import java.util.UUID;
     name = "catalog_category",
     uniqueConstraints = {
       @UniqueConstraint(
+          name = "uk_catalog_category_store_id_id",
+          columnNames = {"store_id", "id"}),
+      @UniqueConstraint(
           name = "uk_catalog_category_store_name",
           columnNames = {"store_id", "name"})
     })
