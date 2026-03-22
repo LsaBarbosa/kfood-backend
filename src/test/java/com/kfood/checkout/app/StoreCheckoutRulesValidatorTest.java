@@ -69,6 +69,20 @@ class StoreCheckoutRulesValidatorTest {
         .isEqualTo(ErrorCode.STORE_NOT_ACTIVE);
   }
 
+  @Test
+  void shouldUseDefaultConstructorAndIgnoreClosedSlots() {
+    var store = activeStore();
+    var validator = new StoreCheckoutRulesValidator(storeBusinessHourRepository);
+
+    when(storeBusinessHourRepository.findAllByStoreIdAndDayOfWeek(store.getId(), DayOfWeek.MONDAY))
+        .thenReturn(List.of(StoreBusinessHour.closed(store, DayOfWeek.MONDAY)));
+
+    assertThatThrownBy(() -> validator.ensureStoreWithinBusinessHours(store))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.STORE_OUTSIDE_BUSINESS_HOURS);
+  }
+
   private Store activeStore() {
     return new Store(
         UUID.randomUUID(),
