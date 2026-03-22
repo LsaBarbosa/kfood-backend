@@ -23,6 +23,7 @@ class IdempotencyKeyEntryTest {
 
     entry.complete("{\"value\":\"ok\"}", 201);
 
+    assertThat(entry.getStoreId()).isNotNull();
     assertThat(entry.getScope()).isEqualTo("public-order-create");
     assertThat(entry.getKeyValue()).isEqualTo("idem-123");
     assertThat(entry.getRequestHash()).isEqualTo("request-hash");

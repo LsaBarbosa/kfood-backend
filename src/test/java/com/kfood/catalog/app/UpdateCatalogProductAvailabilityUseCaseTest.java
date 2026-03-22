@@ -98,6 +98,31 @@ class UpdateCatalogProductAvailabilityUseCaseTest {
   }
 
   @Test
+  void shouldIgnoreInactiveWindowsWhenValidatingOverlaps() {
+    var storeId = UUID.randomUUID();
+    var productId = UUID.randomUUID();
+    var store = store(storeId);
+    var product = product(store, productId);
+    var request =
+        new UpdateCatalogProductAvailabilityRequest(
+            List.of(
+                new CatalogProductAvailabilityWindowRequest(
+                    DayOfWeek.MONDAY, LocalTime.of(11, 0), LocalTime.of(14, 0), false),
+                new CatalogProductAvailabilityWindowRequest(
+                    DayOfWeek.MONDAY, LocalTime.of(12, 0), LocalTime.of(15, 0), true)));
+
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
+    when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
+    when(catalogProductRepository.findDetailedByIdAndStoreId(productId, storeId))
+        .thenReturn(Optional.of(product));
+    when(catalogProductRepository.saveAndFlush(product)).thenReturn(product);
+
+    var response = updateCatalogProductAvailabilityUseCase.execute(productId, request);
+
+    assertThat(response.windows()).hasSize(2);
+  }
+
+  @Test
   void shouldRejectInvalidTimeRange() {
     var storeId = UUID.randomUUID();
     var productId = UUID.randomUUID();
@@ -118,6 +143,27 @@ class UpdateCatalogProductAvailabilityUseCaseTest {
         .hasMessageContaining("startTime must be before endTime");
 
     verify(catalogProductRepository, never()).saveAndFlush(any());
+  }
+
+  @Test
+  void shouldRejectInvalidTimeRangeEvenForInactiveWindow() {
+    var storeId = UUID.randomUUID();
+    var productId = UUID.randomUUID();
+    var store = store(storeId);
+    var request =
+        new UpdateCatalogProductAvailabilityRequest(
+            List.of(
+                new CatalogProductAvailabilityWindowRequest(
+                    DayOfWeek.MONDAY, LocalTime.of(18, 0), LocalTime.of(12, 0), false)));
+
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
+    when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
+    when(catalogProductRepository.findDetailedByIdAndStoreId(productId, storeId))
+        .thenReturn(Optional.of(product(store, productId)));
+
+    assertThatThrownBy(() -> updateCatalogProductAvailabilityUseCase.execute(productId, request))
+        .isInstanceOf(InvalidCatalogProductAvailabilityException.class)
+        .hasMessageContaining("startTime must be before endTime");
   }
 
   @Test
@@ -178,6 +224,25 @@ class UpdateCatalogProductAvailabilityUseCaseTest {
                     productId, new UpdateCatalogProductAvailabilityRequest(List.of())))
         .isInstanceOf(StoreNotActiveException.class)
         .hasMessageContaining("SUSPENDED");
+  }
+
+  @Test
+  void shouldThrowWhenProductDoesNotExist() {
+    var storeId = UUID.randomUUID();
+    var productId = UUID.randomUUID();
+    var store = store(storeId);
+
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
+    when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
+    when(catalogProductRepository.findDetailedByIdAndStoreId(productId, storeId))
+        .thenReturn(Optional.empty());
+
+    assertThatThrownBy(
+            () ->
+                updateCatalogProductAvailabilityUseCase.execute(
+                    productId, new UpdateCatalogProductAvailabilityRequest(List.of())))
+        .isInstanceOf(CatalogProductNotFoundException.class)
+        .hasMessageContaining(productId.toString());
   }
 
   private CatalogProduct product(Store store, UUID productId) {

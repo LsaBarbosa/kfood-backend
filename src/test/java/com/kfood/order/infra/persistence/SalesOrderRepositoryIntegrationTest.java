@@ -353,6 +353,55 @@ class SalesOrderRepositoryIntegrationTest extends PostgreSqlContainerIT {
     assertThat(detailedOrder.getDeliveryAddressNumber()).isEqualTo("45");
   }
 
+  @Test
+  @DisplayName("should filter operational queue by fulfillment type and created at range")
+  void shouldFilterOperationalQueueByFulfillmentTypeAndCreatedAtRange() {
+    var store = storeRepository.saveAndFlush(store("loja-filtro", "54.550.752/0001-55"));
+    var customer =
+        customerRepository.saveAndFlush(
+            new Customer(
+                UUID.randomUUID(), store, "Maria Silva", "21999990000", "maria@email.com"));
+    var deliveryOrder =
+        salesOrderRepository.saveAndFlush(
+            SalesOrder.create(
+                UUID.randomUUID(),
+                store,
+                customer,
+                FulfillmentType.DELIVERY,
+                PaymentMethod.PIX,
+                new BigDecimal("50.00"),
+                new BigDecimal("6.50"),
+                new BigDecimal("56.50"),
+                null,
+                null));
+    salesOrderRepository.saveAndFlush(
+        SalesOrder.create(
+            UUID.randomUUID(),
+            store,
+            customer,
+            FulfillmentType.PICKUP,
+            PaymentMethod.PIX,
+            new BigDecimal("40.00"),
+            BigDecimal.ZERO,
+            new BigDecimal("40.00"),
+            null,
+            null));
+
+    var queue =
+        salesOrderRepository.findOperationalQueue(
+            store.getId(),
+            OrderStatus.NEW,
+            FulfillmentType.DELIVERY,
+            Instant.EPOCH,
+            Instant.now().plusSeconds(3600),
+            OffsetDateTime.now(),
+            PageRequest.of(0, 10));
+
+    assertThat(queue.getContent())
+        .extracting(SalesOrder::getId)
+        .containsExactly(deliveryOrder.getId());
+  }
+
   private Store store(String slug, String cnpj) {
     return new Store(
         UUID.randomUUID(), "Loja do Bairro", slug, cnpj, "21999990000", "America/Sao_Paulo");

@@ -113,6 +113,20 @@ class CheckoutQuotePersistenceTest {
     assertThat(optionConstructor.newInstance()).isNotNull();
   }
 
+  @Test
+  void shouldExposeQuoteItemId() {
+    var item =
+        new CheckoutQuoteItem(
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            "Pizza Calabresa",
+            new BigDecimal("40.00"),
+            1,
+            null);
+
+    assertThat(item.getId()).isNotNull();
+  }
+
   private void invokeValidateLifecycle(CheckoutQuote quote) throws Exception {
     var method = CheckoutQuote.class.getDeclaredMethod("validateLifecycle");
     method.setAccessible(true);

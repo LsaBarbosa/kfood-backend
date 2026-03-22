@@ -298,6 +298,16 @@ class SalesOrderTest {
   }
 
   @Test
+  void shouldUpdatePaymentStatusSnapshot() {
+    var order = createPickupOrder();
+
+    order.markPaymentStatusSnapshot(com.kfood.payment.domain.PaymentStatusSnapshot.CONFIRMED);
+
+    assertThat(order.getPaymentStatusSnapshot())
+        .isEqualTo(com.kfood.payment.domain.PaymentStatusSnapshot.CONFIRMED);
+  }
+
+  @Test
   void shouldRejectNegativeSubtotal() {
     var store = mock(Store.class);
     var customer = mock(Customer.class);
@@ -336,6 +346,25 @@ class SalesOrderTest {
                     null))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessage("deliveryFeeAmount must not be negative");
+  }
+
+  @Test
+  void shouldRejectNegativeTotalAmount() {
+    assertThatThrownBy(
+            () ->
+                SalesOrder.create(
+                    UUID.randomUUID(),
+                    mock(Store.class),
+                    mock(Customer.class),
+                    FulfillmentType.PICKUP,
+                    PaymentMethod.PIX,
+                    new BigDecimal("40.00"),
+                    BigDecimal.ZERO,
+                    new BigDecimal("-1.00"),
+                    null,
+                    null))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("totalAmount must not be negative");
   }
 
   @Test

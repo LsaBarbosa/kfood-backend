@@ -1,5 +1,6 @@
 package com.kfood.catalog.app.availability;
 
+import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -30,5 +31,19 @@ class CatalogProductAvailabilityValidatorTest {
         .isInstanceOf(BusinessException.class)
         .extracting("errorCode")
         .isEqualTo(ErrorCode.CATALOG_ITEM_UNAVAILABLE);
+  }
+
+  @Test
+  void shouldAcceptWhenProductIsInsideWindow() {
+    var product = mock(CatalogProduct.class);
+    when(catalogProductAvailabilityEvaluator.isAvailableNow(
+            product, java.time.ZoneId.of("America/Sao_Paulo")))
+        .thenReturn(true);
+
+    assertThatCode(
+            () ->
+                catalogProductAvailabilityValidator.ensureAvailableNow(
+                    product, "America/Sao_Paulo"))
+        .doesNotThrowAnyException();
   }
 }

@@ -60,6 +60,14 @@ class CustomerTest {
   }
 
   @Test
+  void shouldExposeStore() {
+    var store = store();
+    var customer = new Customer(UUID.randomUUID(), store, "Maria", "21999990000", null);
+
+    assertThat(customer.getStore()).isEqualTo(store);
+  }
+
+  @Test
   void shouldInstantiateProtectedConstructorForJpa() throws Exception {
     Constructor<Customer> constructor = Customer.class.getDeclaredConstructor();
     constructor.setAccessible(true);

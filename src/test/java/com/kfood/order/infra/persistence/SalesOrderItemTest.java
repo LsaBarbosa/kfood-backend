@@ -149,6 +149,102 @@ class SalesOrderItemTest {
         .hasRootCauseMessage("productNameSnapshot must not be blank");
   }
 
+  @Test
+  void shouldRejectNegativeTotalItemAmountOnLifecycle() throws Exception {
+    var item =
+        SalesOrderItem.create(
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            "Pizza Calabresa",
+            new BigDecimal("42.00"),
+            1,
+            null);
+    setField(item, "totalItemAmount", new BigDecimal("-1.00"));
+
+    assertThatThrownBy(() -> invokeValidateLifecycle(item))
+        .hasRootCauseInstanceOf(IllegalArgumentException.class)
+        .hasRootCauseMessage("totalItemAmount must not be negative");
+  }
+
+  @Test
+  void shouldRejectNullProductName() {
+    assertThatThrownBy(
+            () ->
+                SalesOrderItem.create(
+                    UUID.randomUUID(), UUID.randomUUID(), null, new BigDecimal("42.00"), 1, null))
+        .isInstanceOf(NullPointerException.class)
+        .hasMessage("productNameSnapshot must not be null");
+  }
+
+  @Test
+  void shouldRejectBlankProductNameOnCreation() {
+    assertThatThrownBy(
+            () ->
+                SalesOrderItem.create(
+                    UUID.randomUUID(), UUID.randomUUID(), "   ", new BigDecimal("42.00"), 1, null))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("productNameSnapshot must not be blank");
+  }
+
+  @Test
+  void shouldExposeZeroExtrasWhenThereAreNoOptions() {
+    var item =
+        SalesOrderItem.create(
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            "Pizza Calabresa",
+            new BigDecimal("42.00"),
+            1,
+            null);
+
+    assertThat(item.getOptionExtrasPerUnit()).isEqualByComparingTo("0.00");
+  }
+
+  @Test
+  void shouldRejectNullOption() {
+    var item =
+        SalesOrderItem.create(
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            "Pizza Calabresa",
+            new BigDecimal("42.00"),
+            1,
+            null);
+
+    assertThatThrownBy(() -> item.addOption(null))
+        .isInstanceOf(NullPointerException.class)
+        .hasMessage("option must not be null");
+  }
+
+  @Test
+  void shouldRejectOtherInvalidLifecycleStates() throws Exception {
+    var item =
+        SalesOrderItem.create(
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            "Pizza Calabresa",
+            new BigDecimal("42.00"),
+            1,
+            null);
+
+    setField(item, "productId", null);
+    assertThatThrownBy(() -> invokeValidateLifecycle(item))
+        .hasRootCauseInstanceOf(IllegalArgumentException.class)
+        .hasRootCauseMessage("productId must not be null");
+
+    setField(item, "productId", UUID.randomUUID());
+    setField(item, "unitPriceSnapshot", new BigDecimal("-1.00"));
+    assertThatThrownBy(() -> invokeValidateLifecycle(item))
+        .hasRootCauseInstanceOf(IllegalArgumentException.class)
+        .hasRootCauseMessage("unitPriceSnapshot must not be negative");
+
+    setField(item, "unitPriceSnapshot", new BigDecimal("42.00"));
+    setField(item, "quantity", 0);
+    assertThatThrownBy(() -> invokeValidateLifecycle(item))
+        .hasRootCauseInstanceOf(IllegalArgumentException.class)
+        .hasRootCauseMessage("quantity must be greater than zero");
+  }
+
   private void invokeValidateLifecycle(SalesOrderItem item) throws Exception {
     Method method = SalesOrderItem.class.getDeclaredMethod("validateLifecycle");
     method.setAccessible(true);

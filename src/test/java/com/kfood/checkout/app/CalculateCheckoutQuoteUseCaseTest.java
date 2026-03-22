@@ -250,6 +250,29 @@ class CalculateCheckoutQuoteUseCaseTest {
   }
 
   @Test
+  void shouldHandleDuplicatedProductsFromRepositoryResult() {
+    var store = store("loja-do-bairro");
+    var customer = customer(store);
+    var product = product(store, new BigDecimal("42.00"));
+    var command =
+        new CalculateCheckoutQuoteCommand(
+            customer.getId(),
+            FulfillmentType.PICKUP,
+            null,
+            List.of(new CalculateCheckoutQuoteItemCommand(product.getId(), 1, null, List.of())));
+
+    when(storeRepository.findBySlug("loja-do-bairro")).thenReturn(Optional.of(store));
+    when(customerRepository.findByIdAndStoreId(customer.getId(), store.getId()))
+        .thenReturn(Optional.of(customer));
+    when(catalogProductRepository.findAllByStoreIdAndIdIn(store.getId(), List.of(product.getId())))
+        .thenReturn(List.of(product, product));
+
+    var response = useCase.execute("loja-do-bairro", command);
+
+    assertThat(response.totalAmount()).isEqualByComparingTo("42.00");
+  }
+
+  @Test
   void shouldRejectWhenStoreDoesNotExist() {
     when(storeRepository.findBySlug("loja-inexistente")).thenReturn(Optional.empty());
 
@@ -337,6 +360,145 @@ class CalculateCheckoutQuoteUseCaseTest {
         .isInstanceOf(BusinessException.class)
         .extracting("errorCode")
         .isEqualTo(ErrorCode.CATALOG_ITEM_UNAVAILABLE);
+  }
+
+  @Test
+  void shouldRejectWhenProductIsInactive() {
+    var store = store("loja-do-bairro");
+    var customer = customer(store);
+    var product = product(store, new BigDecimal("42.00"));
+    product.deactivate();
+    mockBase(store, customer, List.of(product));
+
+    assertThatThrownBy(
+            () ->
+                useCase.execute(
+                    "loja-do-bairro",
+                    new CalculateCheckoutQuoteCommand(
+                        customer.getId(),
+                        FulfillmentType.PICKUP,
+                        null,
+                        List.of(
+                            new CalculateCheckoutQuoteItemCommand(
+                                product.getId(), 1, null, List.of())))))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.CATALOG_ITEM_UNAVAILABLE);
+  }
+
+  @Test
+  void shouldRejectWhenProductIsPaused() {
+    var store = store("loja-do-bairro");
+    var customer = customer(store);
+    var product = product(store, new BigDecimal("42.00"));
+    product.pause();
+    mockBase(store, customer, List.of(product));
+
+    assertThatThrownBy(
+            () ->
+                useCase.execute(
+                    "loja-do-bairro",
+                    new CalculateCheckoutQuoteCommand(
+                        customer.getId(),
+                        FulfillmentType.PICKUP,
+                        null,
+                        List.of(
+                            new CalculateCheckoutQuoteItemCommand(
+                                product.getId(), 1, null, List.of())))))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.CATALOG_ITEM_UNAVAILABLE);
+  }
+
+  @Test
+  void shouldRejectWhenSelectedOptionsAreBelowMinimum() {
+    var store = store("loja-do-bairro");
+    var customer = customer(store);
+    var product = product(store, new BigDecimal("42.00"));
+    var group = new CatalogOptionGroup(UUID.randomUUID(), product, "Extras", 1, 2, true, true);
+    addOptionGroup(product, group);
+    mockBase(store, customer, List.of(product));
+
+    assertThatThrownBy(
+            () ->
+                useCase.execute(
+                    "loja-do-bairro",
+                    new CalculateCheckoutQuoteCommand(
+                        customer.getId(),
+                        FulfillmentType.PICKUP,
+                        null,
+                        List.of(
+                            new CalculateCheckoutQuoteItemCommand(
+                                product.getId(), 1, null, List.of())))))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.VALIDATION_ERROR);
+  }
+
+  @Test
+  void shouldRejectWhenSelectedOptionsExceedMaximum() {
+    var store = store("loja-do-bairro");
+    var customer = customer(store);
+    var product = product(store, new BigDecimal("42.00"));
+    var group = new CatalogOptionGroup(UUID.randomUUID(), product, "Extras", 0, 1, false, true);
+    var firstItem =
+        new CatalogOptionItem(
+            UUID.randomUUID(), group, "Catupiry", new BigDecimal("8.00"), true, 1);
+    var secondItem =
+        new CatalogOptionItem(UUID.randomUUID(), group, "Cheddar", new BigDecimal("7.00"), true, 2);
+    group.addItem(firstItem);
+    group.addItem(secondItem);
+    addOptionGroup(product, group);
+    mockBase(store, customer, List.of(product));
+
+    assertThatThrownBy(
+            () ->
+                useCase.execute(
+                    "loja-do-bairro",
+                    new CalculateCheckoutQuoteCommand(
+                        customer.getId(),
+                        FulfillmentType.PICKUP,
+                        null,
+                        List.of(
+                            new CalculateCheckoutQuoteItemCommand(
+                                product.getId(),
+                                1,
+                                null,
+                                List.of(
+                                    new CalculateCheckoutQuoteItemOptionCommand(
+                                        firstItem.getId(), 1),
+                                    new CalculateCheckoutQuoteItemOptionCommand(
+                                        secondItem.getId(), 1)))))))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.VALIDATION_ERROR);
+  }
+
+  @Test
+  void shouldIgnoreInactiveOptionGroupsAndItems() {
+    var store = store("loja-do-bairro");
+    var customer = customer(store);
+    var product = product(store, new BigDecimal("42.00"));
+    var inactiveGroup =
+        new CatalogOptionGroup(UUID.randomUUID(), product, "Inactive", 1, 1, true, false);
+    var inactiveItem =
+        new CatalogOptionItem(
+            UUID.randomUUID(), inactiveGroup, "Ignored", new BigDecimal("9.00"), false, 1);
+    inactiveGroup.addItem(inactiveItem);
+    addOptionGroup(product, inactiveGroup);
+    mockBase(store, customer, List.of(product));
+
+    var response =
+        useCase.execute(
+            "loja-do-bairro",
+            new CalculateCheckoutQuoteCommand(
+                customer.getId(),
+                FulfillmentType.PICKUP,
+                null,
+                List.of(
+                    new CalculateCheckoutQuoteItemCommand(product.getId(), 1, null, List.of()))));
+
+    assertThat(response.totalAmount()).isEqualByComparingTo("42.00");
   }
 
   private void mockBase(Store store, Customer customer, List<CatalogProduct> products) {
