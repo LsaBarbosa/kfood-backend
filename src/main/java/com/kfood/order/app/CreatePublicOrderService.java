@@ -42,6 +42,7 @@ public class CreatePublicOrderService {
   private final SalesOrderRepository salesOrderRepository;
   private final AssignOrderNumberService assignOrderNumberService;
   private final OrderCreatedPublisher orderCreatedPublisher;
+  private final OrderPaymentRegistrar orderPaymentRegistrar;
   private final IdempotencyService idempotencyService;
   private final Clock clock;
 
@@ -56,6 +57,32 @@ public class CreatePublicOrderService {
       OrderCreatedPublisher orderCreatedPublisher,
       IdempotencyService idempotencyService,
       Clock clock) {
+    this(
+        storeRepository,
+        customerRepository,
+        customerAddressRepository,
+        checkoutQuoteSnapshotGateway,
+        checkoutCriticalValidationService,
+        salesOrderRepository,
+        assignOrderNumberService,
+        orderCreatedPublisher,
+        order -> {},
+        idempotencyService,
+        clock);
+  }
+
+  public CreatePublicOrderService(
+      StoreRepository storeRepository,
+      CustomerRepository customerRepository,
+      CustomerAddressRepository customerAddressRepository,
+      CheckoutQuoteSnapshotGateway checkoutQuoteSnapshotGateway,
+      CheckoutCriticalValidationService checkoutCriticalValidationService,
+      SalesOrderRepository salesOrderRepository,
+      AssignOrderNumberService assignOrderNumberService,
+      OrderCreatedPublisher orderCreatedPublisher,
+      OrderPaymentRegistrar orderPaymentRegistrar,
+      IdempotencyService idempotencyService,
+      Clock clock) {
     this.storeRepository = storeRepository;
     this.customerRepository = customerRepository;
     this.customerAddressRepository = customerAddressRepository;
@@ -64,6 +91,7 @@ public class CreatePublicOrderService {
     this.salesOrderRepository = salesOrderRepository;
     this.assignOrderNumberService = assignOrderNumberService;
     this.orderCreatedPublisher = orderCreatedPublisher;
+    this.orderPaymentRegistrar = orderPaymentRegistrar;
     this.idempotencyService = idempotencyService;
     this.clock = clock;
   }
@@ -168,6 +196,7 @@ public class CreatePublicOrderService {
 
     assignOrderNumberService.assignIfMissing(order);
     var saved = salesOrderRepository.save(order);
+    orderPaymentRegistrar.registerInitialPayment(saved);
     orderCreatedPublisher.publish(
         new OrderCreatedEvent(
             saved.getId(),

@@ -32,6 +32,7 @@ class StoreEntityTest {
     assertThat(store.getTimezone()).isEqualTo("America/Sao_Paulo");
     assertThat(store.getStatus()).isEqualTo(StoreStatus.SETUP);
     assertThat(store.getHoursVersion()).isZero();
+    assertThat(store.acceptsCashPayments()).isTrue();
 
     store.changeName("Loja Centro");
     store.changeSlug("loja-centro");
@@ -144,6 +145,26 @@ class StoreEntityTest {
 
     store.suspend();
     assertThat(store.isSuspended()).isTrue();
+  }
+
+  @Test
+  void shouldToggleCashPaymentAvailability() {
+    var store =
+        new Store(
+            UUID.randomUUID(),
+            "Loja do Bairro",
+            "loja-do-bairro",
+            "45.723.174/0001-10",
+            "21999990000",
+            "America/Sao_Paulo");
+
+    assertThat(store.acceptsCashPayments()).isTrue();
+
+    store.disableCashPayment();
+    assertThat(store.acceptsCashPayments()).isFalse();
+
+    store.enableCashPayment();
+    assertThat(store.acceptsCashPayments()).isTrue();
   }
 
   @Test

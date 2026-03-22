@@ -143,6 +143,171 @@ class CreatePublicOrderServiceTest {
   }
 
   @Test
+  void shouldRegisterInitialPaymentForCashOrderBeforePublishingEvent() {
+    var storeRepository = mock(StoreRepository.class);
+    var customerRepository = mock(CustomerRepository.class);
+    var customerAddressRepository = mock(CustomerAddressRepository.class);
+    var quoteGateway = mock(CheckoutQuoteSnapshotGateway.class);
+    var validationService = mock(CheckoutCriticalValidationService.class);
+    var orderRepository = mock(SalesOrderRepository.class);
+    var assignOrderNumberService = mock(AssignOrderNumberService.class);
+    var orderCreatedPublisher = mock(OrderCreatedPublisher.class);
+    var orderPaymentRegistrar = mock(OrderPaymentRegistrar.class);
+    var idempotencyService = mock(IdempotencyService.class);
+    var service =
+        new CreatePublicOrderService(
+            storeRepository,
+            customerRepository,
+            customerAddressRepository,
+            quoteGateway,
+            validationService,
+            orderRepository,
+            assignOrderNumberService,
+            orderCreatedPublisher,
+            orderPaymentRegistrar,
+            idempotencyService,
+            fixedClock);
+
+    var storeId = UUID.randomUUID();
+    var customerId = UUID.randomUUID();
+    var quoteId = UUID.randomUUID();
+    var store = mock(Store.class);
+    when(store.getId()).thenReturn(storeId);
+    var customer = mock(Customer.class);
+    when(customer.getId()).thenReturn(customerId);
+    var quote =
+        new CheckoutQuoteSnapshot(
+            quoteId,
+            storeId,
+            customerId,
+            FulfillmentType.PICKUP,
+            null,
+            new BigDecimal("50.00"),
+            BigDecimal.ZERO.setScale(2),
+            new BigDecimal("50.00"),
+            List.of(),
+            OffsetDateTime.now(fixedClock).plusMinutes(10));
+    var saved = mock(SalesOrder.class);
+    when(saved.getId()).thenReturn(UUID.randomUUID());
+    when(saved.getOrderNumber()).thenReturn("PED-20260321-000010");
+    when(saved.getStatus()).thenReturn(OrderStatus.NEW);
+    when(saved.getPaymentStatusSnapshot()).thenReturn(PaymentStatusSnapshot.PENDING);
+    when(saved.getSubtotalAmount()).thenReturn(new BigDecimal("50.00"));
+    when(saved.getDeliveryFeeAmount()).thenReturn(BigDecimal.ZERO.setScale(2));
+    when(saved.getTotalAmount()).thenReturn(new BigDecimal("50.00"));
+    when(saved.getCreatedAt()).thenReturn(Instant.now());
+
+    when(storeRepository.findBySlug("loja-do-bairro")).thenReturn(Optional.of(store));
+    when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
+    when(customerRepository.findByIdAndStoreId(customerId, storeId))
+        .thenReturn(Optional.of(customer));
+    when(quoteGateway.findValidByStoreIdAndQuoteId(storeId, quoteId))
+        .thenReturn(Optional.of(quote));
+    when(orderRepository.save(any(SalesOrder.class))).thenReturn(saved);
+
+    var response =
+        service.create(
+            "loja-do-bairro",
+            null,
+            new CreatePublicOrderRequest(
+                quoteId, customerId, FulfillmentType.PICKUP, null, PaymentMethod.CASH, null, null));
+
+    assertThat(response.orderNumber()).isEqualTo("PED-20260321-000010");
+    var inOrder = org.mockito.Mockito.inOrder(orderPaymentRegistrar, orderCreatedPublisher);
+    inOrder.verify(orderPaymentRegistrar).registerInitialPayment(saved);
+    inOrder.verify(orderCreatedPublisher).publish(any(OrderCreatedEvent.class));
+  }
+
+  @Test
+  void shouldNotPublishEventWhenInitialPaymentRegistrationFails() {
+    var storeRepository = mock(StoreRepository.class);
+    var customerRepository = mock(CustomerRepository.class);
+    var customerAddressRepository = mock(CustomerAddressRepository.class);
+    var quoteGateway = mock(CheckoutQuoteSnapshotGateway.class);
+    var validationService = mock(CheckoutCriticalValidationService.class);
+    var orderRepository = mock(SalesOrderRepository.class);
+    var assignOrderNumberService = mock(AssignOrderNumberService.class);
+    var orderCreatedPublisher = mock(OrderCreatedPublisher.class);
+    var orderPaymentRegistrar = mock(OrderPaymentRegistrar.class);
+    var idempotencyService = mock(IdempotencyService.class);
+    var service =
+        new CreatePublicOrderService(
+            storeRepository,
+            customerRepository,
+            customerAddressRepository,
+            quoteGateway,
+            validationService,
+            orderRepository,
+            assignOrderNumberService,
+            orderCreatedPublisher,
+            orderPaymentRegistrar,
+            idempotencyService,
+            fixedClock);
+
+    var storeId = UUID.randomUUID();
+    var customerId = UUID.randomUUID();
+    var quoteId = UUID.randomUUID();
+    var store = mock(Store.class);
+    var customer = mock(Customer.class);
+    var saved = mock(SalesOrder.class);
+    when(store.getId()).thenReturn(storeId);
+    when(customer.getId()).thenReturn(customerId);
+    when(saved.getId()).thenReturn(UUID.randomUUID());
+    when(saved.getOrderNumber()).thenReturn("PED-20260321-000011");
+    when(saved.getStatus()).thenReturn(OrderStatus.NEW);
+    when(saved.getPaymentStatusSnapshot()).thenReturn(PaymentStatusSnapshot.PENDING);
+    when(saved.getSubtotalAmount()).thenReturn(new BigDecimal("50.00"));
+    when(saved.getDeliveryFeeAmount()).thenReturn(BigDecimal.ZERO.setScale(2));
+    when(saved.getTotalAmount()).thenReturn(new BigDecimal("50.00"));
+    when(saved.getCreatedAt()).thenReturn(Instant.now());
+
+    when(storeRepository.findBySlug("loja-do-bairro")).thenReturn(Optional.of(store));
+    when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
+    when(customerRepository.findByIdAndStoreId(customerId, storeId))
+        .thenReturn(Optional.of(customer));
+    when(quoteGateway.findValidByStoreIdAndQuoteId(storeId, quoteId))
+        .thenReturn(
+            Optional.of(
+                new CheckoutQuoteSnapshot(
+                    quoteId,
+                    storeId,
+                    customerId,
+                    FulfillmentType.PICKUP,
+                    null,
+                    new BigDecimal("50.00"),
+                    BigDecimal.ZERO.setScale(2),
+                    new BigDecimal("50.00"),
+                    List.of(),
+                    OffsetDateTime.now(fixedClock).plusMinutes(10))));
+    when(orderRepository.save(any(SalesOrder.class))).thenReturn(saved);
+    org.mockito.Mockito.doThrow(
+            new BusinessException(
+                com.kfood.shared.exceptions.ErrorCode.VALIDATION_ERROR,
+                "Store does not accept cash payments.",
+                HttpStatus.BAD_REQUEST))
+        .when(orderPaymentRegistrar)
+        .registerInitialPayment(saved);
+
+    assertThatThrownBy(
+            () ->
+                service.create(
+                    "loja-do-bairro",
+                    null,
+                    new CreatePublicOrderRequest(
+                        quoteId,
+                        customerId,
+                        FulfillmentType.PICKUP,
+                        null,
+                        PaymentMethod.CASH,
+                        null,
+                        null)))
+        .isInstanceOf(BusinessException.class)
+        .hasMessage("Store does not accept cash payments.");
+
+    verify(orderCreatedPublisher, never()).publish(any(OrderCreatedEvent.class));
+  }
+
+  @Test
   void shouldCreateScheduledOrderForFutureTimeKeepingStatusNew() {
     var storeRepository = mock(StoreRepository.class);
     var customerRepository = mock(CustomerRepository.class);

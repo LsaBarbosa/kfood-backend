@@ -48,6 +48,9 @@ public class Store extends AuditableEntity {
   @Column(name = "hours_version", nullable = false)
   private int hoursVersion;
 
+  @Column(name = "cash_payment_enabled", nullable = false)
+  private boolean cashPaymentEnabled;
+
   protected Store() {}
 
   public Store(UUID id, String name, String slug, String cnpj, String phone, String timezone) {
@@ -59,6 +62,7 @@ public class Store extends AuditableEntity {
     this.timezone = normalize(Objects.requireNonNull(timezone, "timezone is required"));
     status = StoreStatus.SETUP;
     hoursVersion = 0;
+    cashPaymentEnabled = true;
   }
 
   @PrePersist
@@ -103,6 +107,10 @@ public class Store extends AuditableEntity {
     return hoursVersion;
   }
 
+  public boolean acceptsCashPayments() {
+    return cashPaymentEnabled;
+  }
+
   public boolean isSetup() {
     return status == StoreStatus.SETUP;
   }
@@ -137,6 +145,14 @@ public class Store extends AuditableEntity {
 
   public void incrementHoursVersion() {
     hoursVersion++;
+  }
+
+  public void enableCashPayment() {
+    cashPaymentEnabled = true;
+  }
+
+  public void disableCashPayment() {
+    cashPaymentEnabled = false;
   }
 
   public void activate() {
