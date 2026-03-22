@@ -3,9 +3,12 @@ package com.kfood.order.api;
 import com.kfood.identity.app.Roles;
 import com.kfood.order.app.ListOrdersQuery;
 import com.kfood.order.app.ListOrdersUseCase;
+import com.kfood.order.app.UpdateOrderStatusUseCase;
 import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.domain.OrderStatus;
+import jakarta.validation.Valid;
 import java.time.LocalDate;
+import java.util.UUID;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
@@ -13,6 +16,9 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -22,9 +28,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class OrderController {
 
   private final ObjectProvider<ListOrdersUseCase> listOrdersUseCaseProvider;
+  private final ObjectProvider<UpdateOrderStatusUseCase> updateOrderStatusUseCaseProvider;
 
-  public OrderController(ObjectProvider<ListOrdersUseCase> listOrdersUseCaseProvider) {
+  public OrderController(
+      ObjectProvider<ListOrdersUseCase> listOrdersUseCaseProvider,
+      ObjectProvider<UpdateOrderStatusUseCase> updateOrderStatusUseCaseProvider) {
     this.listOrdersUseCaseProvider = listOrdersUseCaseProvider;
+    this.updateOrderStatusUseCaseProvider = updateOrderStatusUseCaseProvider;
   }
 
   @GetMapping
@@ -41,5 +51,12 @@ public class OrderController {
     return listOrdersUseCaseProvider
         .getObject()
         .execute(new ListOrdersQuery(status, dateFrom, dateTo, fulfillmentType), pageable);
+  }
+
+  @PatchMapping("/{orderId}/status")
+  @PreAuthorize(Roles.OWNER_MANAGER_ATTENDANT)
+  public UpdateOrderStatusResponse updateStatus(
+      @PathVariable UUID orderId, @Valid @RequestBody UpdateOrderStatusRequest request) {
+    return updateOrderStatusUseCaseProvider.getObject().execute(orderId, request);
   }
 }
