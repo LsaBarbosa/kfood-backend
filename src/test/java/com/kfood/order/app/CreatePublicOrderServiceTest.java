@@ -48,6 +48,11 @@ class CreatePublicOrderServiceTest {
 
   private Clock fixedClock;
 
+  @SuppressWarnings("unchecked")
+  private Supplier<CreatePublicOrderResponse> responseSupplier(InvocationOnMock invocation) {
+    return invocation.getArgument(5, Supplier.class);
+  }
+
   @BeforeEach
   void setUp() {
     fixedClock = Clock.fixed(Instant.parse("2026-03-21T15:00:00Z"), ZoneOffset.UTC);
@@ -673,9 +678,7 @@ class CreatePublicOrderServiceTest {
             any(),
             eq(CreatePublicOrderResponse.class),
             any()))
-        .thenAnswer(
-            (InvocationOnMock invocation) ->
-                ((Supplier<CreatePublicOrderResponse>) invocation.getArgument(5)).get());
+        .thenAnswer((InvocationOnMock invocation) -> responseSupplier(invocation).get());
 
     var response =
         service.create(

@@ -1,6 +1,5 @@
 package com.kfood.order.infra.persistence;
 
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -23,7 +22,9 @@ class SalesOrderRepositoryDefaultMethodTest {
   void shouldBuildSpecificationForOperationalQueueWithAllFilters() {
     var repository = mock(SalesOrderRepository.class, Mockito.CALLS_REAL_METHODS);
     var pageable = PageRequest.of(0, 20);
-    when(repository.findAll(any(Specification.class), eq(pageable))).thenReturn(Page.empty());
+    when(repository.findAll(
+            org.mockito.ArgumentMatchers.<Specification<SalesOrder>>any(), eq(pageable)))
+        .thenReturn(Page.empty());
 
     repository.findOperationalQueue(
         UUID.randomUUID(),
@@ -34,14 +35,17 @@ class SalesOrderRepositoryDefaultMethodTest {
         OffsetDateTime.parse("2026-03-20T15:00:00Z"),
         pageable);
 
-    verify(repository).findAll(any(Specification.class), eq(pageable));
+    verify(repository)
+        .findAll(org.mockito.ArgumentMatchers.<Specification<SalesOrder>>any(), eq(pageable));
   }
 
   @Test
   void shouldBuildSpecificationForOperationalQueueWithoutOptionalFilters() {
     var repository = mock(SalesOrderRepository.class, Mockito.CALLS_REAL_METHODS);
     var pageable = PageRequest.of(0, 20);
-    when(repository.findAll(any(Specification.class), eq(pageable))).thenReturn(Page.empty());
+    when(repository.findAll(
+            org.mockito.ArgumentMatchers.<Specification<SalesOrder>>any(), eq(pageable)))
+        .thenReturn(Page.empty());
 
     repository.findOperationalQueue(
         UUID.randomUUID(),
@@ -52,6 +56,7 @@ class SalesOrderRepositoryDefaultMethodTest {
         OffsetDateTime.parse("2026-03-20T15:00:00Z"),
         pageable);
 
-    verify(repository).findAll(any(Specification.class), eq(pageable));
+    verify(repository)
+        .findAll(org.mockito.ArgumentMatchers.<Specification<SalesOrder>>any(), eq(pageable));
   }
 }
