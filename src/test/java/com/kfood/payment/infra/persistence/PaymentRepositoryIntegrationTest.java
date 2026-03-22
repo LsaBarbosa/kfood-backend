@@ -14,6 +14,7 @@ import com.kfood.payment.domain.PaymentStatus;
 import com.kfood.shared.persistence.TestJpaAuditingConfig;
 import com.kfood.support.PostgreSqlContainerIT;
 import java.math.BigDecimal;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -65,6 +66,8 @@ class PaymentRepositoryIntegrationTest extends PostgreSqlContainerIT {
     var payment =
         Payment.create(
             UUID.randomUUID(), order, PaymentMethod.PIX, "mock-psp", "pix_123", "copy-and-paste");
+    var expiresAt = OffsetDateTime.parse("2026-03-22T12:15:00Z");
+    payment.attachPixCharge("mock-psp", "pix_123", "copy-and-paste", expiresAt);
 
     var savedPayment = paymentRepository.saveAndFlush(payment);
 
@@ -75,6 +78,7 @@ class PaymentRepositoryIntegrationTest extends PostgreSqlContainerIT {
     assertThat(savedPayment.getPaymentMethod()).isEqualTo(PaymentMethod.PIX);
     assertThat(savedPayment.getStatus()).isEqualTo(PaymentStatus.PENDING);
     assertThat(savedPayment.getAmount()).isEqualByComparingTo("57.50");
+    assertThat(savedPayment.getExpiresAt()).isEqualTo(expiresAt);
     assertThat(paymentRepository.findByOrderIdOrderByCreatedAtDesc(order.getId())).hasSize(1);
     assertThat(paymentRepository.findByIdAndOrderStoreId(savedPayment.getId(), store.getId()))
         .isPresent();

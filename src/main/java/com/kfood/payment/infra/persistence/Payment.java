@@ -54,6 +54,9 @@ public class Payment extends AuditableEntity {
   @Column(name = "confirmed_at")
   private OffsetDateTime confirmedAt;
 
+  @Column(name = "expires_at")
+  private OffsetDateTime expiresAt;
+
   protected Payment() {}
 
   private Payment(
@@ -125,6 +128,21 @@ public class Payment extends AuditableEntity {
     return confirmedAt;
   }
 
+  public OffsetDateTime getExpiresAt() {
+    return expiresAt;
+  }
+
+  public void attachPixCharge(
+      String providerName,
+      String providerReference,
+      String qrCodePayload,
+      OffsetDateTime expiresAt) {
+    this.providerName = requireText(providerName, "providerName");
+    this.providerReference = requireText(providerReference, "providerReference");
+    this.qrCodePayload = requireText(qrCodePayload, "qrCodePayload");
+    this.expiresAt = Objects.requireNonNull(expiresAt, "expiresAt must not be null");
+  }
+
   public void markConfirmed(OffsetDateTime confirmedAt) {
     status = PaymentStatus.CONFIRMED;
     this.confirmedAt = Objects.requireNonNull(confirmedAt, "confirmedAt must not be null");
@@ -158,5 +176,15 @@ public class Payment extends AuditableEntity {
 
   private static String normalizeNullable(String value) {
     return value == null || value.isBlank() ? null : value.trim();
+  }
+
+  private static String requireText(String value, String fieldName) {
+    var normalized = normalizeNullable(value);
+
+    if (normalized == null) {
+      throw new IllegalArgumentException(fieldName + " must not be blank");
+    }
+
+    return normalized;
   }
 }

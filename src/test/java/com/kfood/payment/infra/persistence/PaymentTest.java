@@ -40,6 +40,22 @@ class PaymentTest {
     assertThat(payment.getProviderReference()).isEqualTo("pay_123");
     assertThat(payment.getQrCodePayload()).isEqualTo("pix-copy-paste");
     assertThat(payment.getConfirmedAt()).isNull();
+    assertThat(payment.getExpiresAt()).isNull();
+  }
+
+  @Test
+  void shouldAttachPixChargeData() {
+    var payment =
+        Payment.create(
+            UUID.randomUUID(), order(new BigDecimal("48.00")), PaymentMethod.PIX, null, null, null);
+    var expiresAt = OffsetDateTime.parse("2026-03-22T12:45:00Z");
+
+    payment.attachPixCharge(" mock-psp ", " pix_123 ", " pix-copy-paste ", expiresAt);
+
+    assertThat(payment.getProviderName()).isEqualTo("mock-psp");
+    assertThat(payment.getProviderReference()).isEqualTo("pix_123");
+    assertThat(payment.getQrCodePayload()).isEqualTo("pix-copy-paste");
+    assertThat(payment.getExpiresAt()).isEqualTo(expiresAt);
   }
 
   @Test
@@ -119,6 +135,12 @@ class PaymentTest {
     assertThatThrownBy(() -> payment.markConfirmed(null))
         .isInstanceOf(NullPointerException.class)
         .hasMessage("confirmedAt must not be null");
+    assertThatThrownBy(
+            () ->
+                payment.attachPixCharge(
+                    " ", "pix_123", "payload", OffsetDateTime.parse("2026-03-22T12:30:00Z")))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("providerName must not be blank");
 
     setField(payment, "amount", new BigDecimal("-1.00"));
 
