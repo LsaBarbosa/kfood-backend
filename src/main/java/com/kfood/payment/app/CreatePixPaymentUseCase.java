@@ -5,6 +5,7 @@ import com.kfood.order.infra.persistence.SalesOrderRepository;
 import com.kfood.payment.api.CreatePixPaymentResponse;
 import com.kfood.payment.app.gateway.CreatePixChargeGatewayResult;
 import com.kfood.payment.domain.PaymentMethod;
+import com.kfood.payment.domain.PaymentStatusSnapshot;
 import com.kfood.payment.infra.persistence.Payment;
 import com.kfood.payment.infra.persistence.PaymentRepository;
 import com.kfood.shared.exceptions.BusinessException;
@@ -64,6 +65,7 @@ public class CreatePixPaymentUseCase {
     var payment =
         paymentRepository.saveAndFlush(
             Payment.create(UUID.randomUUID(), order, PaymentMethod.PIX, null, null, null));
+    order.markPaymentStatusSnapshot(PaymentStatusSnapshot.PENDING);
     var gatewayResult =
         requestPixChargeViaGatewayUseCase.execute(
             new RequestPixChargeViaGatewayCommand(

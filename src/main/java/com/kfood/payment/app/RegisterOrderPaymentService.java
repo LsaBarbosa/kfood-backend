@@ -3,6 +3,7 @@ package com.kfood.payment.app;
 import com.kfood.order.app.OrderPaymentRegistrar;
 import com.kfood.order.infra.persistence.SalesOrder;
 import com.kfood.payment.domain.PaymentMethod;
+import com.kfood.payment.domain.PaymentStatusSnapshot;
 import com.kfood.payment.infra.persistence.Payment;
 import com.kfood.payment.infra.persistence.PaymentRepository;
 import com.kfood.shared.exceptions.BusinessException;
@@ -41,6 +42,7 @@ public class RegisterOrderPaymentService implements OrderPaymentRegistrar {
             HttpStatus.BAD_REQUEST);
       }
 
+      validatedOrder.markPaymentStatusSnapshot(PaymentStatusSnapshot.PENDING);
       paymentRepository.saveAndFlush(
           Payment.create(UUID.randomUUID(), validatedOrder, PaymentMethod.CASH, null, null, null));
     }

@@ -272,8 +272,36 @@ public class SalesOrder extends AuditableEntity {
   }
 
   public void markPaymentStatusSnapshot(PaymentStatusSnapshot paymentStatusSnapshot) {
-    this.paymentStatusSnapshot =
+    var nextStatus =
         Objects.requireNonNull(paymentStatusSnapshot, "paymentStatusSnapshot must not be null");
+
+    if (this.paymentStatusSnapshot == nextStatus) {
+      return;
+    }
+
+    if (!canTransitionPaymentStatusSnapshotTo(nextStatus)) {
+      throw new IllegalStateException(
+          "Invalid payment status snapshot transition from "
+              + this.paymentStatusSnapshot
+              + " to "
+              + nextStatus);
+    }
+
+    this.paymentStatusSnapshot = nextStatus;
+  }
+
+  private boolean canTransitionPaymentStatusSnapshotTo(PaymentStatusSnapshot nextStatus) {
+    if (paymentStatusSnapshot == null) {
+      return true;
+    }
+
+    return switch (paymentStatusSnapshot) {
+      case PENDING ->
+          nextStatus == PaymentStatusSnapshot.PAID || nextStatus == PaymentStatusSnapshot.FAILED;
+      case FAILED ->
+          nextStatus == PaymentStatusSnapshot.PENDING || nextStatus == PaymentStatusSnapshot.PAID;
+      case PAID -> false;
+    };
   }
 
   public void defineDeliveryAddressSnapshot(CustomerAddress address) {

@@ -9,6 +9,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface PaymentRepository extends JpaRepository<Payment, UUID> {
 
   @EntityGraph(attributePaths = {"order", "order.store"})
+  Optional<Payment> findDetailedById(UUID id);
+
+  @EntityGraph(attributePaths = {"order", "order.store"})
   Optional<Payment> findByIdAndOrderStoreId(UUID id, UUID storeId);
 
   List<Payment> findByOrderIdOrderByCreatedAtDesc(UUID orderId);

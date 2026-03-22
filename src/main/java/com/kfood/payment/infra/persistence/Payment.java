@@ -144,23 +144,37 @@ public class Payment extends AuditableEntity {
   }
 
   public void markConfirmed(OffsetDateTime confirmedAt) {
-    status = PaymentStatus.CONFIRMED;
-    this.confirmedAt = Objects.requireNonNull(confirmedAt, "confirmedAt must not be null");
+    var validatedConfirmedAt = Objects.requireNonNull(confirmedAt, "confirmedAt must not be null");
+
+    if (status == PaymentStatus.CONFIRMED) {
+      return;
+    }
+
+    transitionTo(PaymentStatus.CONFIRMED, validatedConfirmedAt);
   }
 
   public void markFailed() {
-    status = PaymentStatus.FAILED;
-    confirmedAt = null;
+    if (status == PaymentStatus.FAILED) {
+      return;
+    }
+
+    transitionTo(PaymentStatus.FAILED, null);
   }
 
   public void markCanceled() {
-    status = PaymentStatus.CANCELED;
-    confirmedAt = null;
+    if (status == PaymentStatus.CANCELED) {
+      return;
+    }
+
+    transitionTo(PaymentStatus.CANCELED, null);
   }
 
   public void markExpired() {
-    status = PaymentStatus.EXPIRED;
-    confirmedAt = null;
+    if (status == PaymentStatus.EXPIRED) {
+      return;
+    }
+
+    transitionTo(PaymentStatus.EXPIRED, null);
   }
 
   private void validateBusinessRules() {
@@ -186,5 +200,31 @@ public class Payment extends AuditableEntity {
     }
 
     return normalized;
+  }
+
+  void transitionTo(PaymentStatus nextStatus, OffsetDateTime confirmedAt) {
+    Objects.requireNonNull(nextStatus, "nextStatus must not be null");
+
+    if (status == nextStatus) {
+      return;
+    }
+
+    if (!canTransitionTo(nextStatus)) {
+      throw new InvalidPaymentStatusTransitionException(status, nextStatus);
+    }
+
+    status = nextStatus;
+    this.confirmedAt = nextStatus == PaymentStatus.CONFIRMED ? confirmedAt : null;
+  }
+
+  private boolean canTransitionTo(PaymentStatus nextStatus) {
+    return switch (status) {
+      case PENDING ->
+          nextStatus == PaymentStatus.CONFIRMED
+              || nextStatus == PaymentStatus.FAILED
+              || nextStatus == PaymentStatus.CANCELED
+              || nextStatus == PaymentStatus.EXPIRED;
+      case CONFIRMED, FAILED, CANCELED, EXPIRED -> false;
+    };
   }
 }

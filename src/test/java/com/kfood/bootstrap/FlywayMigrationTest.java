@@ -425,6 +425,11 @@ class FlywayMigrationTest {
   }
 
   @Test
+  void shouldRegisterVersionTwentyFiveInFlywayHistory() throws Exception {
+    assertVersionRegistered("25");
+  }
+
+  @Test
   void shouldApplySetupAsStoreDefaultStatusAfterApplyingMigrations() throws Exception {
     try (Connection connection = dataSource.getConnection();
         Statement statement = connection.createStatement()) {

@@ -60,24 +60,45 @@ class PaymentTest {
 
   @Test
   void shouldUpdatePaymentStatusLifecycle() {
-    var payment =
+    var confirmedPayment =
         Payment.create(
             UUID.randomUUID(), order(new BigDecimal("57.50")), PaymentMethod.PIX, null, null, null);
     var confirmedAt = OffsetDateTime.parse("2026-03-22T12:30:00Z");
 
-    payment.markConfirmed(confirmedAt);
-    assertThat(payment.getStatus()).isEqualTo(PaymentStatus.CONFIRMED);
-    assertThat(payment.getConfirmedAt()).isEqualTo(confirmedAt);
+    confirmedPayment.markConfirmed(confirmedAt);
+    assertThat(confirmedPayment.getStatus()).isEqualTo(PaymentStatus.CONFIRMED);
+    assertThat(confirmedPayment.getConfirmedAt()).isEqualTo(confirmedAt);
 
-    payment.markFailed();
-    assertThat(payment.getStatus()).isEqualTo(PaymentStatus.FAILED);
-    assertThat(payment.getConfirmedAt()).isNull();
+    var failedPayment =
+        Payment.create(
+            UUID.randomUUID(), order(new BigDecimal("57.50")), PaymentMethod.PIX, null, null, null);
+    failedPayment.markFailed();
+    assertThat(failedPayment.getStatus()).isEqualTo(PaymentStatus.FAILED);
+    assertThat(failedPayment.getConfirmedAt()).isNull();
 
-    payment.markCanceled();
-    assertThat(payment.getStatus()).isEqualTo(PaymentStatus.CANCELED);
+    var canceledPayment =
+        Payment.create(
+            UUID.randomUUID(), order(new BigDecimal("57.50")), PaymentMethod.PIX, null, null, null);
+    canceledPayment.markCanceled();
+    assertThat(canceledPayment.getStatus()).isEqualTo(PaymentStatus.CANCELED);
 
-    payment.markExpired();
-    assertThat(payment.getStatus()).isEqualTo(PaymentStatus.EXPIRED);
+    var expiredPayment =
+        Payment.create(
+            UUID.randomUUID(), order(new BigDecimal("57.50")), PaymentMethod.PIX, null, null, null);
+    expiredPayment.markExpired();
+    assertThat(expiredPayment.getStatus()).isEqualTo(PaymentStatus.EXPIRED);
+  }
+
+  @Test
+  void shouldRejectInvalidPaymentStatusTransition() {
+    var payment =
+        Payment.create(
+            UUID.randomUUID(), order(new BigDecimal("57.50")), PaymentMethod.PIX, null, null, null);
+    payment.markConfirmed(OffsetDateTime.parse("2026-03-22T12:30:00Z"));
+
+    assertThatThrownBy(payment::markFailed)
+        .isInstanceOf(InvalidPaymentStatusTransitionException.class)
+        .hasMessage("Invalid payment status transition from CONFIRMED to FAILED");
   }
 
   @Test

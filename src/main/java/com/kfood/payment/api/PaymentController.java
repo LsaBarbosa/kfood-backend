@@ -3,6 +3,7 @@ package com.kfood.payment.api;
 import com.kfood.payment.app.CreatePixPaymentCommand;
 import com.kfood.payment.app.CreatePixPaymentUseCase;
 import jakarta.validation.Valid;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -16,10 +17,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/v1/orders/{orderId}/payments")
 public class PaymentController {
 
-  private final CreatePixPaymentUseCase createPixPaymentUseCase;
+  private final ObjectProvider<CreatePixPaymentUseCase> createPixPaymentUseCaseProvider;
 
-  public PaymentController(CreatePixPaymentUseCase createPixPaymentUseCase) {
-    this.createPixPaymentUseCase = createPixPaymentUseCase;
+  public PaymentController(
+      ObjectProvider<CreatePixPaymentUseCase> createPixPaymentUseCaseProvider) {
+    this.createPixPaymentUseCaseProvider = createPixPaymentUseCaseProvider;
   }
 
   @PostMapping("/pix")
@@ -28,6 +30,10 @@ public class PaymentController {
       @PathVariable java.util.UUID orderId,
       @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
       @Valid @RequestBody CreatePixPaymentRequest request) {
+    var createPixPaymentUseCase = createPixPaymentUseCaseProvider.getIfAvailable();
+    if (createPixPaymentUseCase == null) {
+      throw new IllegalStateException("CreatePixPaymentUseCase is not available.");
+    }
     return createPixPaymentUseCase.execute(
         new CreatePixPaymentCommand(orderId, request.amount(), request.provider(), idempotencyKey));
   }
