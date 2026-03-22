@@ -1,6 +1,7 @@
 package com.kfood.order.api;
 
 import com.kfood.identity.app.Roles;
+import com.kfood.order.app.CancelOrderUseCase;
 import com.kfood.order.app.ListOrdersQuery;
 import com.kfood.order.app.ListOrdersUseCase;
 import com.kfood.order.app.UpdateOrderStatusUseCase;
@@ -18,6 +19,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -29,12 +31,15 @@ public class OrderController {
 
   private final ObjectProvider<ListOrdersUseCase> listOrdersUseCaseProvider;
   private final ObjectProvider<UpdateOrderStatusUseCase> updateOrderStatusUseCaseProvider;
+  private final ObjectProvider<CancelOrderUseCase> cancelOrderUseCaseProvider;
 
   public OrderController(
       ObjectProvider<ListOrdersUseCase> listOrdersUseCaseProvider,
-      ObjectProvider<UpdateOrderStatusUseCase> updateOrderStatusUseCaseProvider) {
+      ObjectProvider<UpdateOrderStatusUseCase> updateOrderStatusUseCaseProvider,
+      ObjectProvider<CancelOrderUseCase> cancelOrderUseCaseProvider) {
     this.listOrdersUseCaseProvider = listOrdersUseCaseProvider;
     this.updateOrderStatusUseCaseProvider = updateOrderStatusUseCaseProvider;
+    this.cancelOrderUseCaseProvider = cancelOrderUseCaseProvider;
   }
 
   @GetMapping
@@ -58,5 +63,12 @@ public class OrderController {
   public UpdateOrderStatusResponse updateStatus(
       @PathVariable UUID orderId, @Valid @RequestBody UpdateOrderStatusRequest request) {
     return updateOrderStatusUseCaseProvider.getObject().execute(orderId, request);
+  }
+
+  @PostMapping("/{orderId}/cancel")
+  @PreAuthorize(Roles.OWNER_OR_MANAGER)
+  public CancelOrderResponse cancel(
+      @PathVariable UUID orderId, @Valid @RequestBody CancelOrderRequest request) {
+    return cancelOrderUseCaseProvider.getObject().execute(orderId, request);
   }
 }

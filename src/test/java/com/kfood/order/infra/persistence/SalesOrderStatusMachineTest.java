@@ -130,6 +130,28 @@ class SalesOrderStatusMachineTest {
     assertThat(order.canTransitionTo(OrderStatus.READY)).isFalse();
   }
 
+  @Test
+  void shouldCancelUsingExplicitIntentMethod() {
+    var order = order(FulfillmentType.DELIVERY);
+
+    order.cancel();
+
+    assertThat(order.getStatus()).isEqualTo(OrderStatus.CANCELED);
+    assertThat(order.isFinalStatus()).isTrue();
+  }
+
+  @Test
+  void shouldRejectCancelingCompletedOrderUsingIntentMethod() {
+    var order = order(FulfillmentType.PICKUP);
+    order.changeStatus(OrderStatus.PREPARING);
+    order.changeStatus(OrderStatus.READY);
+    order.changeStatus(OrderStatus.COMPLETED);
+
+    assertThatThrownBy(order::cancel)
+        .isInstanceOf(OrderStatusTransitionException.class)
+        .hasMessage("Invalid order status transition from COMPLETED to CANCELED");
+  }
+
   private SalesOrder order(FulfillmentType fulfillmentType) {
     var store = mock(Store.class);
     var customer = mock(Customer.class);

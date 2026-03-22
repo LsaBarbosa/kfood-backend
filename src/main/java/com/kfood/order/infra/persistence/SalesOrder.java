@@ -283,6 +283,10 @@ public class SalesOrder extends AuditableEntity {
     status = targetStatus;
   }
 
+  public void cancel() {
+    changeStatus(OrderStatus.CANCELED);
+  }
+
   public boolean isFinalStatus() {
     return status == OrderStatus.COMPLETED || status == OrderStatus.CANCELED;
   }
