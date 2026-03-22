@@ -14,6 +14,7 @@ import com.kfood.checkout.app.CheckoutQuoteOptionSnapshot;
 import com.kfood.checkout.app.CheckoutQuoteSnapshot;
 import com.kfood.checkout.app.CheckoutQuoteSnapshotGateway;
 import com.kfood.customer.infra.persistence.Customer;
+import com.kfood.customer.infra.persistence.CustomerAddress;
 import com.kfood.customer.infra.persistence.CustomerAddressRepository;
 import com.kfood.customer.infra.persistence.CustomerRepository;
 import com.kfood.merchant.infra.persistence.Store;
@@ -213,6 +214,103 @@ class CreatePublicOrderServiceTest {
 
     assertThat(response.status()).isEqualTo(OrderStatus.NEW);
     verify(orderRepository).save(any(SalesOrder.class));
+  }
+
+  @Test
+  void shouldPersistDeliveryAddressSnapshotWhenOrderIsDelivery() {
+    var storeRepository = mock(StoreRepository.class);
+    var customerRepository = mock(CustomerRepository.class);
+    var customerAddressRepository = mock(CustomerAddressRepository.class);
+    var quoteGateway = mock(CheckoutQuoteSnapshotGateway.class);
+    var validationService = mock(CheckoutCriticalValidationService.class);
+    var orderRepository = mock(SalesOrderRepository.class);
+    var assignOrderNumberService = mock(AssignOrderNumberService.class);
+    var orderCreatedPublisher = mock(OrderCreatedPublisher.class);
+    var idempotencyService = mock(IdempotencyService.class);
+    var service =
+        new CreatePublicOrderService(
+            storeRepository,
+            customerRepository,
+            customerAddressRepository,
+            quoteGateway,
+            validationService,
+            orderRepository,
+            assignOrderNumberService,
+            orderCreatedPublisher,
+            idempotencyService,
+            fixedClock);
+
+    var storeId = UUID.randomUUID();
+    var customerId = UUID.randomUUID();
+    var addressId = UUID.randomUUID();
+    var quoteId = UUID.randomUUID();
+    var store =
+        new Store(
+            storeId,
+            "Loja do Bairro",
+            "loja-do-bairro",
+            "45.723.174/0001-10",
+            "21999990000",
+            "America/Sao_Paulo");
+    var customer =
+        new Customer(customerId, store, "Lucas Santana", "21999990000", "lucas@email.com");
+    var address =
+        new CustomerAddress(
+            addressId,
+            customer,
+            "Casa",
+            "25000000",
+            "Rua das Flores",
+            "45",
+            "Centro",
+            "Mage",
+            "RJ",
+            "Ap 101",
+            true);
+    var quote =
+        new CheckoutQuoteSnapshot(
+            quoteId,
+            storeId,
+            customerId,
+            FulfillmentType.DELIVERY,
+            addressId,
+            new BigDecimal("50.00"),
+            new BigDecimal("6.50"),
+            new BigDecimal("56.50"),
+            List.of(),
+            OffsetDateTime.now(fixedClock).plusMinutes(10));
+    var request =
+        new CreatePublicOrderRequest(
+            quoteId,
+            customerId,
+            FulfillmentType.DELIVERY,
+            addressId,
+            PaymentMethod.PIX,
+            "Tocar campainha",
+            null);
+
+    when(storeRepository.findBySlug("loja-do-bairro")).thenReturn(Optional.of(store));
+    when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
+    when(customerRepository.findByIdAndStoreId(customerId, storeId))
+        .thenReturn(Optional.of(customer));
+    when(customerAddressRepository.findByIdAndCustomerId(addressId, customerId))
+        .thenReturn(Optional.of(address));
+    when(quoteGateway.findValidByStoreIdAndQuoteId(storeId, quoteId))
+        .thenReturn(Optional.of(quote));
+    when(orderRepository.save(any(SalesOrder.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+
+    service.create("loja-do-bairro", null, request);
+
+    var orderCaptor = org.mockito.ArgumentCaptor.forClass(SalesOrder.class);
+    verify(orderRepository).save(orderCaptor.capture());
+
+    var savedOrder = orderCaptor.getValue();
+    assertThat(savedOrder.getDeliveryAddressStreet()).isEqualTo("Rua das Flores");
+    assertThat(savedOrder.getDeliveryAddressNumber()).isEqualTo("45");
+    assertThat(savedOrder.getDeliveryAddressDistrict()).isEqualTo("Centro");
+    assertThat(savedOrder.getDeliveryAddressCity()).isEqualTo("Mage");
+    assertThat(savedOrder.getDeliveryAddressState()).isEqualTo("RJ");
   }
 
   @Test

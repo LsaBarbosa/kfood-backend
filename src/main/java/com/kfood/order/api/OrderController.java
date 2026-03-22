@@ -2,6 +2,7 @@ package com.kfood.order.api;
 
 import com.kfood.identity.app.Roles;
 import com.kfood.order.app.CancelOrderUseCase;
+import com.kfood.order.app.GetOrderDetailUseCase;
 import com.kfood.order.app.ListOrdersQuery;
 import com.kfood.order.app.ListOrdersUseCase;
 import com.kfood.order.app.UpdateOrderStatusUseCase;
@@ -30,14 +31,17 @@ import org.springframework.web.bind.annotation.RestController;
 public class OrderController {
 
   private final ObjectProvider<ListOrdersUseCase> listOrdersUseCaseProvider;
+  private final ObjectProvider<GetOrderDetailUseCase> getOrderDetailUseCaseProvider;
   private final ObjectProvider<UpdateOrderStatusUseCase> updateOrderStatusUseCaseProvider;
   private final ObjectProvider<CancelOrderUseCase> cancelOrderUseCaseProvider;
 
   public OrderController(
       ObjectProvider<ListOrdersUseCase> listOrdersUseCaseProvider,
+      ObjectProvider<GetOrderDetailUseCase> getOrderDetailUseCaseProvider,
       ObjectProvider<UpdateOrderStatusUseCase> updateOrderStatusUseCaseProvider,
       ObjectProvider<CancelOrderUseCase> cancelOrderUseCaseProvider) {
     this.listOrdersUseCaseProvider = listOrdersUseCaseProvider;
+    this.getOrderDetailUseCaseProvider = getOrderDetailUseCaseProvider;
     this.updateOrderStatusUseCaseProvider = updateOrderStatusUseCaseProvider;
     this.cancelOrderUseCaseProvider = cancelOrderUseCaseProvider;
   }
@@ -56,6 +60,12 @@ public class OrderController {
     return listOrdersUseCaseProvider
         .getObject()
         .execute(new ListOrdersQuery(status, dateFrom, dateTo, fulfillmentType), pageable);
+  }
+
+  @GetMapping("/{orderId}")
+  @PreAuthorize(Roles.OWNER_MANAGER_ATTENDANT)
+  public OrderDetailResponse detail(@PathVariable UUID orderId) {
+    return getOrderDetailUseCaseProvider.getObject().execute(orderId);
   }
 
   @PatchMapping("/{orderId}/status")

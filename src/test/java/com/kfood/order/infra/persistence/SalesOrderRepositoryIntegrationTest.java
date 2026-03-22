@@ -7,6 +7,7 @@ import com.kfood.catalog.infra.persistence.CatalogCategoryRepository;
 import com.kfood.catalog.infra.persistence.CatalogProduct;
 import com.kfood.catalog.infra.persistence.CatalogProductRepository;
 import com.kfood.customer.infra.persistence.Customer;
+import com.kfood.customer.infra.persistence.CustomerAddress;
 import com.kfood.customer.infra.persistence.CustomerRepository;
 import com.kfood.merchant.infra.persistence.Store;
 import com.kfood.merchant.infra.persistence.StoreRepository;
@@ -290,6 +291,66 @@ class SalesOrderRepositoryIntegrationTest extends PostgreSqlContainerIT {
     assertThat(queue.getContent())
         .extracting(SalesOrder::getId)
         .containsExactly(targetOrder.getId());
+  }
+
+  @Test
+  @DisplayName("should load detailed order with customer items options and address snapshot")
+  void shouldLoadDetailedOrderWithCustomerItemsOptionsAndAddressSnapshot() {
+    var store = storeRepository.saveAndFlush(store("loja-detalhe", "45.723.174/0001-10"));
+    var customer =
+        customerRepository.saveAndFlush(
+            new Customer(
+                UUID.randomUUID(), store, "Maria Silva", "21999990000", "maria@email.com"));
+    var address =
+        new CustomerAddress(
+            UUID.randomUUID(),
+            customer,
+            "Casa",
+            "25000000",
+            "Rua das Flores",
+            "45",
+            "Centro",
+            "Mage",
+            "RJ",
+            "Ap 101",
+            true);
+    var order =
+        SalesOrder.create(
+            UUID.randomUUID(),
+            store,
+            customer,
+            FulfillmentType.DELIVERY,
+            PaymentMethod.PIX,
+            new BigDecimal("50.00"),
+            new BigDecimal("6.50"),
+            new BigDecimal("56.50"),
+            null,
+            "Tocar campainha");
+    order.defineDeliveryAddressSnapshot(address);
+    var item =
+        SalesOrderItem.create(
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            "Pizza Calabresa",
+            new BigDecimal("42.00"),
+            1,
+            "Sem cebola");
+    item.addOption(
+        SalesOrderItemOption.create(
+            UUID.randomUUID(), "Borda Catupiry", new BigDecimal("8.00"), 1));
+    order.addItem(item);
+    var savedOrder = salesOrderRepository.saveAndFlush(order);
+
+    var detailedOrder =
+        salesOrderRepository
+            .findDetailedByIdAndStoreId(savedOrder.getId(), store.getId())
+            .orElseThrow();
+
+    assertThat(detailedOrder.getCustomer().getName()).isEqualTo("Maria Silva");
+    assertThat(detailedOrder.getItems()).hasSize(1);
+    assertThat(detailedOrder.getItems().getFirst().getOptions()).hasSize(1);
+    assertThat(detailedOrder.getDeliveryAddressStreet()).isEqualTo("Rua das Flores");
+    assertThat(detailedOrder.getDeliveryAddressNumber()).isEqualTo("45");
   }
 
   private Store store(String slug, String cnpj) {

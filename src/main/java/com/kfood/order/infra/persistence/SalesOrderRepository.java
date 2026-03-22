@@ -19,6 +19,9 @@ public interface SalesOrderRepository
 
   Optional<SalesOrder> findByIdAndStoreId(UUID id, UUID storeId);
 
+  @EntityGraph(attributePaths = {"customer", "items"})
+  Optional<SalesOrder> findDetailedByIdAndStoreId(UUID id, UUID storeId);
+
   Optional<SalesOrder> findByOrderNumber(String orderNumber);
 
   @Override

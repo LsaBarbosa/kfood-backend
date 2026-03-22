@@ -6,6 +6,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.kfood.customer.infra.persistence.Customer;
+import com.kfood.customer.infra.persistence.CustomerAddress;
 import com.kfood.merchant.infra.persistence.Store;
 import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.domain.OrderStatus;
@@ -216,6 +217,54 @@ class SalesOrderTest {
     assertThat(order.isScheduledForFuture(afterScheduleClock)).isFalse();
     assertThat(order.isAvailableForOperation(afterScheduleClock)).isTrue();
     assertThat(order.getStatus()).isEqualTo(OrderStatus.NEW);
+  }
+
+  @Test
+  void shouldDefineDeliveryAddressSnapshot() {
+    var store = mock(Store.class);
+    var customer = mock(Customer.class);
+    var address =
+        new CustomerAddress(
+            UUID.randomUUID(),
+            customer,
+            "Casa",
+            "25000000",
+            "Rua das Flores",
+            "45",
+            "Centro",
+            "Mage",
+            "RJ",
+            "Ap 101",
+            true);
+    var order =
+        SalesOrder.create(
+            UUID.randomUUID(),
+            store,
+            customer,
+            FulfillmentType.DELIVERY,
+            PaymentMethod.PIX,
+            new BigDecimal("40.00"),
+            new BigDecimal("8.00"),
+            new BigDecimal("48.00"),
+            null,
+            null);
+
+    order.defineDeliveryAddressSnapshot(address);
+
+    assertThat(order.hasDeliveryAddressSnapshot()).isTrue();
+    assertThat(order.getDeliveryAddressLabel()).isEqualTo("Casa");
+    assertThat(order.getDeliveryAddressStreet()).isEqualTo("Rua das Flores");
+    assertThat(order.getDeliveryAddressState()).isEqualTo("RJ");
+    assertThat(order.getDeliveryAddressComplement()).isEqualTo("Ap 101");
+  }
+
+  @Test
+  void shouldRejectNullDeliveryAddressSnapshot() {
+    var order = createPickupOrder();
+
+    assertThatThrownBy(() -> order.defineDeliveryAddressSnapshot(null))
+        .isInstanceOf(NullPointerException.class)
+        .hasMessage("address must not be null");
   }
 
   @Test

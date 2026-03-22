@@ -1,6 +1,7 @@
 package com.kfood.order.infra.persistence;
 
 import com.kfood.customer.infra.persistence.Customer;
+import com.kfood.customer.infra.persistence.CustomerAddress;
 import com.kfood.merchant.infra.persistence.Store;
 import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.domain.OrderStatus;
@@ -76,6 +77,30 @@ public class SalesOrder extends AuditableEntity {
 
   @Column(name = "notes", length = 1000)
   private String notes;
+
+  @Column(name = "delivery_address_label", length = 60)
+  private String deliveryAddressLabel;
+
+  @Column(name = "delivery_address_zip_code", length = 8)
+  private String deliveryAddressZipCode;
+
+  @Column(name = "delivery_address_street", length = 160)
+  private String deliveryAddressStreet;
+
+  @Column(name = "delivery_address_number", length = 20)
+  private String deliveryAddressNumber;
+
+  @Column(name = "delivery_address_district", length = 100)
+  private String deliveryAddressDistrict;
+
+  @Column(name = "delivery_address_city", length = 100)
+  private String deliveryAddressCity;
+
+  @Column(name = "delivery_address_state", length = 2)
+  private String deliveryAddressState;
+
+  @Column(name = "delivery_address_complement", length = 120)
+  private String deliveryAddressComplement;
 
   @OneToMany(
       mappedBy = "order",
@@ -194,6 +219,38 @@ public class SalesOrder extends AuditableEntity {
     return notes;
   }
 
+  public String getDeliveryAddressLabel() {
+    return deliveryAddressLabel;
+  }
+
+  public String getDeliveryAddressZipCode() {
+    return deliveryAddressZipCode;
+  }
+
+  public String getDeliveryAddressStreet() {
+    return deliveryAddressStreet;
+  }
+
+  public String getDeliveryAddressNumber() {
+    return deliveryAddressNumber;
+  }
+
+  public String getDeliveryAddressDistrict() {
+    return deliveryAddressDistrict;
+  }
+
+  public String getDeliveryAddressCity() {
+    return deliveryAddressCity;
+  }
+
+  public String getDeliveryAddressState() {
+    return deliveryAddressState;
+  }
+
+  public String getDeliveryAddressComplement() {
+    return deliveryAddressComplement;
+  }
+
   public List<SalesOrderItem> getItems() {
     return Collections.unmodifiableList(items);
   }
@@ -217,6 +274,23 @@ public class SalesOrder extends AuditableEntity {
   public void markPaymentStatusSnapshot(PaymentStatusSnapshot paymentStatusSnapshot) {
     this.paymentStatusSnapshot =
         Objects.requireNonNull(paymentStatusSnapshot, "paymentStatusSnapshot must not be null");
+  }
+
+  public void defineDeliveryAddressSnapshot(CustomerAddress address) {
+    var validatedAddress = Objects.requireNonNull(address, "address must not be null");
+
+    deliveryAddressLabel = validatedAddress.getLabel();
+    deliveryAddressZipCode = validatedAddress.getZipCode();
+    deliveryAddressStreet = validatedAddress.getStreet();
+    deliveryAddressNumber = validatedAddress.getNumber();
+    deliveryAddressDistrict = validatedAddress.getDistrict();
+    deliveryAddressCity = validatedAddress.getCity();
+    deliveryAddressState = validatedAddress.getState();
+    deliveryAddressComplement = validatedAddress.getComplement();
+  }
+
+  public boolean hasDeliveryAddressSnapshot() {
+    return deliveryAddressStreet != null && !deliveryAddressStreet.isBlank();
   }
 
   public void defineSchedule(OffsetDateTime scheduledFor, Clock clock) {
