@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.kfood.merchant.infra.persistence.Store;
 import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.math.BigDecimal;
 import java.util.UUID;
@@ -214,6 +215,87 @@ class CatalogProductTest {
     var entity = constructor.newInstance();
 
     assertThat(entity).isNotNull();
+  }
+
+  @Test
+  void shouldExposeStoreIdAndReplaceAvailabilityWindows() throws Exception {
+    var store = store("loja-do-bairro", "45.723.174/0001-10");
+    var category = new CatalogCategory(UUID.randomUUID(), store, "Pizzas", 10, true);
+    var product =
+        new CatalogProduct(
+            UUID.randomUUID(),
+            store,
+            category,
+            "Pizza Calabresa",
+            "Pizza com calabresa e cebola",
+            new BigDecimal("39.90"),
+            null,
+            20,
+            true,
+            false);
+
+    setField(product, "storeId", store.getId());
+
+    assertThat(product.getStoreId()).isEqualTo(store.getId());
+
+    product.replaceAvailabilityWindows(null);
+
+    assertThat(product.getAvailabilityWindows()).isEmpty();
+  }
+
+  @Test
+  void shouldRejectInvalidAvailabilityWindows() throws Exception {
+    var store = store("loja-do-bairro", "45.723.174/0001-10");
+    var category = new CatalogCategory(UUID.randomUUID(), store, "Pizzas", 10, true);
+    var product =
+        new CatalogProduct(
+            UUID.randomUUID(),
+            store,
+            category,
+            "Pizza Calabresa",
+            "Pizza com calabresa e cebola",
+            new BigDecimal("39.90"),
+            null,
+            20,
+            true,
+            false);
+
+    assertThatThrownBy(
+            () ->
+                product.replaceAvailabilityWindows(
+                    java.util.Collections.singletonList((CatalogProductAvailabilityWindow) null)))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("availabilityWindow must not be null");
+
+    var constructor = CatalogProductAvailabilityWindow.class.getDeclaredConstructor();
+    constructor.setAccessible(true);
+    var window = constructor.newInstance();
+    setField(window, "product", product(store("loja-outra", "54.550.752/0001-55")));
+
+    assertThatThrownBy(() -> product.replaceAvailabilityWindows(java.util.List.of(window)))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("availabilityWindow product must match catalog product");
+  }
+
+  private void setField(Object target, String fieldName, Object value) throws Exception {
+    Field field = target.getClass().getDeclaredField(fieldName);
+    field.setAccessible(true);
+    field.set(target, value);
+  }
+
+  private CatalogProduct product(Store store) {
+    var category = new CatalogCategory(UUID.randomUUID(), store, "Pizzas", 10, true);
+    return new CatalogProduct(
+        UUID.randomUUID(),
+        store,
+        category,
+        "Pizza Calabresa",
+        "Pizza com calabresa e cebola",
+        new BigDecimal("39.90"),
+        null,
+        20,
+        true,
+        false);
   }
 
   private Store store(String slug, String cnpj) {

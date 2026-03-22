@@ -135,6 +135,9 @@ public class CreatePublicOrderService {
             quote.totalAmount(),
             null,
             request.notes());
+    if (address != null) {
+      order.defineDeliveryAddressSnapshot(address);
+    }
     try {
       order.defineSchedule(request.scheduledFor(), clock);
     } catch (IllegalArgumentException exception) {

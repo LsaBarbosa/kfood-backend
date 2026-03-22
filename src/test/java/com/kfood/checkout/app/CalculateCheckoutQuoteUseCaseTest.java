@@ -2,6 +2,8 @@ package com.kfood.checkout.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -245,6 +247,258 @@ class CalculateCheckoutQuoteUseCaseTest {
     assertThat(deliveryResponse.totalAmount()).isEqualByComparingTo("46.50");
     assertThat(pickupResponse.estimatedPreparationMinutes()).isEqualTo(20);
     assertThat(deliveryResponse.estimatedPreparationMinutes()).isEqualTo(35);
+  }
+
+  @Test
+  void shouldHandleDuplicatedProductsFromRepositoryResult() {
+    var store = store("loja-do-bairro");
+    var customer = customer(store);
+    var product = product(store, new BigDecimal("42.00"));
+    var command =
+        new CalculateCheckoutQuoteCommand(
+            customer.getId(),
+            FulfillmentType.PICKUP,
+            null,
+            List.of(new CalculateCheckoutQuoteItemCommand(product.getId(), 1, null, List.of())));
+
+    when(storeRepository.findBySlug("loja-do-bairro")).thenReturn(Optional.of(store));
+    when(customerRepository.findByIdAndStoreId(customer.getId(), store.getId()))
+        .thenReturn(Optional.of(customer));
+    when(catalogProductRepository.findAllByStoreIdAndIdIn(store.getId(), List.of(product.getId())))
+        .thenReturn(List.of(product, product));
+
+    var response = useCase.execute("loja-do-bairro", command);
+
+    assertThat(response.totalAmount()).isEqualByComparingTo("42.00");
+  }
+
+  @Test
+  void shouldRejectWhenStoreDoesNotExist() {
+    when(storeRepository.findBySlug("loja-inexistente")).thenReturn(Optional.empty());
+
+    assertThatThrownBy(
+            () ->
+                useCase.execute(
+                    "loja-inexistente",
+                    new CalculateCheckoutQuoteCommand(
+                        UUID.randomUUID(), FulfillmentType.PICKUP, null, List.of())))
+        .isInstanceOf(com.kfood.merchant.app.StoreSlugNotFoundException.class);
+  }
+
+  @Test
+  void shouldRejectWhenCustomerDoesNotBelongToStore() {
+    var store = store("loja-do-bairro");
+    when(storeRepository.findBySlug("loja-do-bairro")).thenReturn(Optional.of(store));
+    when(customerRepository.findByIdAndStoreId(any(), eq(store.getId())))
+        .thenReturn(Optional.empty());
+
+    assertThatThrownBy(
+            () ->
+                useCase.execute(
+                    "loja-do-bairro",
+                    new CalculateCheckoutQuoteCommand(
+                        UUID.randomUUID(),
+                        FulfillmentType.PICKUP,
+                        null,
+                        List.of(
+                            new CalculateCheckoutQuoteItemCommand(
+                                UUID.randomUUID(), 1, null, List.of())))))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
+  }
+
+  @Test
+  void shouldRejectWhenProductIsMissing() {
+    var store = store("loja-do-bairro");
+    var customer = customer(store);
+    var productId = UUID.randomUUID();
+    when(storeRepository.findBySlug("loja-do-bairro")).thenReturn(Optional.of(store));
+    when(customerRepository.findByIdAndStoreId(customer.getId(), store.getId()))
+        .thenReturn(Optional.of(customer));
+    when(catalogProductRepository.findAllByStoreIdAndIdIn(store.getId(), List.of(productId)))
+        .thenReturn(List.of());
+
+    assertThatThrownBy(
+            () ->
+                useCase.execute(
+                    "loja-do-bairro",
+                    new CalculateCheckoutQuoteCommand(
+                        customer.getId(),
+                        FulfillmentType.PICKUP,
+                        null,
+                        List.of(
+                            new CalculateCheckoutQuoteItemCommand(productId, 1, null, List.of())))))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
+  }
+
+  @Test
+  void shouldRejectWhenOptionItemIsNotAvailableForProduct() {
+    var store = store("loja-do-bairro");
+    var customer = customer(store);
+    var product = product(store, new BigDecimal("42.00"));
+    mockBase(store, customer, List.of(product));
+
+    assertThatThrownBy(
+            () ->
+                useCase.execute(
+                    "loja-do-bairro",
+                    new CalculateCheckoutQuoteCommand(
+                        customer.getId(),
+                        FulfillmentType.PICKUP,
+                        null,
+                        List.of(
+                            new CalculateCheckoutQuoteItemCommand(
+                                product.getId(),
+                                1,
+                                null,
+                                List.of(
+                                    new CalculateCheckoutQuoteItemOptionCommand(
+                                        UUID.randomUUID(), 1)))))))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.CATALOG_ITEM_UNAVAILABLE);
+  }
+
+  @Test
+  void shouldRejectWhenProductIsInactive() {
+    var store = store("loja-do-bairro");
+    var customer = customer(store);
+    var product = product(store, new BigDecimal("42.00"));
+    product.deactivate();
+    mockBase(store, customer, List.of(product));
+
+    assertThatThrownBy(
+            () ->
+                useCase.execute(
+                    "loja-do-bairro",
+                    new CalculateCheckoutQuoteCommand(
+                        customer.getId(),
+                        FulfillmentType.PICKUP,
+                        null,
+                        List.of(
+                            new CalculateCheckoutQuoteItemCommand(
+                                product.getId(), 1, null, List.of())))))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.CATALOG_ITEM_UNAVAILABLE);
+  }
+
+  @Test
+  void shouldRejectWhenProductIsPaused() {
+    var store = store("loja-do-bairro");
+    var customer = customer(store);
+    var product = product(store, new BigDecimal("42.00"));
+    product.pause();
+    mockBase(store, customer, List.of(product));
+
+    assertThatThrownBy(
+            () ->
+                useCase.execute(
+                    "loja-do-bairro",
+                    new CalculateCheckoutQuoteCommand(
+                        customer.getId(),
+                        FulfillmentType.PICKUP,
+                        null,
+                        List.of(
+                            new CalculateCheckoutQuoteItemCommand(
+                                product.getId(), 1, null, List.of())))))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.CATALOG_ITEM_UNAVAILABLE);
+  }
+
+  @Test
+  void shouldRejectWhenSelectedOptionsAreBelowMinimum() {
+    var store = store("loja-do-bairro");
+    var customer = customer(store);
+    var product = product(store, new BigDecimal("42.00"));
+    var group = new CatalogOptionGroup(UUID.randomUUID(), product, "Extras", 1, 2, true, true);
+    addOptionGroup(product, group);
+    mockBase(store, customer, List.of(product));
+
+    assertThatThrownBy(
+            () ->
+                useCase.execute(
+                    "loja-do-bairro",
+                    new CalculateCheckoutQuoteCommand(
+                        customer.getId(),
+                        FulfillmentType.PICKUP,
+                        null,
+                        List.of(
+                            new CalculateCheckoutQuoteItemCommand(
+                                product.getId(), 1, null, List.of())))))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.VALIDATION_ERROR);
+  }
+
+  @Test
+  void shouldRejectWhenSelectedOptionsExceedMaximum() {
+    var store = store("loja-do-bairro");
+    var customer = customer(store);
+    var product = product(store, new BigDecimal("42.00"));
+    var group = new CatalogOptionGroup(UUID.randomUUID(), product, "Extras", 0, 1, false, true);
+    var firstItem =
+        new CatalogOptionItem(
+            UUID.randomUUID(), group, "Catupiry", new BigDecimal("8.00"), true, 1);
+    var secondItem =
+        new CatalogOptionItem(UUID.randomUUID(), group, "Cheddar", new BigDecimal("7.00"), true, 2);
+    group.addItem(firstItem);
+    group.addItem(secondItem);
+    addOptionGroup(product, group);
+    mockBase(store, customer, List.of(product));
+
+    assertThatThrownBy(
+            () ->
+                useCase.execute(
+                    "loja-do-bairro",
+                    new CalculateCheckoutQuoteCommand(
+                        customer.getId(),
+                        FulfillmentType.PICKUP,
+                        null,
+                        List.of(
+                            new CalculateCheckoutQuoteItemCommand(
+                                product.getId(),
+                                1,
+                                null,
+                                List.of(
+                                    new CalculateCheckoutQuoteItemOptionCommand(
+                                        firstItem.getId(), 1),
+                                    new CalculateCheckoutQuoteItemOptionCommand(
+                                        secondItem.getId(), 1)))))))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.VALIDATION_ERROR);
+  }
+
+  @Test
+  void shouldIgnoreInactiveOptionGroupsAndItems() {
+    var store = store("loja-do-bairro");
+    var customer = customer(store);
+    var product = product(store, new BigDecimal("42.00"));
+    var inactiveGroup =
+        new CatalogOptionGroup(UUID.randomUUID(), product, "Inactive", 1, 1, true, false);
+    var inactiveItem =
+        new CatalogOptionItem(
+            UUID.randomUUID(), inactiveGroup, "Ignored", new BigDecimal("9.00"), false, 1);
+    inactiveGroup.addItem(inactiveItem);
+    addOptionGroup(product, inactiveGroup);
+    mockBase(store, customer, List.of(product));
+
+    var response =
+        useCase.execute(
+            "loja-do-bairro",
+            new CalculateCheckoutQuoteCommand(
+                customer.getId(),
+                FulfillmentType.PICKUP,
+                null,
+                List.of(
+                    new CalculateCheckoutQuoteItemCommand(product.getId(), 1, null, List.of()))));
+
+    assertThat(response.totalAmount()).isEqualByComparingTo("42.00");
   }
 
   private void mockBase(Store store, Customer customer, List<CatalogProduct> products) {

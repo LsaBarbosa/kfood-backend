@@ -41,6 +41,14 @@ class StoreCheckoutRulesValidatorTest {
   }
 
   @Test
+  void shouldAcceptWhenStoreIsOperational() {
+    var validator = new StoreCheckoutRulesValidator(storeBusinessHourRepository, Clock.systemUTC());
+
+    assertThatCode(() -> validator.ensureStoreOperational(activeStore()))
+        .doesNotThrowAnyException();
+  }
+
+  @Test
   void shouldRejectWhenOutsideBusinessHours() {
     var store = activeStore();
     var clock = Clock.fixed(Instant.parse("2026-03-23T15:00:00Z"), ZoneId.of("UTC"));
@@ -69,19 +77,35 @@ class StoreCheckoutRulesValidatorTest {
         .isEqualTo(ErrorCode.STORE_NOT_ACTIVE);
   }
 
+  @Test
+  void shouldUseDefaultConstructorAndIgnoreClosedSlots() {
+    var store = activeStore();
+    var validator = new StoreCheckoutRulesValidator(storeBusinessHourRepository);
+
+    when(storeBusinessHourRepository.findAllByStoreIdAndDayOfWeek(store.getId(), DayOfWeek.MONDAY))
+        .thenReturn(List.of(StoreBusinessHour.closed(store, DayOfWeek.MONDAY)));
+
+    assertThatThrownBy(() -> validator.ensureStoreWithinBusinessHours(store))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.STORE_OUTSIDE_BUSINESS_HOURS);
+  }
+
   private Store activeStore() {
-    return new Store(
-        UUID.randomUUID(),
-        "Loja do Bairro",
-        "loja-do-bairro",
-        "45.723.174/0001-10",
-        "21999990000",
-        "America/Sao_Paulo");
+    var store =
+        new Store(
+            UUID.randomUUID(),
+            "Loja do Bairro",
+            "loja-do-bairro",
+            "45.723.174/0001-10",
+            "21999990000",
+            "America/Sao_Paulo");
+    store.activate();
+    return store;
   }
 
   private Store suspendedStore() {
     var store = activeStore();
-    store.activate();
     store.suspend();
     return store;
   }
