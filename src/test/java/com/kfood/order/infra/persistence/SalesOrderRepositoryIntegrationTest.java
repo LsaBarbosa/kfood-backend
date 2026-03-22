@@ -7,6 +7,7 @@ import com.kfood.catalog.infra.persistence.CatalogCategoryRepository;
 import com.kfood.catalog.infra.persistence.CatalogProduct;
 import com.kfood.catalog.infra.persistence.CatalogProductRepository;
 import com.kfood.customer.infra.persistence.Customer;
+import com.kfood.customer.infra.persistence.CustomerAddress;
 import com.kfood.customer.infra.persistence.CustomerRepository;
 import com.kfood.merchant.infra.persistence.Store;
 import com.kfood.merchant.infra.persistence.StoreRepository;
@@ -221,9 +222,12 @@ class SalesOrderRepositoryIntegrationTest extends PostgreSqlContainerIT {
     salesOrderRepository.saveAndFlush(scheduledOrder);
 
     var queue =
-        salesOrderRepository.findOperationalQueueByStoreIdAndStatus(
+        salesOrderRepository.findOperationalQueue(
             store.getId(),
             OrderStatus.NEW,
+            null,
+            null,
+            null,
             OffsetDateTime.parse("2026-03-21T15:30:00Z"),
             PageRequest.of(0, 10));
 
@@ -231,6 +235,171 @@ class SalesOrderRepositoryIntegrationTest extends PostgreSqlContainerIT {
     assertThat(queue.getContent())
         .extracting(SalesOrder::getId)
         .doesNotContain(scheduledOrder.getId());
+  }
+
+  @Test
+  @DisplayName("should return only orders from the requested tenant store")
+  void shouldReturnOnlyOrdersFromTheRequestedTenantStore() {
+    var targetStore = storeRepository.saveAndFlush(store("loja-tenant-a", "45.723.174/0001-10"));
+    var otherStore = storeRepository.saveAndFlush(store("loja-tenant-b", "54.550.752/0001-55"));
+    var targetCustomer =
+        customerRepository.saveAndFlush(
+            new Customer(
+                UUID.randomUUID(), targetStore, "Maria Silva", "21999990000", "maria@email.com"));
+    var otherCustomer =
+        customerRepository.saveAndFlush(
+            new Customer(
+                UUID.randomUUID(), otherStore, "Joao Silva", "21988887777", "joao@email.com"));
+    var targetOrder =
+        SalesOrder.create(
+            UUID.randomUUID(),
+            targetStore,
+            targetCustomer,
+            FulfillmentType.DELIVERY,
+            PaymentMethod.PIX,
+            new BigDecimal("40.00"),
+            new BigDecimal("8.00"),
+            new BigDecimal("48.00"),
+            null,
+            null);
+    var otherOrder =
+        SalesOrder.create(
+            UUID.randomUUID(),
+            otherStore,
+            otherCustomer,
+            FulfillmentType.DELIVERY,
+            PaymentMethod.PIX,
+            new BigDecimal("50.00"),
+            new BigDecimal("8.00"),
+            new BigDecimal("58.00"),
+            null,
+            null);
+
+    salesOrderRepository.saveAndFlush(targetOrder);
+    salesOrderRepository.saveAndFlush(otherOrder);
+
+    var queue =
+        salesOrderRepository.findOperationalQueue(
+            targetStore.getId(),
+            OrderStatus.NEW,
+            null,
+            null,
+            null,
+            OffsetDateTime.parse("2026-03-21T15:30:00Z"),
+            PageRequest.of(0, 10));
+
+    assertThat(queue.getContent())
+        .extracting(SalesOrder::getId)
+        .containsExactly(targetOrder.getId());
+  }
+
+  @Test
+  @DisplayName("should load detailed order with customer items options and address snapshot")
+  void shouldLoadDetailedOrderWithCustomerItemsOptionsAndAddressSnapshot() {
+    var store = storeRepository.saveAndFlush(store("loja-detalhe", "45.723.174/0001-10"));
+    var customer =
+        customerRepository.saveAndFlush(
+            new Customer(
+                UUID.randomUUID(), store, "Maria Silva", "21999990000", "maria@email.com"));
+    var address =
+        new CustomerAddress(
+            UUID.randomUUID(),
+            customer,
+            "Casa",
+            "25000000",
+            "Rua das Flores",
+            "45",
+            "Centro",
+            "Mage",
+            "RJ",
+            "Ap 101",
+            true);
+    var order =
+        SalesOrder.create(
+            UUID.randomUUID(),
+            store,
+            customer,
+            FulfillmentType.DELIVERY,
+            PaymentMethod.PIX,
+            new BigDecimal("50.00"),
+            new BigDecimal("6.50"),
+            new BigDecimal("56.50"),
+            null,
+            "Tocar campainha");
+    order.defineDeliveryAddressSnapshot(address);
+    var item =
+        SalesOrderItem.create(
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            "Pizza Calabresa",
+            new BigDecimal("42.00"),
+            1,
+            "Sem cebola");
+    item.addOption(
+        SalesOrderItemOption.create(
+            UUID.randomUUID(), "Borda Catupiry", new BigDecimal("8.00"), 1));
+    order.addItem(item);
+    var savedOrder = salesOrderRepository.saveAndFlush(order);
+
+    var detailedOrder =
+        salesOrderRepository
+            .findDetailedByIdAndStoreId(savedOrder.getId(), store.getId())
+            .orElseThrow();
+
+    assertThat(detailedOrder.getCustomer().getName()).isEqualTo("Maria Silva");
+    assertThat(detailedOrder.getItems()).hasSize(1);
+    assertThat(detailedOrder.getItems().getFirst().getOptions()).hasSize(1);
+    assertThat(detailedOrder.getDeliveryAddressStreet()).isEqualTo("Rua das Flores");
+    assertThat(detailedOrder.getDeliveryAddressNumber()).isEqualTo("45");
+  }
+
+  @Test
+  @DisplayName("should filter operational queue by fulfillment type and created at range")
+  void shouldFilterOperationalQueueByFulfillmentTypeAndCreatedAtRange() {
+    var store = storeRepository.saveAndFlush(store("loja-filtro", "54.550.752/0001-55"));
+    var customer =
+        customerRepository.saveAndFlush(
+            new Customer(
+                UUID.randomUUID(), store, "Maria Silva", "21999990000", "maria@email.com"));
+    var deliveryOrder =
+        salesOrderRepository.saveAndFlush(
+            SalesOrder.create(
+                UUID.randomUUID(),
+                store,
+                customer,
+                FulfillmentType.DELIVERY,
+                PaymentMethod.PIX,
+                new BigDecimal("50.00"),
+                new BigDecimal("6.50"),
+                new BigDecimal("56.50"),
+                null,
+                null));
+    salesOrderRepository.saveAndFlush(
+        SalesOrder.create(
+            UUID.randomUUID(),
+            store,
+            customer,
+            FulfillmentType.PICKUP,
+            PaymentMethod.PIX,
+            new BigDecimal("40.00"),
+            BigDecimal.ZERO,
+            new BigDecimal("40.00"),
+            null,
+            null));
+
+    var queue =
+        salesOrderRepository.findOperationalQueue(
+            store.getId(),
+            OrderStatus.NEW,
+            FulfillmentType.DELIVERY,
+            Instant.EPOCH,
+            Instant.now().plusSeconds(3600),
+            OffsetDateTime.now(),
+            PageRequest.of(0, 10));
+
+    assertThat(queue.getContent())
+        .extracting(SalesOrder::getId)
+        .containsExactly(deliveryOrder.getId());
   }
 
   private Store store(String slug, String cnpj) {

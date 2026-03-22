@@ -88,6 +88,16 @@ class CatalogOptionItemTest {
     assertThat(entity).isNotNull();
   }
 
+  @Test
+  void shouldRejectBlankName() {
+    assertThatThrownBy(
+            () ->
+                new CatalogOptionItem(
+                    UUID.randomUUID(), optionGroup(), " ", new BigDecimal("8.00"), true, 10))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("name must not be blank");
+  }
+
   private CatalogOptionGroup optionGroup() {
     var store =
         new Store(

@@ -99,6 +99,44 @@ class UpsertCustomerUseCaseTest {
   }
 
   @Test
+  void shouldCreateCustomerUsingOnlyEmailWhenPhoneIsMissing() {
+    var store = store("loja-do-bairro");
+    var request = new UpsertCustomerRequest("Maria", null, "maria@email.com", null);
+
+    when(storeRepository.findBySlug("loja-do-bairro")).thenReturn(Optional.of(store));
+    when(customerRepository.findByStoreIdAndEmail(store.getId(), "maria@email.com"))
+        .thenReturn(Optional.empty());
+    when(customerRepository.saveAndFlush(any(Customer.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+    when(customerAddressRepository.findByCustomerIdAndMainAddressTrue(any(UUID.class)))
+        .thenReturn(Optional.empty());
+
+    var response = upsertCustomerUseCase.execute("loja-do-bairro", request);
+
+    assertThat(response.phone()).isNull();
+    assertThat(response.email()).isEqualTo("maria@email.com");
+  }
+
+  @Test
+  void shouldCreateCustomerUsingOnlyPhoneWhenEmailIsMissing() {
+    var store = store("loja-do-bairro");
+    var request = new UpsertCustomerRequest("Maria", "21999990000", null, null);
+
+    when(storeRepository.findBySlug("loja-do-bairro")).thenReturn(Optional.of(store));
+    when(customerRepository.findByStoreIdAndPhone(store.getId(), "21999990000"))
+        .thenReturn(Optional.empty());
+    when(customerRepository.saveAndFlush(any(Customer.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+    when(customerAddressRepository.findByCustomerIdAndMainAddressTrue(any(UUID.class)))
+        .thenReturn(Optional.empty());
+
+    var response = upsertCustomerUseCase.execute("loja-do-bairro", request);
+
+    assertThat(response.phone()).isEqualTo("21999990000");
+    assertThat(response.email()).isNull();
+  }
+
+  @Test
   void shouldRejectWhenPhoneAndEmailAreMissing() {
     when(storeRepository.findBySlug("loja-do-bairro"))
         .thenReturn(Optional.of(store("loja-do-bairro")));
@@ -142,6 +180,31 @@ class UpsertCustomerUseCaseTest {
                     new UpsertCustomerRequest("Maria", "21999990000", "maria@email.com", null)))
         .isInstanceOf(StoreSlugNotFoundException.class)
         .hasMessageContaining("loja-inexistente");
+  }
+
+  @Test
+  void shouldRejectNullStoreSlug() {
+    assertThatThrownBy(
+            () ->
+                upsertCustomerUseCase.execute(
+                    null,
+                    new UpsertCustomerRequest("Maria", "21999990000", "maria@email.com", null)))
+        .isInstanceOf(NullPointerException.class)
+        .hasMessage("storeSlug is required");
+  }
+
+  @Test
+  void shouldTrimBlankStoreSlugBeforeLookup() {
+    when(storeRepository.findBySlug("")).thenReturn(Optional.empty());
+
+    assertThatThrownBy(
+            () ->
+                upsertCustomerUseCase.execute(
+                    "   ",
+                    new UpsertCustomerRequest("Maria", "21999990000", "maria@email.com", null)))
+        .isInstanceOf(StoreSlugNotFoundException.class);
+
+    verify(storeRepository).findBySlug("");
   }
 
   @Test
@@ -228,6 +291,54 @@ class UpsertCustomerUseCaseTest {
     var response = upsertCustomerUseCase.execute("loja-do-bairro", request);
 
     assertThat(response.mainAddressId()).isEqualTo(currentMainAddress.getId());
+  }
+
+  @Test
+  void shouldUnsetExistingMainAddressWhenSavingNewMainAddress() {
+    var store = store("loja-do-bairro");
+    var customer = new Customer(UUID.randomUUID(), store, "Maria", null, "maria@email.com");
+    var existingMainAddress =
+        new CustomerAddress(
+            UUID.randomUUID(),
+            customer,
+            "Casa",
+            "25000000",
+            "Rua das Flores",
+            "45",
+            "Centro",
+            "Mage",
+            "RJ",
+            null,
+            true);
+    var request =
+        new UpsertCustomerRequest(
+            "Maria",
+            null,
+            "maria@email.com",
+            new CustomerAddressRequest(
+                "Trabalho",
+                "22000-000",
+                "Avenida Central",
+                "100",
+                "Centro",
+                "Rio de Janeiro",
+                "RJ",
+                null,
+                true));
+
+    when(storeRepository.findBySlug("loja-do-bairro")).thenReturn(Optional.of(store));
+    when(customerRepository.findByStoreIdAndEmail(store.getId(), "maria@email.com"))
+        .thenReturn(Optional.of(customer));
+    when(customerRepository.saveAndFlush(customer)).thenReturn(customer);
+    when(customerAddressRepository.findByCustomerIdAndMainAddressTrue(customer.getId()))
+        .thenReturn(Optional.of(existingMainAddress));
+    when(customerAddressRepository.saveAndFlush(any(CustomerAddress.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+
+    var response = upsertCustomerUseCase.execute("loja-do-bairro", request);
+
+    assertThat(response.mainAddressId()).isNotNull();
+    verify(customerAddressRepository).save(existingMainAddress);
   }
 
   private Store store(String slug) {

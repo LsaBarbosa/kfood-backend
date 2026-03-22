@@ -130,6 +130,46 @@ class CatalogOptionGroupTest {
     assertThat(entity).isNotNull();
   }
 
+  @Test
+  void shouldExposeStoreId() {
+    var product = product(store());
+    var optionGroup =
+        new CatalogOptionGroup(UUID.randomUUID(), product, "Sauces", 0, 2, false, true);
+
+    assertThat(optionGroup.getStoreId()).isEqualTo(product.getStore().getId());
+  }
+
+  @Test
+  void shouldRejectStoreMismatchOnLifecycle() throws Exception {
+    var product = product(store());
+    var optionGroup =
+        new CatalogOptionGroup(UUID.randomUUID(), product, "Sauces", 0, 2, false, true);
+    var field = CatalogOptionGroup.class.getDeclaredField("storeId");
+    field.setAccessible(true);
+    field.set(optionGroup, UUID.randomUUID());
+    Method prePersist = CatalogOptionGroup.class.getDeclaredMethod("prePersist");
+    prePersist.setAccessible(true);
+
+    assertThatThrownBy(() -> prePersist.invoke(optionGroup))
+        .hasRootCauseInstanceOf(IllegalArgumentException.class)
+        .hasRootCauseMessage("optionGroup store must match product store");
+  }
+
+  @Test
+  void shouldRejectNullStoreIdOnLifecycle() throws Exception {
+    var optionGroup =
+        new CatalogOptionGroup(UUID.randomUUID(), product(store()), "Sauces", 0, 2, false, true);
+    var field = CatalogOptionGroup.class.getDeclaredField("storeId");
+    field.setAccessible(true);
+    field.set(optionGroup, null);
+    var prePersist = CatalogOptionGroup.class.getDeclaredMethod("prePersist");
+    prePersist.setAccessible(true);
+
+    assertThatThrownBy(() -> prePersist.invoke(optionGroup))
+        .hasRootCauseInstanceOf(IllegalArgumentException.class)
+        .hasRootCauseMessage("storeId is required");
+  }
+
   private CatalogProduct product(Store store) {
     var category = new CatalogCategory(UUID.randomUUID(), store, "Pizzas", 10, true);
 
