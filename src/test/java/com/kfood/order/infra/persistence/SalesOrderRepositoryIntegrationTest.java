@@ -221,9 +221,12 @@ class SalesOrderRepositoryIntegrationTest extends PostgreSqlContainerIT {
     salesOrderRepository.saveAndFlush(scheduledOrder);
 
     var queue =
-        salesOrderRepository.findOperationalQueueByStoreIdAndStatus(
+        salesOrderRepository.findOperationalQueue(
             store.getId(),
             OrderStatus.NEW,
+            null,
+            null,
+            null,
             OffsetDateTime.parse("2026-03-21T15:30:00Z"),
             PageRequest.of(0, 10));
 
@@ -231,6 +234,62 @@ class SalesOrderRepositoryIntegrationTest extends PostgreSqlContainerIT {
     assertThat(queue.getContent())
         .extracting(SalesOrder::getId)
         .doesNotContain(scheduledOrder.getId());
+  }
+
+  @Test
+  @DisplayName("should return only orders from the requested tenant store")
+  void shouldReturnOnlyOrdersFromTheRequestedTenantStore() {
+    var targetStore = storeRepository.saveAndFlush(store("loja-tenant-a", "45.723.174/0001-10"));
+    var otherStore = storeRepository.saveAndFlush(store("loja-tenant-b", "54.550.752/0001-55"));
+    var targetCustomer =
+        customerRepository.saveAndFlush(
+            new Customer(
+                UUID.randomUUID(), targetStore, "Maria Silva", "21999990000", "maria@email.com"));
+    var otherCustomer =
+        customerRepository.saveAndFlush(
+            new Customer(
+                UUID.randomUUID(), otherStore, "Joao Silva", "21988887777", "joao@email.com"));
+    var targetOrder =
+        SalesOrder.create(
+            UUID.randomUUID(),
+            targetStore,
+            targetCustomer,
+            FulfillmentType.DELIVERY,
+            PaymentMethod.PIX,
+            new BigDecimal("40.00"),
+            new BigDecimal("8.00"),
+            new BigDecimal("48.00"),
+            null,
+            null);
+    var otherOrder =
+        SalesOrder.create(
+            UUID.randomUUID(),
+            otherStore,
+            otherCustomer,
+            FulfillmentType.DELIVERY,
+            PaymentMethod.PIX,
+            new BigDecimal("50.00"),
+            new BigDecimal("8.00"),
+            new BigDecimal("58.00"),
+            null,
+            null);
+
+    salesOrderRepository.saveAndFlush(targetOrder);
+    salesOrderRepository.saveAndFlush(otherOrder);
+
+    var queue =
+        salesOrderRepository.findOperationalQueue(
+            targetStore.getId(),
+            OrderStatus.NEW,
+            null,
+            null,
+            null,
+            OffsetDateTime.parse("2026-03-21T15:30:00Z"),
+            PageRequest.of(0, 10));
+
+    assertThat(queue.getContent())
+        .extracting(SalesOrder::getId)
+        .containsExactly(targetOrder.getId());
   }
 
   private Store store(String slug, String cnpj) {
