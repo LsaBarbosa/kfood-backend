@@ -3,6 +3,7 @@ package com.kfood.order.app;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -18,6 +19,7 @@ import com.kfood.customer.infra.persistence.CustomerRepository;
 import com.kfood.merchant.infra.persistence.Store;
 import com.kfood.merchant.infra.persistence.StoreRepository;
 import com.kfood.order.api.CreatePublicOrderRequest;
+import com.kfood.order.api.CreatePublicOrderResponse;
 import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.domain.OrderStatus;
 import com.kfood.order.infra.persistence.SalesOrder;
@@ -285,5 +287,157 @@ class CreatePublicOrderServiceTest {
         .hasMessage("scheduledFor must be in the future.");
 
     verify(orderRepository, never()).save(any(SalesOrder.class));
+  }
+
+  @Test
+  void shouldUseIdempotencyServiceWhenKeyIsProvided() {
+    var storeRepository = mock(StoreRepository.class);
+    var idempotencyService = mock(IdempotencyService.class);
+    var store = mock(Store.class);
+    var storeId = UUID.randomUUID();
+    var request =
+        new CreatePublicOrderRequest(
+            UUID.randomUUID(),
+            UUID.randomUUID(),
+            FulfillmentType.PICKUP,
+            null,
+            PaymentMethod.PIX,
+            null,
+            null);
+    var expected =
+        new CreatePublicOrderResponse(
+            UUID.randomUUID(),
+            "PED-20260321-000003",
+            OrderStatus.NEW,
+            PaymentStatusSnapshot.PENDING,
+            new BigDecimal("50.00"),
+            BigDecimal.ZERO,
+            new BigDecimal("50.00"),
+            Instant.now());
+    when(store.getId()).thenReturn(storeId);
+    when(storeRepository.findBySlug("loja-do-bairro")).thenReturn(Optional.of(store));
+    when(idempotencyService.execute(
+            eq(storeId),
+            eq("public-order-create"),
+            eq("idem-123"),
+            eq(request),
+            eq(CreatePublicOrderResponse.class),
+            any()))
+        .thenReturn(expected);
+    var service =
+        new CreatePublicOrderService(
+            storeRepository,
+            mock(CustomerRepository.class),
+            mock(CustomerAddressRepository.class),
+            mock(CheckoutQuoteSnapshotGateway.class),
+            mock(CheckoutCriticalValidationService.class),
+            mock(SalesOrderRepository.class),
+            mock(AssignOrderNumberService.class),
+            mock(OrderCreatedPublisher.class),
+            idempotencyService,
+            fixedClock);
+
+    var response = service.create("loja-do-bairro", "idem-123", request);
+
+    assertThat(response.orderNumber()).isEqualTo("PED-20260321-000003");
+  }
+
+  @Test
+  void shouldRejectWhenCustomerIsMissing() {
+    var storeRepository = mock(StoreRepository.class);
+    var customerRepository = mock(CustomerRepository.class);
+    var storeId = UUID.randomUUID();
+    var store = mock(Store.class);
+    when(store.getId()).thenReturn(storeId);
+    when(storeRepository.findBySlug("loja-do-bairro")).thenReturn(Optional.of(store));
+    when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
+    when(customerRepository.findByIdAndStoreId(any(), eq(storeId))).thenReturn(Optional.empty());
+    var service =
+        new CreatePublicOrderService(
+            storeRepository,
+            customerRepository,
+            mock(CustomerAddressRepository.class),
+            mock(CheckoutQuoteSnapshotGateway.class),
+            mock(CheckoutCriticalValidationService.class),
+            mock(SalesOrderRepository.class),
+            mock(AssignOrderNumberService.class),
+            mock(OrderCreatedPublisher.class),
+            mock(IdempotencyService.class),
+            fixedClock);
+
+    assertThatThrownBy(
+            () ->
+                service.create(
+                    "loja-do-bairro",
+                    null,
+                    new CreatePublicOrderRequest(
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        FulfillmentType.PICKUP,
+                        null,
+                        PaymentMethod.PIX,
+                        null,
+                        null)))
+        .isInstanceOf(BusinessException.class)
+        .hasMessage("Customer not found for this store.");
+  }
+
+  @Test
+  void shouldRejectWhenQuoteBelongsToDifferentCustomer() {
+    var storeRepository = mock(StoreRepository.class);
+    var customerRepository = mock(CustomerRepository.class);
+    var quoteGateway = mock(CheckoutQuoteSnapshotGateway.class);
+    var service =
+        new CreatePublicOrderService(
+            storeRepository,
+            customerRepository,
+            mock(CustomerAddressRepository.class),
+            quoteGateway,
+            mock(CheckoutCriticalValidationService.class),
+            mock(SalesOrderRepository.class),
+            mock(AssignOrderNumberService.class),
+            mock(OrderCreatedPublisher.class),
+            mock(IdempotencyService.class),
+            fixedClock);
+    var storeId = UUID.randomUUID();
+    var customerId = UUID.randomUUID();
+    var store = mock(Store.class);
+    var customer = mock(Customer.class);
+    when(store.getId()).thenReturn(storeId);
+    when(customer.getId()).thenReturn(customerId);
+    when(storeRepository.findBySlug("loja-do-bairro")).thenReturn(Optional.of(store));
+    when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
+    when(customerRepository.findByIdAndStoreId(customerId, storeId))
+        .thenReturn(Optional.of(customer));
+    when(quoteGateway.findValidByStoreIdAndQuoteId(eq(storeId), any()))
+        .thenReturn(
+            Optional.of(
+                new CheckoutQuoteSnapshot(
+                    UUID.randomUUID(),
+                    storeId,
+                    UUID.randomUUID(),
+                    FulfillmentType.PICKUP,
+                    null,
+                    new BigDecimal("50.00"),
+                    BigDecimal.ZERO,
+                    new BigDecimal("50.00"),
+                    List.of(),
+                    OffsetDateTime.now(fixedClock).plusMinutes(10))));
+
+    assertThatThrownBy(
+            () ->
+                service.create(
+                    "loja-do-bairro",
+                    null,
+                    new CreatePublicOrderRequest(
+                        UUID.randomUUID(),
+                        customerId,
+                        FulfillmentType.PICKUP,
+                        null,
+                        PaymentMethod.PIX,
+                        null,
+                        null)))
+        .isInstanceOf(BusinessException.class)
+        .hasMessage("Quote does not belong to the informed customer.");
   }
 }

@@ -29,4 +29,21 @@ class SalesOrderItemOptionTest {
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessage("extraPriceSnapshot must not be negative");
   }
+
+  @Test
+  void shouldRejectBlankOptionName() {
+    assertThatThrownBy(
+            () -> SalesOrderItemOption.create(UUID.randomUUID(), " ", new BigDecimal("8.00"), 1))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("optionNameSnapshot must not be blank");
+  }
+
+  @Test
+  void shouldRejectQuantityLessThanOne() {
+    assertThatThrownBy(
+            () ->
+                SalesOrderItemOption.create(UUID.randomUUID(), "Borda", new BigDecimal("8.00"), 0))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("quantity must be greater than zero");
+  }
 }

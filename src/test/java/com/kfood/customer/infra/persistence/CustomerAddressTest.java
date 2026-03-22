@@ -91,6 +91,49 @@ class CustomerAddressTest {
     assertThat(entity).isNotNull();
   }
 
+  @Test
+  void shouldUnsetMainAddress() {
+    var address =
+        new CustomerAddress(
+            UUID.randomUUID(),
+            customer(),
+            "Casa",
+            "25000000",
+            "Rua das Flores",
+            "45",
+            "Centro",
+            "Mage",
+            "RJ",
+            null,
+            true);
+
+    address.unsetMainAddress();
+
+    assertThat(address.isMainAddress()).isFalse();
+    assertThat(address.getCustomer()).isNotNull();
+    assertThat(address.getId()).isNotNull();
+  }
+
+  @Test
+  void shouldRejectBlankStateAfterNormalization() {
+    assertThatThrownBy(
+            () ->
+                new CustomerAddress(
+                    UUID.randomUUID(),
+                    customer(),
+                    "Casa",
+                    "25000000",
+                    "Rua das Flores",
+                    "45",
+                    "Centro",
+                    "Mage",
+                    " ",
+                    null,
+                    false))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("state must have 2 letters");
+  }
+
   private Customer customer() {
     return new Customer(
         UUID.randomUUID(),

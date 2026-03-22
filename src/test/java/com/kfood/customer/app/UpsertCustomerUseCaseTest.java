@@ -230,6 +230,54 @@ class UpsertCustomerUseCaseTest {
     assertThat(response.mainAddressId()).isEqualTo(currentMainAddress.getId());
   }
 
+  @Test
+  void shouldUnsetExistingMainAddressWhenSavingNewMainAddress() {
+    var store = store("loja-do-bairro");
+    var customer = new Customer(UUID.randomUUID(), store, "Maria", null, "maria@email.com");
+    var existingMainAddress =
+        new CustomerAddress(
+            UUID.randomUUID(),
+            customer,
+            "Casa",
+            "25000000",
+            "Rua das Flores",
+            "45",
+            "Centro",
+            "Mage",
+            "RJ",
+            null,
+            true);
+    var request =
+        new UpsertCustomerRequest(
+            "Maria",
+            null,
+            "maria@email.com",
+            new CustomerAddressRequest(
+                "Trabalho",
+                "22000-000",
+                "Avenida Central",
+                "100",
+                "Centro",
+                "Rio de Janeiro",
+                "RJ",
+                null,
+                true));
+
+    when(storeRepository.findBySlug("loja-do-bairro")).thenReturn(Optional.of(store));
+    when(customerRepository.findByStoreIdAndEmail(store.getId(), "maria@email.com"))
+        .thenReturn(Optional.of(customer));
+    when(customerRepository.saveAndFlush(customer)).thenReturn(customer);
+    when(customerAddressRepository.findByCustomerIdAndMainAddressTrue(customer.getId()))
+        .thenReturn(Optional.of(existingMainAddress));
+    when(customerAddressRepository.saveAndFlush(any(CustomerAddress.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+
+    var response = upsertCustomerUseCase.execute("loja-do-bairro", request);
+
+    assertThat(response.mainAddressId()).isNotNull();
+    verify(customerAddressRepository).save(existingMainAddress);
+  }
+
   private Store store(String slug) {
     return new Store(
         UUID.randomUUID(),
