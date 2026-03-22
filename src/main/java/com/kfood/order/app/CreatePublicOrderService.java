@@ -16,6 +16,7 @@ import com.kfood.order.infra.persistence.SalesOrderRepository;
 import com.kfood.shared.exceptions.BusinessException;
 import com.kfood.shared.exceptions.ErrorCode;
 import com.kfood.shared.idempotency.IdempotencyService;
+import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -42,6 +43,7 @@ public class CreatePublicOrderService {
   private final AssignOrderNumberService assignOrderNumberService;
   private final OrderCreatedPublisher orderCreatedPublisher;
   private final IdempotencyService idempotencyService;
+  private final Clock clock;
 
   public CreatePublicOrderService(
       StoreRepository storeRepository,
@@ -52,7 +54,8 @@ public class CreatePublicOrderService {
       SalesOrderRepository salesOrderRepository,
       AssignOrderNumberService assignOrderNumberService,
       OrderCreatedPublisher orderCreatedPublisher,
-      IdempotencyService idempotencyService) {
+      IdempotencyService idempotencyService,
+      Clock clock) {
     this.storeRepository = storeRepository;
     this.customerRepository = customerRepository;
     this.customerAddressRepository = customerAddressRepository;
@@ -62,6 +65,7 @@ public class CreatePublicOrderService {
     this.assignOrderNumberService = assignOrderNumberService;
     this.orderCreatedPublisher = orderCreatedPublisher;
     this.idempotencyService = idempotencyService;
+    this.clock = clock;
   }
 
   @Transactional
@@ -85,12 +89,6 @@ public class CreatePublicOrderService {
 
   private CreatePublicOrderResponse doCreate(UUID storeId, CreatePublicOrderRequest request) {
     var store = storeRepository.findById(storeId).orElseThrow();
-    if (request.scheduledFor() != null) {
-      throw new BusinessException(
-          ErrorCode.VALIDATION_ERROR,
-          "Scheduled orders are not supported yet.",
-          HttpStatus.UNPROCESSABLE_CONTENT);
-    }
 
     var customer =
         customerRepository
@@ -137,6 +135,14 @@ public class CreatePublicOrderService {
             quote.totalAmount(),
             null,
             request.notes());
+    try {
+      order.defineSchedule(request.scheduledFor(), clock);
+    } catch (IllegalArgumentException exception) {
+      throw new BusinessException(
+          ErrorCode.VALIDATION_ERROR,
+          "scheduledFor must be in the future.",
+          HttpStatus.BAD_REQUEST);
+    }
     for (var itemSnapshot : quote.items()) {
       var item =
           SalesOrderItem.create(
@@ -166,7 +172,7 @@ public class CreatePublicOrderService {
             saved.getOrderNumber(),
             saved.getStatus(),
             saved.getTotalAmount(),
-            OffsetDateTime.now()));
+            OffsetDateTime.now(clock)));
     return new CreatePublicOrderResponse(
         saved.getId(),
         saved.getOrderNumber(),

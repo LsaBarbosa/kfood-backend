@@ -16,6 +16,9 @@ import com.kfood.payment.domain.PaymentMethod;
 import com.kfood.shared.persistence.TestJpaAuditingConfig;
 import com.kfood.support.PostgreSqlContainerIT;
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -23,6 +26,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
 import org.springframework.context.annotation.Import;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 
@@ -175,6 +179,58 @@ class SalesOrderRepositoryIntegrationTest extends PostgreSqlContainerIT {
 
     assertThat(reloadedItem.getProductNameSnapshot()).isEqualTo("Pizza Calabresa");
     assertThat(reloadedItem.getUnitPriceSnapshot()).isEqualByComparingTo("42.00");
+  }
+
+  @Test
+  @DisplayName("should exclude future scheduled orders from operational queue")
+  void shouldExcludeFutureScheduledOrdersFromOperationalQueue() {
+    var store = storeRepository.saveAndFlush(store("loja-fila", "45.723.174/0001-10"));
+    var customer =
+        customerRepository.saveAndFlush(
+            new Customer(
+                UUID.randomUUID(), store, "Carlos Silva", "21977770000", "carlos@email.com"));
+    var immediateOrder =
+        SalesOrder.create(
+            UUID.randomUUID(),
+            store,
+            customer,
+            FulfillmentType.PICKUP,
+            PaymentMethod.PIX,
+            new BigDecimal("40.00"),
+            BigDecimal.ZERO.setScale(2),
+            new BigDecimal("40.00"),
+            null,
+            null);
+    var scheduledOrder =
+        SalesOrder.create(
+            UUID.randomUUID(),
+            store,
+            customer,
+            FulfillmentType.PICKUP,
+            PaymentMethod.PIX,
+            new BigDecimal("50.00"),
+            BigDecimal.ZERO.setScale(2),
+            new BigDecimal("50.00"),
+            null,
+            "Scheduled");
+    scheduledOrder.defineSchedule(
+        OffsetDateTime.parse("2026-03-21T16:00:00Z"),
+        Clock.fixed(Instant.parse("2026-03-21T15:00:00Z"), java.time.ZoneOffset.UTC));
+
+    salesOrderRepository.saveAndFlush(immediateOrder);
+    salesOrderRepository.saveAndFlush(scheduledOrder);
+
+    var queue =
+        salesOrderRepository.findOperationalQueueByStoreIdAndStatus(
+            store.getId(),
+            OrderStatus.NEW,
+            OffsetDateTime.parse("2026-03-21T15:30:00Z"),
+            PageRequest.of(0, 10));
+
+    assertThat(queue.getContent()).extracting(SalesOrder::getId).contains(immediateOrder.getId());
+    assertThat(queue.getContent())
+        .extracting(SalesOrder::getId)
+        .doesNotContain(scheduledOrder.getId());
   }
 
   private Store store(String slug, String cnpj) {

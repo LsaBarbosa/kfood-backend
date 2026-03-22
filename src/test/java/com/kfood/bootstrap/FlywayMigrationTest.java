@@ -379,6 +379,24 @@ class FlywayMigrationTest {
   }
 
   @Test
+  void shouldRegisterVersionNineteenInFlywayHistory() throws Exception {
+    try (Connection connection = dataSource.getConnection();
+        Statement statement = connection.createStatement();
+        ResultSet resultSet =
+            statement.executeQuery(
+                """
+                     select count(*)
+                     from flyway_schema_history
+                     where version = '19'
+                       and success = true
+                     """)) {
+
+      assertThat(resultSet.next()).isTrue();
+      assertThat(resultSet.getInt(1)).isEqualTo(1);
+    }
+  }
+
+  @Test
   void shouldApplySetupAsStoreDefaultStatusAfterApplyingMigrations() throws Exception {
     try (Connection connection = dataSource.getConnection();
         Statement statement = connection.createStatement()) {
@@ -760,6 +778,12 @@ class FlywayMigrationTest {
                       """))
           .isInstanceOf(Exception.class);
     }
+  }
+
+  @Test
+  void shouldApplySalesOrderSchedulingIndexesAfterApplyingMigrations() throws Exception {
+    assertThat(indexExists("sales_order", "ix_sales_order_store_scheduled_for")).isTrue();
+    assertThat(indexExists("sales_order", "ix_sales_order_status_scheduled_for")).isTrue();
   }
 
   private boolean tableExists(String tableName) throws Exception {

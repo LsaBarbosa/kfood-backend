@@ -21,6 +21,7 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -216,6 +217,35 @@ public class SalesOrder extends AuditableEntity {
   public void markPaymentStatusSnapshot(PaymentStatusSnapshot paymentStatusSnapshot) {
     this.paymentStatusSnapshot =
         Objects.requireNonNull(paymentStatusSnapshot, "paymentStatusSnapshot must not be null");
+  }
+
+  public void defineSchedule(OffsetDateTime scheduledFor, Clock clock) {
+    var validatedClock = Objects.requireNonNull(clock, "clock must not be null");
+    if (scheduledFor == null) {
+      this.scheduledFor = null;
+      return;
+    }
+
+    var now = OffsetDateTime.now(validatedClock);
+    if (!scheduledFor.isAfter(now)) {
+      throw new IllegalArgumentException("scheduledFor must be in the future");
+    }
+
+    this.scheduledFor = scheduledFor;
+  }
+
+  public boolean isScheduled() {
+    return scheduledFor != null;
+  }
+
+  public boolean isScheduledForFuture(Clock clock) {
+    var validatedClock = Objects.requireNonNull(clock, "clock must not be null");
+    return scheduledFor != null && scheduledFor.isAfter(OffsetDateTime.now(validatedClock));
+  }
+
+  public boolean isAvailableForOperation(Clock clock) {
+    var validatedClock = Objects.requireNonNull(clock, "clock must not be null");
+    return scheduledFor == null || !scheduledFor.isAfter(OffsetDateTime.now(validatedClock));
   }
 
   private void validateBusinessRules() {

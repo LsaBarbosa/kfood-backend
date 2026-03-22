@@ -11,6 +11,10 @@ import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.domain.OrderStatus;
 import com.kfood.payment.domain.PaymentMethod;
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -130,5 +134,87 @@ class SalesOrderTest {
     assertThatThrownBy(() -> order.assignOrderNumber("PED-20260321-000002"))
         .isInstanceOf(IllegalStateException.class)
         .hasMessage("orderNumber is already assigned");
+  }
+
+  @Test
+  void shouldAcceptFutureScheduleAndKeepStatusNew() {
+    var store = mock(Store.class);
+    var customer = mock(Customer.class);
+    var fixedClock = Clock.fixed(Instant.parse("2026-03-21T15:00:00Z"), ZoneOffset.UTC);
+    var futureSchedule = OffsetDateTime.parse("2026-03-21T16:00:00Z");
+
+    var order =
+        SalesOrder.create(
+            UUID.randomUUID(),
+            store,
+            customer,
+            FulfillmentType.DELIVERY,
+            PaymentMethod.PIX,
+            new BigDecimal("40.00"),
+            new BigDecimal("8.00"),
+            new BigDecimal("48.00"),
+            null,
+            "Scheduled order");
+
+    order.defineSchedule(futureSchedule, fixedClock);
+
+    assertThat(order.getScheduledFor()).isEqualTo(futureSchedule);
+    assertThat(order.isScheduled()).isTrue();
+    assertThat(order.isScheduledForFuture(fixedClock)).isTrue();
+    assertThat(order.isAvailableForOperation(fixedClock)).isFalse();
+    assertThat(order.getStatus()).isEqualTo(OrderStatus.NEW);
+  }
+
+  @Test
+  void shouldRejectPastSchedule() {
+    var store = mock(Store.class);
+    var customer = mock(Customer.class);
+    var fixedClock = Clock.fixed(Instant.parse("2026-03-21T15:00:00Z"), ZoneOffset.UTC);
+    var pastSchedule = OffsetDateTime.parse("2026-03-21T14:00:00Z");
+
+    var order =
+        SalesOrder.create(
+            UUID.randomUUID(),
+            store,
+            customer,
+            FulfillmentType.DELIVERY,
+            PaymentMethod.PIX,
+            new BigDecimal("40.00"),
+            new BigDecimal("8.00"),
+            new BigDecimal("48.00"),
+            null,
+            "Scheduled order");
+
+    assertThatThrownBy(() -> order.defineSchedule(pastSchedule, fixedClock))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("scheduledFor must be in the future");
+  }
+
+  @Test
+  void shouldMakeScheduledOrderAvailableForOperationWhenTimeArrives() {
+    var store = mock(Store.class);
+    var customer = mock(Customer.class);
+    var fixedClock = Clock.fixed(Instant.parse("2026-03-21T15:00:00Z"), ZoneOffset.UTC);
+    var afterScheduleClock = Clock.fixed(Instant.parse("2026-03-21T16:05:00Z"), ZoneOffset.UTC);
+    var scheduledFor = OffsetDateTime.parse("2026-03-21T16:00:00Z");
+
+    var order =
+        SalesOrder.create(
+            UUID.randomUUID(),
+            store,
+            customer,
+            FulfillmentType.PICKUP,
+            PaymentMethod.PIX,
+            new BigDecimal("40.00"),
+            BigDecimal.ZERO,
+            new BigDecimal("40.00"),
+            null,
+            null);
+
+    order.defineSchedule(scheduledFor, fixedClock);
+
+    assertThat(order.isScheduledForFuture(afterScheduleClock)).isFalse();
+    assertThat(order.isAvailableForOperation(afterScheduleClock)).isTrue();
+    assertThat(order.getStatus()).isEqualTo(OrderStatus.NEW);
   }
 }
