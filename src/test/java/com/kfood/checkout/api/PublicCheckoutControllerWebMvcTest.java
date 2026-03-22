@@ -35,10 +35,11 @@ class PublicCheckoutControllerWebMvcTest {
   @Test
   void shouldCalculateQuoteWithoutAuthentication() throws Exception {
     var storeId = UUID.randomUUID();
+    var quoteId = UUID.randomUUID();
     when(calculateCheckoutQuoteUseCase.execute(eq("loja-do-bairro"), any()))
         .thenReturn(
             new QuoteCheckoutResponse(
-                "qte_12345678901234567890",
+                quoteId,
                 storeId,
                 new java.math.BigDecimal("42.00"),
                 new java.math.BigDecimal("6.50"),
@@ -65,7 +66,7 @@ class PublicCheckoutControllerWebMvcTest {
                     }
                     """))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.quoteId").value("qte_12345678901234567890"))
+        .andExpect(jsonPath("$.quoteId").value(quoteId.toString()))
         .andExpect(jsonPath("$.storeId").value(storeId.toString()))
         .andExpect(jsonPath("$.totalAmount").value(48.50));
   }

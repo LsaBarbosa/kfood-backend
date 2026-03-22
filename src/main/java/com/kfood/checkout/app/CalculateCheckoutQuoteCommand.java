@@ -1,6 +1,6 @@
 package com.kfood.checkout.app;
 
-import com.kfood.checkout.domain.FulfillmentType;
+import com.kfood.order.domain.FulfillmentType;
 import java.util.List;
 import java.util.UUID;
 

@@ -11,7 +11,6 @@ import com.kfood.catalog.infra.persistence.CatalogOptionGroup;
 import com.kfood.catalog.infra.persistence.CatalogOptionItem;
 import com.kfood.catalog.infra.persistence.CatalogProduct;
 import com.kfood.catalog.infra.persistence.CatalogProductRepository;
-import com.kfood.checkout.domain.FulfillmentType;
 import com.kfood.customer.infra.persistence.Customer;
 import com.kfood.customer.infra.persistence.CustomerAddress;
 import com.kfood.customer.infra.persistence.CustomerAddressRepository;
@@ -20,6 +19,7 @@ import com.kfood.merchant.infra.persistence.DeliveryZone;
 import com.kfood.merchant.infra.persistence.DeliveryZoneRepository;
 import com.kfood.merchant.infra.persistence.Store;
 import com.kfood.merchant.infra.persistence.StoreRepository;
+import com.kfood.order.domain.FulfillmentType;
 import com.kfood.shared.exceptions.BusinessException;
 import com.kfood.shared.exceptions.ErrorCode;
 import java.math.BigDecimal;
@@ -41,6 +41,8 @@ class CalculateCheckoutQuoteUseCaseTest {
       mock(CatalogProductAvailabilityValidator.class);
   private final StoreCheckoutRulesValidator storeCheckoutRulesValidator =
       mock(StoreCheckoutRulesValidator.class);
+  private final CheckoutQuoteSnapshotGateway checkoutQuoteSnapshotGateway =
+      mock(CheckoutQuoteSnapshotGateway.class);
   private final QuoteFulfillmentPolicy quoteFulfillmentPolicy =
       new QuoteFulfillmentPolicy(customerAddressRepository, deliveryZoneRepository);
   private final CalculateCheckoutQuoteUseCase useCase =
@@ -50,7 +52,8 @@ class CalculateCheckoutQuoteUseCaseTest {
           catalogProductRepository,
           catalogProductAvailabilityValidator,
           storeCheckoutRulesValidator,
-          quoteFulfillmentPolicy);
+          quoteFulfillmentPolicy,
+          checkoutQuoteSnapshotGateway);
 
   @Test
   void shouldCalculateSubtotalCorrectly() {

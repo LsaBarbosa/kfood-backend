@@ -1,4 +1,4 @@
-package com.kfood.checkout.domain;
+package com.kfood.order.domain;
 
 public enum FulfillmentType {
   DELIVERY,
