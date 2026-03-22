@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.lang.reflect.Constructor;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 
 class PaymentWebhookEventTest {
 
@@ -63,6 +64,17 @@ class PaymentWebhookEventTest {
     event.defineSignatureValidation(true);
 
     assertThat(event.getSignatureValid()).isTrue();
+  }
+
+  @Test
+  void shouldAttachWebhookToPayment() {
+    var event =
+        PaymentWebhookEvent.received(null, "MOCK_PSP", "evt-1", "evt-1", "{\"type\":\"ok\"}");
+    var payment = Mockito.mock(Payment.class);
+
+    event.attachToPayment(payment);
+
+    assertThat(event.getPayment()).isEqualTo(payment);
   }
 
   @Test

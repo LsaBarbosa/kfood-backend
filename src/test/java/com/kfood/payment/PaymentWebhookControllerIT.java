@@ -35,7 +35,7 @@ class PaymentWebhookControllerIT {
         """
         {
           "externalEventId": "evt_123",
-          "eventType": "PAYMENT_CONFIRMED",
+          "eventType": "PAYMENT_RECEIVED",
           "providerReference": "psp_123456",
           "paidAt": "2026-03-16T18:50:00Z",
           "amount": 56.50
@@ -56,7 +56,7 @@ class PaymentWebhookControllerIT {
     assertThat(events.getFirst().getProviderName()).isEqualTo("mock-psp");
     assertThat(events.getFirst().getExternalEventId()).isEqualTo("evt_123");
     assertThat(events.getFirst().getProcessingStatus().name()).isEqualTo("PROCESSED");
-    assertThat(events.getFirst().getRawPayload()).contains("\"eventType\": \"PAYMENT_CONFIRMED\"");
+    assertThat(events.getFirst().getRawPayload()).contains("\"eventType\": \"PAYMENT_RECEIVED\"");
   }
 
   @Test

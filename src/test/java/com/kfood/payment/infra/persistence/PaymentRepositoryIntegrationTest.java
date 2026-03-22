@@ -82,6 +82,8 @@ class PaymentRepositoryIntegrationTest extends PostgreSqlContainerIT {
     assertThat(paymentRepository.findByOrderIdOrderByCreatedAtDesc(order.getId())).hasSize(1);
     assertThat(paymentRepository.findByIdAndOrderStoreId(savedPayment.getId(), store.getId()))
         .isPresent();
+    assertThat(paymentRepository.findByProviderNameAndProviderReference("mock-psp", "pix_123"))
+        .isPresent();
   }
 
   private Store store(String slug, String cnpj) {

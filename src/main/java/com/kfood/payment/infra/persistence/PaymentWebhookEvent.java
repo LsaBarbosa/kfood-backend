@@ -170,6 +170,10 @@ public class PaymentWebhookEvent extends AuditableEntity {
     this.signatureValid = signatureValid;
   }
 
+  public void attachToPayment(Payment payment) {
+    this.payment = Objects.requireNonNull(payment, "payment must not be null");
+  }
+
   public void markProcessed() {
     processingStatus = WebhookProcessingStatus.PROCESSED;
     processedAt = Instant.now();
