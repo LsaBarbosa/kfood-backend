@@ -5,7 +5,7 @@ import java.util.List;
 import java.util.UUID;
 
 public record QuoteCheckoutResponse(
-    String quoteId,
+    UUID quoteId,
     UUID storeId,
     BigDecimal subtotalAmount,
     BigDecimal deliveryFeeAmount,
