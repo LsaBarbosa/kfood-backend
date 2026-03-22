@@ -248,6 +248,45 @@ public class SalesOrder extends AuditableEntity {
     return scheduledFor == null || !scheduledFor.isAfter(OffsetDateTime.now(validatedClock));
   }
 
+  public boolean canTransitionTo(OrderStatus targetStatus) {
+    var validatedTargetStatus =
+        Objects.requireNonNull(targetStatus, "targetStatus must not be null");
+
+    return switch (status) {
+      case NEW ->
+          validatedTargetStatus == OrderStatus.PREPARING
+              || validatedTargetStatus == OrderStatus.CANCELED;
+      case PREPARING ->
+          validatedTargetStatus == OrderStatus.READY
+              || validatedTargetStatus == OrderStatus.CANCELED;
+      case READY ->
+          switch (fulfillmentType) {
+            case DELIVERY ->
+                validatedTargetStatus == OrderStatus.OUT_FOR_DELIVERY
+                    || validatedTargetStatus == OrderStatus.CANCELED;
+            case PICKUP ->
+                validatedTargetStatus == OrderStatus.COMPLETED
+                    || validatedTargetStatus == OrderStatus.CANCELED;
+          };
+      case OUT_FOR_DELIVERY ->
+          validatedTargetStatus == OrderStatus.COMPLETED
+              || validatedTargetStatus == OrderStatus.CANCELED;
+      case COMPLETED, CANCELED -> false;
+    };
+  }
+
+  public void changeStatus(OrderStatus targetStatus) {
+    if (!canTransitionTo(targetStatus)) {
+      throw new OrderStatusTransitionException(status, targetStatus);
+    }
+
+    status = targetStatus;
+  }
+
+  public boolean isFinalStatus() {
+    return status == OrderStatus.COMPLETED || status == OrderStatus.CANCELED;
+  }
+
   private void validateBusinessRules() {
     if (subtotalAmount.signum() < 0) {
       throw new IllegalArgumentException("subtotalAmount must not be negative");
