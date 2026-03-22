@@ -25,7 +25,10 @@ import java.util.UUID;
     uniqueConstraints = {
       @UniqueConstraint(
           name = "uk_payment_webhook_event_provider_external_event",
-          columnNames = {"provider_name", "external_event_id"})
+          columnNames = {"provider_name", "external_event_id"}),
+      @UniqueConstraint(
+          name = "uk_payment_webhook_event_provider_idempotency_key",
+          columnNames = {"provider_name", "idempotency_key"})
     },
     indexes = {
       @Index(name = "idx_payment_webhook_event_payment_id", columnList = "payment_id"),
@@ -44,8 +47,11 @@ public class PaymentWebhookEvent extends AuditableEntity {
   @Column(name = "provider_name", nullable = false, length = 100)
   private String providerName;
 
-  @Column(name = "external_event_id", nullable = false, length = 150)
+  @Column(name = "external_event_id", length = 150)
   private String externalEventId;
+
+  @Column(name = "idempotency_key", nullable = false, length = 200)
+  private String idempotencyKey;
 
   @Column(name = "signature_valid")
   private Boolean signatureValid;
@@ -70,6 +76,7 @@ public class PaymentWebhookEvent extends AuditableEntity {
       Payment payment,
       String providerName,
       String externalEventId,
+      String idempotencyKey,
       Boolean signatureValid,
       String rawPayload,
       WebhookProcessingStatus processingStatus,
@@ -78,7 +85,8 @@ public class PaymentWebhookEvent extends AuditableEntity {
     this.id = Objects.requireNonNull(id, "id must not be null");
     this.payment = payment;
     this.providerName = requireText(providerName, "providerName");
-    this.externalEventId = requireText(externalEventId, "externalEventId");
+    this.externalEventId = normalizeNullable(externalEventId);
+    this.idempotencyKey = requireText(idempotencyKey, "idempotencyKey");
     this.signatureValid = signatureValid;
     this.rawPayload = requireText(rawPayload, "rawPayload");
     this.processingStatus =
@@ -88,12 +96,17 @@ public class PaymentWebhookEvent extends AuditableEntity {
   }
 
   public static PaymentWebhookEvent received(
-      Payment payment, String providerName, String externalEventId, String rawPayload) {
+      Payment payment,
+      String providerName,
+      String externalEventId,
+      String idempotencyKey,
+      String rawPayload) {
     return new PaymentWebhookEvent(
         UUID.randomUUID(),
         payment,
         providerName,
         externalEventId,
+        idempotencyKey,
         null,
         rawPayload,
         WebhookProcessingStatus.RECEIVED,
@@ -105,7 +118,8 @@ public class PaymentWebhookEvent extends AuditableEntity {
   @PreUpdate
   void validateLifecycle() {
     providerName = requireText(providerName, "providerName");
-    externalEventId = requireText(externalEventId, "externalEventId");
+    externalEventId = normalizeNullable(externalEventId);
+    idempotencyKey = requireText(idempotencyKey, "idempotencyKey");
     rawPayload = requireText(rawPayload, "rawPayload");
     processingStatus =
         Objects.requireNonNull(processingStatus, "processingStatus must not be null");
@@ -126,6 +140,10 @@ public class PaymentWebhookEvent extends AuditableEntity {
 
   public String getExternalEventId() {
     return externalEventId;
+  }
+
+  public String getIdempotencyKey() {
+    return idempotencyKey;
   }
 
   public Boolean getSignatureValid() {
@@ -173,5 +191,9 @@ public class PaymentWebhookEvent extends AuditableEntity {
     }
 
     return value.trim();
+  }
+
+  private static String normalizeNullable(String value) {
+    return value == null || value.isBlank() ? null : value.trim();
   }
 }

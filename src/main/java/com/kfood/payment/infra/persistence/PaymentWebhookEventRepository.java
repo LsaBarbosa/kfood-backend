@@ -9,5 +9,10 @@ public interface PaymentWebhookEventRepository extends JpaRepository<PaymentWebh
   Optional<PaymentWebhookEvent> findByProviderNameAndExternalEventId(
       String providerName, String externalEventId);
 
+  Optional<PaymentWebhookEvent> findByProviderNameAndIdempotencyKey(
+      String providerName, String idempotencyKey);
+
   boolean existsByProviderNameAndExternalEventId(String providerName, String externalEventId);
+
+  boolean existsByProviderNameAndIdempotencyKey(String providerName, String idempotencyKey);
 }

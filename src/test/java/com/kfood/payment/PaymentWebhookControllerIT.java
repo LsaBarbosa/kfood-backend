@@ -47,7 +47,7 @@ class PaymentWebhookControllerIT {
             post("/v1/payments/webhooks/mock-psp").contentType(APPLICATION_JSON).content(payload))
         .andExpect(status().isAccepted())
         .andExpect(jsonPath("$.accepted").value(true))
-        .andExpect(jsonPath("$.processingStatus").value("RECEIVED"))
+        .andExpect(jsonPath("$.processingStatus").value("PROCESSED"))
         .andExpect(jsonPath("$.externalEventId").value("evt_123"));
 
     var events = paymentWebhookEventRepository.findAll();
@@ -55,6 +55,7 @@ class PaymentWebhookControllerIT {
     assertThat(events).hasSize(1);
     assertThat(events.getFirst().getProviderName()).isEqualTo("mock-psp");
     assertThat(events.getFirst().getExternalEventId()).isEqualTo("evt_123");
+    assertThat(events.getFirst().getProcessingStatus().name()).isEqualTo("PROCESSED");
     assertThat(events.getFirst().getRawPayload()).contains("\"eventType\": \"PAYMENT_CONFIRMED\"");
   }
 
