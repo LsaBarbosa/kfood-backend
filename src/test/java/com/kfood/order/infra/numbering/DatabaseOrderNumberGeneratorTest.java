@@ -8,6 +8,7 @@ import com.kfood.customer.infra.persistence.Customer;
 import com.kfood.merchant.infra.persistence.Store;
 import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.infra.persistence.SalesOrder;
+import com.kfood.payment.domain.PaymentMethod;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
 import java.math.BigDecimal;
@@ -42,6 +43,7 @@ class DatabaseOrderNumberGeneratorTest {
             store,
             customer,
             FulfillmentType.DELIVERY,
+            PaymentMethod.PIX,
             new BigDecimal("50.00"),
             new BigDecimal("6.50"),
             new BigDecimal("56.50"),

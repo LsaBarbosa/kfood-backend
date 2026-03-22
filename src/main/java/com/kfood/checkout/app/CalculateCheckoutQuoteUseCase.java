@@ -13,8 +13,10 @@ import com.kfood.shared.exceptions.BusinessException;
 import com.kfood.shared.exceptions.ErrorCode;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.OffsetDateTime;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
@@ -38,6 +40,7 @@ public class CalculateCheckoutQuoteUseCase {
   private final CatalogProductAvailabilityValidator catalogProductAvailabilityValidator;
   private final StoreCheckoutRulesValidator storeCheckoutRulesValidator;
   private final QuoteFulfillmentPolicy quoteFulfillmentPolicy;
+  private final CheckoutQuoteSnapshotGateway checkoutQuoteSnapshotGateway;
 
   public CalculateCheckoutQuoteUseCase(
       StoreRepository storeRepository,
@@ -45,13 +48,15 @@ public class CalculateCheckoutQuoteUseCase {
       CatalogProductRepository catalogProductRepository,
       CatalogProductAvailabilityValidator catalogProductAvailabilityValidator,
       StoreCheckoutRulesValidator storeCheckoutRulesValidator,
-      QuoteFulfillmentPolicy quoteFulfillmentPolicy) {
+      QuoteFulfillmentPolicy quoteFulfillmentPolicy,
+      CheckoutQuoteSnapshotGateway checkoutQuoteSnapshotGateway) {
     this.storeRepository = storeRepository;
     this.customerRepository = customerRepository;
     this.catalogProductRepository = catalogProductRepository;
     this.catalogProductAvailabilityValidator = catalogProductAvailabilityValidator;
     this.storeCheckoutRulesValidator = storeCheckoutRulesValidator;
     this.quoteFulfillmentPolicy = quoteFulfillmentPolicy;
+    this.checkoutQuoteSnapshotGateway = checkoutQuoteSnapshotGateway;
   }
 
   @Transactional(readOnly = true)
@@ -91,14 +96,18 @@ public class CalculateCheckoutQuoteUseCase {
           ErrorCode.RESOURCE_NOT_FOUND, "Product not found for this store.", HttpStatus.NOT_FOUND);
     }
 
+    var quoteId = UUID.randomUUID();
     var subtotalAmount = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
     var totalUnits = 0;
+    var itemSnapshots = new java.util.ArrayList<CheckoutQuoteItemSnapshot>();
     for (var item : command.items()) {
       var product = products.get(item.productId());
       catalogProductAvailabilityValidator.ensureAvailableNow(product, store.getTimezone());
-      var itemTotal = calculateItemTotal(product, item);
+      var itemSnapshot = toItemSnapshot(product, item);
+      var itemTotal = calculateItemTotal(itemSnapshot);
       subtotalAmount = subtotalAmount.add(itemTotal).setScale(2, RoundingMode.HALF_UP);
       totalUnits += item.quantity();
+      itemSnapshots.add(itemSnapshot);
     }
 
     var fulfillment =
@@ -111,9 +120,21 @@ public class CalculateCheckoutQuoteUseCase {
             totalUnits);
     var totalAmount =
         subtotalAmount.add(fulfillment.deliveryFee()).setScale(2, RoundingMode.HALF_UP);
+    checkoutQuoteSnapshotGateway.save(
+        new CheckoutQuoteSnapshot(
+            quoteId,
+            store.getId(),
+            customer.getId(),
+            command.fulfillmentType(),
+            command.addressId(),
+            subtotalAmount,
+            fulfillment.deliveryFee(),
+            totalAmount,
+            List.copyOf(itemSnapshots),
+            OffsetDateTime.now().plusMinutes(15)));
 
     return new QuoteCheckoutResponse(
-        generateQuoteId(),
+        quoteId,
         store.getId(),
         subtotalAmount,
         fulfillment.deliveryFee(),
@@ -122,18 +143,12 @@ public class CalculateCheckoutQuoteUseCase {
         fulfillment.messages());
   }
 
-  private BigDecimal calculateItemTotal(
+  private CheckoutQuoteItemSnapshot toItemSnapshot(
       CatalogProduct product, CalculateCheckoutQuoteItemCommand itemCommand) {
     ensureProductSellable(product);
-
-    var baseTotal =
-        product
-            .getBasePrice()
-            .multiply(BigDecimal.valueOf(itemCommand.quantity()))
-            .setScale(2, RoundingMode.HALF_UP);
     var optionCountByGroup = new HashMap<UUID, Integer>();
-    var optionTotals = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
     var availableItemsById = indexAvailableItemsById(product);
+    var optionSnapshots = new java.util.ArrayList<CheckoutQuoteOptionSnapshot>();
 
     for (var optionCommand : itemCommand.options()) {
       var optionItem = availableItemsById.get(optionCommand.optionItemId());
@@ -146,16 +161,37 @@ public class CalculateCheckoutQuoteUseCase {
 
       optionCountByGroup.merge(
           optionItem.getOptionGroup().getId(), optionCommand.quantity(), Integer::sum);
-      var optionLineTotal =
-          optionItem
-              .getExtraPrice()
-              .multiply(BigDecimal.valueOf(optionCommand.quantity()))
-              .multiply(BigDecimal.valueOf(itemCommand.quantity()))
-              .setScale(2, RoundingMode.HALF_UP);
-      optionTotals = optionTotals.add(optionLineTotal).setScale(2, RoundingMode.HALF_UP);
+      optionSnapshots.add(
+          new CheckoutQuoteOptionSnapshot(
+              optionItem.getName(), optionItem.getExtraPrice(), optionCommand.quantity()));
     }
 
     validateSelectionCounts(product, optionCountByGroup);
+    return new CheckoutQuoteItemSnapshot(
+        product.getId(),
+        product.getName(),
+        product.getBasePrice(),
+        itemCommand.quantity(),
+        itemCommand.notes(),
+        List.copyOf(optionSnapshots));
+  }
+
+  private BigDecimal calculateItemTotal(CheckoutQuoteItemSnapshot itemSnapshot) {
+    var baseTotal =
+        itemSnapshot
+            .unitPriceSnapshot()
+            .multiply(BigDecimal.valueOf(itemSnapshot.quantity()))
+            .setScale(2, RoundingMode.HALF_UP);
+    var optionTotals = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+    for (var optionSnapshot : itemSnapshot.options()) {
+      var optionLineTotal =
+          optionSnapshot
+              .extraPriceSnapshot()
+              .multiply(BigDecimal.valueOf(optionSnapshot.quantity()))
+              .multiply(BigDecimal.valueOf(itemSnapshot.quantity()))
+              .setScale(2, RoundingMode.HALF_UP);
+      optionTotals = optionTotals.add(optionLineTotal).setScale(2, RoundingMode.HALF_UP);
+    }
     return baseTotal.add(optionTotals).setScale(2, RoundingMode.HALF_UP);
   }
 
@@ -203,10 +239,6 @@ public class CalculateCheckoutQuoteUseCase {
             HttpStatus.BAD_REQUEST);
       }
     }
-  }
-
-  private String generateQuoteId() {
-    return "qte_" + UUID.randomUUID().toString().replace("-", "").substring(0, 20);
   }
 
   private String normalize(String value, String message) {

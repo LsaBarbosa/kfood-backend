@@ -10,6 +10,7 @@ import com.kfood.order.app.AssignOrderNumberService;
 import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.infra.persistence.SalesOrder;
 import com.kfood.order.infra.persistence.SalesOrderRepository;
+import com.kfood.payment.domain.PaymentMethod;
 import com.kfood.shared.persistence.TestJpaAuditingConfig;
 import com.kfood.support.PostgreSqlContainerIT;
 import java.math.BigDecimal;
@@ -72,6 +73,7 @@ class OrderNumberIntegrationTest extends PostgreSqlContainerIT {
             store,
             customer,
             FulfillmentType.DELIVERY,
+            PaymentMethod.PIX,
             new BigDecimal("30.00"),
             new BigDecimal("5.00"),
             new BigDecimal("35.00"),
@@ -83,6 +85,7 @@ class OrderNumberIntegrationTest extends PostgreSqlContainerIT {
             store,
             customer,
             FulfillmentType.DELIVERY,
+            PaymentMethod.PIX,
             new BigDecimal("40.00"),
             new BigDecimal("5.00"),
             new BigDecimal("45.00"),

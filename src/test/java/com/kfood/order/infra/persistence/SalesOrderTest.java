@@ -9,6 +9,7 @@ import com.kfood.customer.infra.persistence.Customer;
 import com.kfood.merchant.infra.persistence.Store;
 import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.domain.OrderStatus;
+import com.kfood.payment.domain.PaymentMethod;
 import java.math.BigDecimal;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -26,6 +27,7 @@ class SalesOrderTest {
             store,
             customer,
             FulfillmentType.DELIVERY,
+            PaymentMethod.PIX,
             new BigDecimal("40.00"),
             new BigDecimal("8.00"),
             new BigDecimal("48.00"),
@@ -52,6 +54,7 @@ class SalesOrderTest {
                     null,
                     customer,
                     FulfillmentType.DELIVERY,
+                    PaymentMethod.PIX,
                     new BigDecimal("40.00"),
                     new BigDecimal("8.00"),
                     new BigDecimal("48.00"),
@@ -72,6 +75,7 @@ class SalesOrderTest {
                     store,
                     null,
                     FulfillmentType.DELIVERY,
+                    PaymentMethod.PIX,
                     new BigDecimal("40.00"),
                     new BigDecimal("8.00"),
                     new BigDecimal("48.00"),
@@ -93,6 +97,7 @@ class SalesOrderTest {
                     store,
                     customer,
                     FulfillmentType.DELIVERY,
+                    PaymentMethod.PIX,
                     new BigDecimal("40.00"),
                     new BigDecimal("8.00"),
                     new BigDecimal("47.99"),
@@ -114,6 +119,7 @@ class SalesOrderTest {
             store,
             customer,
             FulfillmentType.DELIVERY,
+            PaymentMethod.PIX,
             new BigDecimal("40.00"),
             new BigDecimal("8.00"),
             new BigDecimal("48.00"),

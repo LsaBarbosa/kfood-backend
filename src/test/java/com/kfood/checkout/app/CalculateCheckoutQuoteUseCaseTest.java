@@ -41,6 +41,8 @@ class CalculateCheckoutQuoteUseCaseTest {
       mock(CatalogProductAvailabilityValidator.class);
   private final StoreCheckoutRulesValidator storeCheckoutRulesValidator =
       mock(StoreCheckoutRulesValidator.class);
+  private final CheckoutQuoteSnapshotGateway checkoutQuoteSnapshotGateway =
+      mock(CheckoutQuoteSnapshotGateway.class);
   private final QuoteFulfillmentPolicy quoteFulfillmentPolicy =
       new QuoteFulfillmentPolicy(customerAddressRepository, deliveryZoneRepository);
   private final CalculateCheckoutQuoteUseCase useCase =
@@ -50,7 +52,8 @@ class CalculateCheckoutQuoteUseCaseTest {
           catalogProductRepository,
           catalogProductAvailabilityValidator,
           storeCheckoutRulesValidator,
-          quoteFulfillmentPolicy);
+          quoteFulfillmentPolicy,
+          checkoutQuoteSnapshotGateway);
 
   @Test
   void shouldCalculateSubtotalCorrectly() {

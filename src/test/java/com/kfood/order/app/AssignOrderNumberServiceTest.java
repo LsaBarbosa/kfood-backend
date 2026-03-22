@@ -10,6 +10,7 @@ import com.kfood.customer.infra.persistence.Customer;
 import com.kfood.merchant.infra.persistence.Store;
 import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.infra.persistence.SalesOrder;
+import com.kfood.payment.domain.PaymentMethod;
 import java.math.BigDecimal;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -28,6 +29,7 @@ class AssignOrderNumberServiceTest {
             store,
             customer,
             FulfillmentType.DELIVERY,
+            PaymentMethod.PIX,
             new BigDecimal("50.00"),
             new BigDecimal("6.50"),
             new BigDecimal("56.50"),
@@ -53,6 +55,7 @@ class AssignOrderNumberServiceTest {
             store,
             customer,
             FulfillmentType.DELIVERY,
+            PaymentMethod.PIX,
             new BigDecimal("50.00"),
             new BigDecimal("6.50"),
             new BigDecimal("56.50"),

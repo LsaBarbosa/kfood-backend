@@ -4,6 +4,8 @@ import com.kfood.customer.infra.persistence.Customer;
 import com.kfood.merchant.infra.persistence.Store;
 import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.domain.OrderStatus;
+import com.kfood.payment.domain.PaymentMethod;
+import com.kfood.payment.domain.PaymentStatusSnapshot;
 import com.kfood.shared.infra.persistence.AuditableEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -44,6 +46,14 @@ public class SalesOrder extends AuditableEntity {
   private String orderNumber;
 
   @Enumerated(EnumType.STRING)
+  @Column(name = "payment_method", nullable = false, length = 20)
+  private PaymentMethod paymentMethod;
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "payment_status_snapshot", nullable = false, length = 20)
+  private PaymentStatusSnapshot paymentStatusSnapshot;
+
+  @Enumerated(EnumType.STRING)
   @Column(name = "status", nullable = false, length = 30)
   private OrderStatus status;
 
@@ -79,6 +89,7 @@ public class SalesOrder extends AuditableEntity {
       Store store,
       Customer customer,
       FulfillmentType fulfillmentType,
+      PaymentMethod paymentMethod,
       BigDecimal subtotalAmount,
       BigDecimal deliveryFeeAmount,
       BigDecimal totalAmount,
@@ -89,12 +100,14 @@ public class SalesOrder extends AuditableEntity {
     this.customer = Objects.requireNonNull(customer, "customer must not be null");
     this.fulfillmentType =
         Objects.requireNonNull(fulfillmentType, "fulfillmentType must not be null");
+    this.paymentMethod = Objects.requireNonNull(paymentMethod, "paymentMethod must not be null");
     this.subtotalAmount = normalizeMoney(subtotalAmount, "subtotalAmount");
     this.deliveryFeeAmount = normalizeMoney(deliveryFeeAmount, "deliveryFeeAmount");
     this.totalAmount = normalizeMoney(totalAmount, "totalAmount");
     this.scheduledFor = scheduledFor;
     this.notes = normalizeNullable(notes);
     status = OrderStatus.NEW;
+    paymentStatusSnapshot = PaymentStatusSnapshot.PENDING;
     validateBusinessRules();
   }
 
@@ -103,6 +116,7 @@ public class SalesOrder extends AuditableEntity {
       Store store,
       Customer customer,
       FulfillmentType fulfillmentType,
+      PaymentMethod paymentMethod,
       BigDecimal subtotalAmount,
       BigDecimal deliveryFeeAmount,
       BigDecimal totalAmount,
@@ -113,6 +127,7 @@ public class SalesOrder extends AuditableEntity {
         store,
         customer,
         fulfillmentType,
+        paymentMethod,
         subtotalAmount,
         deliveryFeeAmount,
         totalAmount,
@@ -144,6 +159,14 @@ public class SalesOrder extends AuditableEntity {
 
   public OrderStatus getStatus() {
     return status;
+  }
+
+  public PaymentMethod getPaymentMethod() {
+    return paymentMethod;
+  }
+
+  public PaymentStatusSnapshot getPaymentStatusSnapshot() {
+    return paymentStatusSnapshot;
   }
 
   public FulfillmentType getFulfillmentType() {
@@ -188,6 +211,11 @@ public class SalesOrder extends AuditableEntity {
     var validatedItem = Objects.requireNonNull(item, "item must not be null");
     validatedItem.attachToOrder(this);
     items.add(validatedItem);
+  }
+
+  public void markPaymentStatusSnapshot(PaymentStatusSnapshot paymentStatusSnapshot) {
+    this.paymentStatusSnapshot =
+        Objects.requireNonNull(paymentStatusSnapshot, "paymentStatusSnapshot must not be null");
   }
 
   private void validateBusinessRules() {

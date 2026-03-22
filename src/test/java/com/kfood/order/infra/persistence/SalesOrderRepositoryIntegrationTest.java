@@ -12,6 +12,7 @@ import com.kfood.merchant.infra.persistence.Store;
 import com.kfood.merchant.infra.persistence.StoreRepository;
 import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.domain.OrderStatus;
+import com.kfood.payment.domain.PaymentMethod;
 import com.kfood.shared.persistence.TestJpaAuditingConfig;
 import com.kfood.support.PostgreSqlContainerIT;
 import java.math.BigDecimal;
@@ -57,6 +58,7 @@ class SalesOrderRepositoryIntegrationTest extends PostgreSqlContainerIT {
             store,
             customer,
             FulfillmentType.DELIVERY,
+            PaymentMethod.PIX,
             new BigDecimal("50.00"),
             new BigDecimal("7.50"),
             new BigDecimal("57.50"),
@@ -91,6 +93,7 @@ class SalesOrderRepositoryIntegrationTest extends PostgreSqlContainerIT {
             store,
             customer,
             FulfillmentType.DELIVERY,
+            PaymentMethod.PIX,
             new BigDecimal("50.00"),
             new BigDecimal("7.50"),
             new BigDecimal("57.50"),
@@ -151,6 +154,7 @@ class SalesOrderRepositoryIntegrationTest extends PostgreSqlContainerIT {
             store,
             customer,
             FulfillmentType.PICKUP,
+            PaymentMethod.PIX,
             new BigDecimal("42.00"),
             BigDecimal.ZERO.setScale(2),
             new BigDecimal("42.00"),
