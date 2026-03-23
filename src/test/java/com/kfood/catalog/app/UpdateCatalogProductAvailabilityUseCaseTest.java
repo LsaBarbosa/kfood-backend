@@ -123,6 +123,33 @@ class UpdateCatalogProductAvailabilityUseCaseTest {
   }
 
   @Test
+  void shouldTreatNullActiveAsEnabledAndAllowDifferentDaysOverlap() {
+    var storeId = UUID.randomUUID();
+    var productId = UUID.randomUUID();
+    var store = store(storeId);
+    var product = product(store, productId);
+    var request =
+        new UpdateCatalogProductAvailabilityRequest(
+            List.of(
+                new CatalogProductAvailabilityWindowRequest(
+                    DayOfWeek.MONDAY, LocalTime.of(11, 0), LocalTime.of(14, 0), null),
+                new CatalogProductAvailabilityWindowRequest(
+                    DayOfWeek.TUESDAY, LocalTime.of(11, 30), LocalTime.of(13, 0), true)));
+
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
+    when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
+    when(catalogProductRepository.findDetailedByIdAndStoreId(productId, storeId))
+        .thenReturn(Optional.of(product));
+    when(catalogProductRepository.saveAndFlush(product)).thenReturn(product);
+
+    var response = updateCatalogProductAvailabilityUseCase.execute(productId, request);
+
+    assertThat(response.windows()).hasSize(2);
+    assertThat(response.windows().get(0).active()).isTrue();
+    assertThat(response.windows().get(1).active()).isTrue();
+  }
+
+  @Test
   void shouldRejectInvalidTimeRange() {
     var storeId = UUID.randomUUID();
     var productId = UUID.randomUUID();

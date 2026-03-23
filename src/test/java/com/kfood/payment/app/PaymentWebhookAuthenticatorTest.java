@@ -1,5 +1,6 @@
 package com.kfood.payment.app;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
@@ -40,6 +41,21 @@ class PaymentWebhookAuthenticatorTest {
     var authenticator = new PaymentWebhookAuthenticator(properties);
 
     assertThatCode(() -> authenticator.authenticate("mock-psp", "{}", new HttpHeaders()))
+        .doesNotThrowAnyException();
+  }
+
+  @Test
+  void shouldSkipAuthenticationWhenModeIsNoneEvenIfRequired() {
+    var properties = new PaymentWebhookSecurityProperties();
+    var provider = new PaymentWebhookSecurityProperties.ProviderConfig();
+    provider.setMode(WebhookAuthMode.NONE);
+    provider.setRequired(true);
+    properties.getProviders().put("mock-psp", provider);
+
+    assertThatCode(
+            () ->
+                new PaymentWebhookAuthenticator(properties)
+                    .authenticate("mock-psp", "{}", new HttpHeaders()))
         .doesNotThrowAnyException();
   }
 
@@ -96,6 +112,15 @@ class PaymentWebhookAuthenticatorTest {
         .isInstanceOf(WebhookSignatureInvalidException.class)
         .hasMessage("Webhook signature or token is invalid.");
 
+    var hmacBlankHeader = new HttpHeaders();
+    hmacBlankHeader.add("X-Signature", " ");
+    assertThatThrownBy(
+            () ->
+                new PaymentWebhookAuthenticator(hmacProperties)
+                    .authenticate("mock-psp", "{}", hmacBlankHeader))
+        .isInstanceOf(WebhookSignatureInvalidException.class)
+        .hasMessage("Webhook signature or token is invalid.");
+
     var tokenProperties = new PaymentWebhookSecurityProperties();
     var tokenProvider = new PaymentWebhookSecurityProperties.ProviderConfig();
     tokenProvider.setMode(WebhookAuthMode.SHARED_TOKEN);
@@ -113,10 +138,42 @@ class PaymentWebhookAuthenticatorTest {
   }
 
   @Test
+  void shouldRejectBlankSharedTokenHeaderValue() {
+    var properties = new PaymentWebhookSecurityProperties();
+    var provider = new PaymentWebhookSecurityProperties.ProviderConfig();
+    provider.setMode(WebhookAuthMode.SHARED_TOKEN);
+    provider.setRequired(true);
+    provider.setTokenHeader("X-Webhook-Token");
+    provider.setSharedToken("shared-secret");
+    properties.getProviders().put("mock-psp", provider);
+    var headers = new HttpHeaders();
+    headers.add("X-Webhook-Token", " ");
+
+    assertThatThrownBy(
+            () ->
+                new PaymentWebhookAuthenticator(properties).authenticate("mock-psp", "{}", headers))
+        .isInstanceOf(WebhookSignatureInvalidException.class)
+        .hasMessage("Webhook signature or token is invalid.");
+  }
+
+  @Test
   void shouldIgnoreMissingProviderConfiguration() {
     var authenticator = new PaymentWebhookAuthenticator(new PaymentWebhookSecurityProperties());
 
     assertThatCode(() -> authenticator.authenticate("unknown-psp", "{}", new HttpHeaders()))
+        .doesNotThrowAnyException();
+  }
+
+  @Test
+  void shouldSkipAuthenticationWhenProviderIsNotRequired() {
+    var properties = new PaymentWebhookSecurityProperties();
+    var provider = new PaymentWebhookSecurityProperties.ProviderConfig();
+    provider.setMode(WebhookAuthMode.HMAC_SHA256);
+    provider.setRequired(false);
+    properties.getProviders().put("mock-psp", provider);
+    var authenticator = new PaymentWebhookAuthenticator(properties);
+
+    assertThatCode(() -> authenticator.authenticate("mock-psp", "{}", new HttpHeaders()))
         .doesNotThrowAnyException();
   }
 
@@ -151,6 +208,36 @@ class PaymentWebhookAuthenticatorTest {
     assertThatThrownBy(() -> authenticator.authenticate("mock-psp", "{}", null))
         .isInstanceOf(WebhookSignatureInvalidException.class)
         .hasMessage("Webhook signature or token is invalid.");
+  }
+
+  @Test
+  void shouldRejectWhenSignatureHeaderNameIsNull() {
+    var properties = new PaymentWebhookSecurityProperties();
+    var provider = new PaymentWebhookSecurityProperties.ProviderConfig();
+    provider.setMode(WebhookAuthMode.HMAC_SHA256);
+    provider.setRequired(true);
+    provider.setSignatureHeader(null);
+    provider.setHmacSecret("test-secret");
+    properties.getProviders().put("mock-psp", provider);
+
+    assertThatThrownBy(
+            () ->
+                new PaymentWebhookAuthenticator(properties)
+                    .authenticate("mock-psp", "{}", new HttpHeaders()))
+        .isInstanceOf(WebhookSignatureInvalidException.class)
+        .hasMessage("Webhook signature or token is invalid.");
+  }
+
+  @Test
+  void shouldCoverConstantTimeEqualsWithNullOperands() throws Exception {
+    var authenticator = new PaymentWebhookAuthenticator(new PaymentWebhookSecurityProperties());
+    Method method =
+        PaymentWebhookAuthenticator.class.getDeclaredMethod(
+            "constantTimeEquals", String.class, String.class);
+    method.setAccessible(true);
+
+    assertThat((Boolean) method.invoke(authenticator, null, null)).isTrue();
+    assertThat((Boolean) method.invoke(authenticator, null, "x")).isFalse();
   }
 
   @Test

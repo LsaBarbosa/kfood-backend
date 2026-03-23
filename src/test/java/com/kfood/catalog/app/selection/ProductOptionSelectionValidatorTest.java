@@ -245,6 +245,29 @@ class ProductOptionSelectionValidatorTest {
         .doesNotThrowAnyException();
   }
 
+  @Test
+  void shouldRejectNullSelectionEntryAndAllowEmptyItemList() {
+    var productId = UUID.randomUUID();
+    var itemId = UUID.randomUUID();
+    var group = group(productId, "Sauces", 0, 1, true, List.of(activeItemFixture(itemId)));
+
+    when(catalogOptionGroupRepository.findAllByProduct_IdAndActiveTrueOrderByIdAsc(productId))
+        .thenReturn(List.of(group));
+
+    assertThatThrownBy(
+            () ->
+                validator.validate(
+                    productId, java.util.Arrays.asList((OptionGroupSelectionInput) null)))
+        .isInstanceOf(BusinessException.class)
+        .hasMessage("optionGroupId must be informed");
+
+    assertThatCode(
+            () ->
+                validator.validate(
+                    productId, List.of(new OptionGroupSelectionInput(group.getId(), List.of()))))
+        .doesNotThrowAnyException();
+  }
+
   private CatalogOptionGroup group(
       UUID productId,
       String name,

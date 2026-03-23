@@ -12,6 +12,7 @@ import com.kfood.payment.api.PaymentWebhookRequest;
 import com.kfood.payment.domain.WebhookProcessingStatus;
 import com.kfood.payment.infra.persistence.PaymentWebhookEvent;
 import com.kfood.payment.infra.persistence.PaymentWebhookEventRepository;
+import java.lang.reflect.Method;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -135,5 +136,38 @@ class PaymentWebhookReceiverServiceTest {
     assertThatThrownBy(() -> service.receive(" ", request, "{\"x\":1}", true))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessage("provider must not be blank");
+  }
+
+  @Test
+  void shouldRethrowIntegrityViolationWhenConcurrentLookupDoesNotFindEvent() {
+    var request = new PaymentWebhookRequest("evt-1", "PAYMENT_RECEIVED", "ref-1", null, null);
+    var resolvedKey =
+        new WebhookIdempotencyKeyResolver.ResolvedIdempotencyKey("EXTERNAL_EVENT_ID", "evt-1");
+
+    when(resolver.resolve(request)).thenReturn(resolvedKey);
+    when(repository.findByProviderNameAndIdempotencyKey("mock-psp", "evt-1"))
+        .thenReturn(Optional.empty())
+        .thenReturn(Optional.empty());
+    when(repository.saveAndFlush(any(PaymentWebhookEvent.class)))
+        .thenThrow(new DataIntegrityViolationException("duplicate"));
+
+    assertThatThrownBy(() -> service.receive("mock-psp", request, "{\"x\":1}", true))
+        .isInstanceOf(DataIntegrityViolationException.class)
+        .hasMessage("duplicate");
+  }
+
+  @Test
+  void shouldRejectNullProviderAndTrimNullableNull() throws Exception {
+    var request = new PaymentWebhookRequest("evt-1", "PAYMENT_RECEIVED", "ref-1", null, null);
+
+    assertThatThrownBy(() -> service.receive(null, request, "{\"x\":1}", true))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("provider must not be blank");
+
+    Method method =
+        PaymentWebhookReceiverService.class.getDeclaredMethod("trimNullable", String.class);
+    method.setAccessible(true);
+    assertThat(method.invoke(service, new Object[] {null})).isNull();
+    assertThat(method.invoke(service, " payload ")).isEqualTo("payload");
   }
 }

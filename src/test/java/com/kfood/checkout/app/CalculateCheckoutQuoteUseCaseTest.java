@@ -250,6 +250,30 @@ class CalculateCheckoutQuoteUseCaseTest {
   }
 
   @Test
+  void shouldIgnoreInactiveOptionItemWhenIndexingAvailableItems() {
+    var store = store("loja-do-bairro");
+    var customer = customer(store);
+    var product = product(store, new BigDecimal("42.00"));
+    var group = new CatalogOptionGroup(UUID.randomUUID(), product, "Extras", 0, 1, false, true);
+    var inactiveItem =
+        new CatalogOptionItem(UUID.randomUUID(), group, "Molho", new BigDecimal("2.00"), false, 0);
+    group.addItem(inactiveItem);
+    addOptionGroup(product, group);
+    var command =
+        new CalculateCheckoutQuoteCommand(
+            customer.getId(),
+            FulfillmentType.PICKUP,
+            null,
+            List.of(new CalculateCheckoutQuoteItemCommand(product.getId(), 1, null, List.of())));
+
+    mockBase(store, customer, List.of(product));
+
+    var response = useCase.execute("loja-do-bairro", command);
+
+    assertThat(response.totalAmount()).isEqualByComparingTo("42.00");
+  }
+
+  @Test
   void shouldHandleDuplicatedProductsFromRepositoryResult() {
     var store = store("loja-do-bairro");
     var customer = customer(store);

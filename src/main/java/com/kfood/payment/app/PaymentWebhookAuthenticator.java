@@ -23,17 +23,26 @@ public class PaymentWebhookAuthenticator {
   public void authenticate(String provider, String rawPayload, HttpHeaders headers) {
     var config = properties.findProvider(provider);
 
-    if (config == null || !config.isRequired() || config.getMode() == WebhookAuthMode.NONE) {
+    if (config == null) {
+      return;
+    }
+
+    if (!config.isRequired()) {
+      return;
+    }
+
+    if (config.getMode() == WebhookAuthMode.NONE) {
       return;
     }
 
     config.validateSecrets();
 
-    switch (config.getMode()) {
-      case HMAC_SHA256 -> validateHmac(config, rawPayload, headers);
-      case SHARED_TOKEN -> validateSharedToken(config, headers);
-      case NONE -> {}
+    if (config.getMode() == WebhookAuthMode.HMAC_SHA256) {
+      validateHmac(config, rawPayload, headers);
+      return;
     }
+
+    validateSharedToken(config, headers);
   }
 
   private void validateHmac(

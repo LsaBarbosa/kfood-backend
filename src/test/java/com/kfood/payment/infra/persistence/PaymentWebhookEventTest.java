@@ -98,4 +98,11 @@ class PaymentWebhookEventTest {
 
     assertThat(constructor.newInstance()).isNotNull();
   }
+
+  @Test
+  void shouldNormalizeBlankExternalEventIdToNull() {
+    var event = PaymentWebhookEvent.received(null, "MOCK_PSP", " ", "evt", "{\"type\":\"ok\"}");
+
+    assertThat(event.getExternalEventId()).isNull();
+  }
 }

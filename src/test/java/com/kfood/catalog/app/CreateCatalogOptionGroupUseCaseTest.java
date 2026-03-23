@@ -183,6 +183,44 @@ class CreateCatalogOptionGroupUseCaseTest {
     verify(catalogOptionGroupRepository, never()).saveAndFlush(any(CatalogOptionGroup.class));
   }
 
+  @Test
+  void shouldCreateInactiveGroupWithoutItemsAndInactiveItem() {
+    var storeId = UUID.randomUUID();
+    var productId = UUID.randomUUID();
+    var store = store(storeId);
+    var product = product(store, productId);
+    var requestWithoutItems =
+        new CreateCatalogOptionGroupRequest("Sauces", 1, 2, true, false, null);
+
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
+    when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
+    when(catalogProductRepository.findByIdAndStoreId(productId, storeId))
+        .thenReturn(Optional.of(product));
+    when(catalogOptionGroupRepository.saveAndFlush(any(CatalogOptionGroup.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
+
+    var emptyResponse = createCatalogOptionGroupUseCase.execute(productId, requestWithoutItems);
+
+    assertThat(emptyResponse.active()).isFalse();
+    assertThat(emptyResponse.items()).isEmpty();
+
+    var requestWithInactiveItem =
+        new CreateCatalogOptionGroupRequest(
+            "Sauces",
+            0,
+            1,
+            false,
+            true,
+            List.of(new CreateCatalogOptionItemRequest("Barbecue", BigDecimal.ZERO, false, null)));
+
+    var responseWithItem =
+        createCatalogOptionGroupUseCase.execute(productId, requestWithInactiveItem);
+
+    assertThat(responseWithItem.items())
+        .singleElement()
+        .satisfies(item -> assertThat(item.active()).isFalse());
+  }
+
   private CatalogProduct product(Store store, UUID productId) {
     var category = new CatalogCategory(UUID.randomUUID(), store, "Pizzas", 10, true);
 

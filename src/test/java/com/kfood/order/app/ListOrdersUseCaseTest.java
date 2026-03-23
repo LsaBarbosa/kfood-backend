@@ -124,6 +124,55 @@ class ListOrdersUseCaseTest {
         .isEqualTo(ErrorCode.VALIDATION_ERROR);
   }
 
+  @Test
+  void shouldAllowOpenEndedDateRange() {
+    var storeId = UUID.randomUUID();
+    var pageable = PageRequest.of(0, 20);
+
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
+    when(salesOrderRepository.findOperationalQueue(
+            eq(storeId), isNull(), isNull(), isNull(), any(), any(), eq(pageable)))
+        .thenReturn(new PageImpl<>(List.of(), pageable, 0));
+
+    var response =
+        listOrdersUseCase.execute(
+            new ListOrdersQuery(null, null, LocalDate.parse("2026-03-22"), null), pageable);
+
+    assertThat(response.items()).isEmpty();
+  }
+
+  @Test
+  void shouldAllowDateFromWithoutDateTo() {
+    var storeId = UUID.randomUUID();
+    var pageable = PageRequest.of(0, 20);
+
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
+    when(salesOrderRepository.findOperationalQueue(
+            eq(storeId), isNull(), isNull(), any(), isNull(), any(), eq(pageable)))
+        .thenReturn(new PageImpl<>(List.of(), pageable, 0));
+
+    var response =
+        listOrdersUseCase.execute(
+            new ListOrdersQuery(null, LocalDate.parse("2026-03-22"), null, null), pageable);
+
+    assertThat(response.items()).isEmpty();
+  }
+
+  @Test
+  void shouldMapEmptySortWhenPageableHasNoOrdering() {
+    var storeId = UUID.randomUUID();
+    var pageable = PageRequest.of(0, 20, Sort.unsorted());
+
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
+    when(salesOrderRepository.findOperationalQueue(
+            eq(storeId), isNull(), isNull(), isNull(), isNull(), any(), eq(pageable)))
+        .thenReturn(new PageImpl<>(List.of(), pageable, 0));
+
+    var response = listOrdersUseCase.execute(new ListOrdersQuery(null, null, null, null), pageable);
+
+    assertThat(response.sort()).isEmpty();
+  }
+
   private SalesOrder order(UUID storeId, String orderNumber) {
     var store =
         new Store(

@@ -32,6 +32,9 @@ class PaymentWebhookSecurityPropertiesTest {
     assertThatThrownBy(() -> PaymentWebhookSecurityProperties.normalize(" "))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessage("provider must not be blank");
+    assertThatThrownBy(() -> PaymentWebhookSecurityProperties.normalize(null))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("provider must not be blank");
   }
 
   @Test
@@ -57,11 +60,21 @@ class PaymentWebhookSecurityPropertiesTest {
         .isInstanceOf(IllegalStateException.class)
         .hasMessage("hmacSecret must be configured for HMAC_SHA256");
 
+    config.setHmacSecret(" ");
+    assertThatThrownBy(config::validateSecrets)
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessage("hmacSecret must be configured for HMAC_SHA256");
+
     config.setHmacSecret("secret");
     assertThatCode(config::validateSecrets).doesNotThrowAnyException();
 
     config.setMode(WebhookAuthMode.SHARED_TOKEN);
     config.setSharedToken(" ");
+    assertThatThrownBy(config::validateSecrets)
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessage("sharedToken must be configured for SHARED_TOKEN");
+
+    config.setSharedToken(null);
     assertThatThrownBy(config::validateSecrets)
         .isInstanceOf(IllegalStateException.class)
         .hasMessage("sharedToken must be configured for SHARED_TOKEN");
@@ -76,5 +89,12 @@ class PaymentWebhookSecurityPropertiesTest {
     assertThat(config.getTokenHeader()).isEqualTo("X-Custom-Token");
     assertThat(config.getHmacSecret()).isEqualTo("secret");
     assertThat(config.getSharedToken()).isEqualTo("token");
+  }
+
+  @Test
+  void shouldReturnNullForMissingProviderWithoutThrowing() {
+    var properties = new PaymentWebhookSecurityProperties();
+
+    assertThat(properties.findProvider("missing")).isNull();
   }
 }

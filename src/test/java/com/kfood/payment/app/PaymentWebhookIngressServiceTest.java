@@ -44,6 +44,15 @@ class PaymentWebhookIngressServiceTest {
   }
 
   @Test
+  void shouldRejectNullPayload() {
+    assertThatThrownBy(() -> service.receive("mock-psp", new HttpHeaders(), null))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode", "status", "message")
+        .containsExactly(
+            ErrorCode.VALIDATION_ERROR, HttpStatus.BAD_REQUEST, "Invalid webhook payload.");
+  }
+
+  @Test
   void shouldParseNonTextValuesAndStringAmount() {
     when(receiverService.receive(eq("mock-psp"), any(PaymentWebhookRequest.class), any(), eq(true)))
         .thenReturn(new PaymentWebhookResponse(true, WebhookProcessingStatus.PROCESSED, "123"));
@@ -92,6 +101,31 @@ class PaymentWebhookIngressServiceTest {
   }
 
   @Test
+  void shouldAllowExplicitNullTextAndAmountFields() {
+    when(receiverService.receive(eq("mock-psp"), any(PaymentWebhookRequest.class), any(), eq(true)))
+        .thenReturn(new PaymentWebhookResponse(true, WebhookProcessingStatus.PROCESSED, "evt-1"));
+
+    var payload =
+        """
+        {
+          "externalEventId": null,
+          "eventType": "PAYMENT_RECEIVED",
+          "providerReference": "ref-1",
+          "paidAt": null,
+          "amount": null
+        }
+        """;
+
+    service.receive("mock-psp", new HttpHeaders(), payload);
+
+    var captor = ArgumentCaptor.forClass(PaymentWebhookRequest.class);
+    verify(receiverService).receive(eq("mock-psp"), captor.capture(), eq(payload), eq(true));
+    assertThat(captor.getValue().externalEventId()).isNull();
+    assertThat(captor.getValue().paidAt()).isNull();
+    assertThat(captor.getValue().amount()).isNull();
+  }
+
+  @Test
   void shouldRecordRejectedWebhookWhenSignatureIsInvalid() {
     var headers = new HttpHeaders();
     var payload = "{\"externalEventId\":\"evt-1\"}";
@@ -103,5 +137,32 @@ class PaymentWebhookIngressServiceTest {
         .isInstanceOf(WebhookSignatureInvalidException.class);
 
     verify(rejectedWebhookRecorder).recordInvalidSignature("mock-psp", payload);
+  }
+
+  @Test
+  void shouldRejectMalformedJsonPayload() {
+    assertThatThrownBy(() -> service.receive("mock-psp", new HttpHeaders(), "{\"amount\":"))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode", "status", "message")
+        .containsExactly(
+            ErrorCode.VALIDATION_ERROR, HttpStatus.BAD_REQUEST, "Invalid webhook payload.");
+  }
+
+  @Test
+  void shouldRejectPayloadWithoutRequiredFields() {
+    var payload =
+        """
+        {
+          "providerReference": "ref-1"
+        }
+        """;
+
+    assertThatThrownBy(() -> service.receive("mock-psp", new HttpHeaders(), payload))
+        .isInstanceOf(BusinessException.class)
+        .extracting("errorCode", "status", "message")
+        .containsExactly(
+            ErrorCode.VALIDATION_ERROR,
+            HttpStatus.BAD_REQUEST,
+            "Webhook payload has missing or invalid required fields.");
   }
 }

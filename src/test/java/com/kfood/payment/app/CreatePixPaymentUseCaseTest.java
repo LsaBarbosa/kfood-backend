@@ -185,6 +185,28 @@ class CreatePixPaymentUseCaseTest {
     assertThat(captor.getValue().idempotencyKey()).startsWith("pix-");
   }
 
+  @Test
+  void shouldGenerateFallbackIdempotencyKeyWhenHeaderIsNull() {
+    var order = order(PaymentMethod.PIX, new BigDecimal("56.50"));
+    when(salesOrderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+    when(paymentRepository.saveAndFlush(any(Payment.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0, Payment.class));
+    when(requestPixChargeViaGatewayUseCase.execute(any(RequestPixChargeViaGatewayCommand.class)))
+        .thenReturn(
+            new CreatePixChargeGatewayResult(
+                "default-psp",
+                "psp_100",
+                "0002012636mockpix100",
+                OffsetDateTime.parse("2030-03-22T12:15:00Z")));
+
+    useCase.execute(
+        new CreatePixPaymentCommand(order.getId(), new BigDecimal("56.50"), "default-psp", null));
+
+    var captor = ArgumentCaptor.forClass(RequestPixChargeViaGatewayCommand.class);
+    verify(requestPixChargeViaGatewayUseCase).execute(captor.capture());
+    assertThat(captor.getValue().idempotencyKey()).startsWith("pix-");
+  }
+
   private SalesOrder order(PaymentMethod paymentMethod, BigDecimal totalAmount) {
     return SalesOrder.create(
         UUID.randomUUID(),

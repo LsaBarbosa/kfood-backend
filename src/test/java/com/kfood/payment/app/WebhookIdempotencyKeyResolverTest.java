@@ -46,13 +46,36 @@ class WebhookIdempotencyKeyResolverTest {
 
   @Test
   void shouldRejectResolvedIdempotencyKeyWithoutSourceOrValue() {
+    assertThatThrownBy(
+            () -> new WebhookIdempotencyKeyResolver.ResolvedIdempotencyKey(null, "value"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("source must not be blank");
     assertThatThrownBy(() -> new WebhookIdempotencyKeyResolver.ResolvedIdempotencyKey(" ", "value"))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessage("source must not be blank");
 
     assertThatThrownBy(
+            () -> new WebhookIdempotencyKeyResolver.ResolvedIdempotencyKey("SOURCE", null))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("value must not be blank");
+    assertThatThrownBy(
             () -> new WebhookIdempotencyKeyResolver.ResolvedIdempotencyKey("SOURCE", " "))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessage("value must not be blank");
+  }
+
+  @Test
+  void shouldRejectNullRequestAndFallbackWhenExternalEventIdIsBlank() {
+    assertThatThrownBy(() -> resolver.resolve(null))
+        .isInstanceOf(NullPointerException.class)
+        .hasMessage("request must not be null");
+
+    var resolved =
+        resolver.resolve(
+            new PaymentWebhookRequest(
+                "   ", "PAYMENT_CONFIRMED", " psp_ref_002 ", null, BigDecimal.ONE));
+
+    assertThat(resolved.source()).isEqualTo("PROVIDER_REFERENCE_EVENT_TYPE");
+    assertThat(resolved.value()).isEqualTo("psp_ref_002::payment_confirmed");
   }
 }

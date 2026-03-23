@@ -114,6 +114,18 @@ class ConfirmPaymentWebhookProcessorTest {
   }
 
   @Test
+  void shouldIgnoreNullEventType() {
+    var event = PaymentWebhookEvent.received(null, "mock-psp", "evt_ignored", "evt_ignored", "{}");
+    var request = new PaymentWebhookRequest("evt_ignored", null, "psp_ref", null, null);
+
+    processor.process(event, request);
+
+    verify(paymentRepository, never())
+        .findByProviderNameAndProviderReference(
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+  }
+
+  @Test
   void shouldAllowAlreadyConfirmedPaymentWithoutChangingConfirmedAt() {
     var order = order();
     var payment =
@@ -154,6 +166,18 @@ class ConfirmPaymentWebhookProcessorTest {
   }
 
   @Test
+  void shouldThrowGenericNotFoundWhenProviderReferenceIsNull() {
+    var event =
+        PaymentWebhookEvent.received(
+            null, "mock-psp", "evt_404", "evt_404", "{\"eventType\":\"PAYMENT_CONFIRMED\"}");
+    var request = new PaymentWebhookRequest("evt_404", "PAYMENT_CONFIRMED", null, null, null);
+
+    assertThatThrownBy(() -> processor.process(event, request))
+        .isInstanceOf(PaymentWebhookPaymentNotFoundException.class)
+        .hasMessage("Payment not found for the informed provider and reference.");
+  }
+
+  @Test
   void shouldUseCurrentTimeWhenPaidAtIsMissing() {
     var order = order();
     var payment =
@@ -171,6 +195,39 @@ class ConfirmPaymentWebhookProcessorTest {
     processor.process(event, request);
 
     assertThat(payment.getConfirmedAt()).isNotNull();
+  }
+
+  @Test
+  void shouldUseCurrentTimeWhenPaidAtIsNull() {
+    var order = order();
+    var payment =
+        Payment.create(
+            UUID.randomUUID(), order, PaymentMethod.PIX, "mock-psp", "psp_ref_now", "payload");
+    var event =
+        PaymentWebhookEvent.received(
+            null, "mock-psp", "evt_now", "evt_now", "{\"eventType\":\"PAYMENT_CONFIRMED\"}");
+    var request =
+        new PaymentWebhookRequest("evt_now", "PAYMENT_CONFIRMED", "psp_ref_now", null, null);
+
+    when(paymentRepository.findByProviderNameAndProviderReference("mock-psp", "psp_ref_now"))
+        .thenReturn(Optional.of(payment));
+
+    processor.process(event, request);
+
+    assertThat(payment.getConfirmedAt()).isNotNull();
+  }
+
+  @Test
+  void shouldRejectNullArguments() {
+    assertThatThrownBy(() -> processor.process(null, mock(PaymentWebhookRequest.class)))
+        .isInstanceOf(NullPointerException.class)
+        .hasMessage("event must not be null");
+    assertThatThrownBy(
+            () ->
+                processor.process(
+                    PaymentWebhookEvent.received(null, "mock-psp", "evt", "evt", "{}"), null))
+        .isInstanceOf(NullPointerException.class)
+        .hasMessage("request must not be null");
   }
 
   private SalesOrder order() {

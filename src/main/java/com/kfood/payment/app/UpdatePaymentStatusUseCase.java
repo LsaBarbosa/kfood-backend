@@ -39,17 +39,29 @@ public class UpdatePaymentStatusUseCase {
 
   private void transitionPayment(
       com.kfood.payment.infra.persistence.Payment payment, PaymentStatus newStatus) {
-    switch (newStatus) {
-      case PENDING -> {
-        if (payment.getStatus() != PaymentStatus.PENDING) {
-          throw new InvalidPaymentStatusTransitionException(
-              payment.getStatus(), PaymentStatus.PENDING);
-        }
+    if (newStatus == PaymentStatus.PENDING) {
+      if (payment.getStatus() != PaymentStatus.PENDING) {
+        throw new InvalidPaymentStatusTransitionException(
+            payment.getStatus(), PaymentStatus.PENDING);
       }
-      case CONFIRMED -> payment.markConfirmed(OffsetDateTime.now());
-      case FAILED -> payment.markFailed();
-      case CANCELED -> payment.markCanceled();
-      case EXPIRED -> payment.markExpired();
+      return;
     }
+
+    if (newStatus == PaymentStatus.CONFIRMED) {
+      payment.markConfirmed(OffsetDateTime.now());
+      return;
+    }
+
+    if (newStatus == PaymentStatus.FAILED) {
+      payment.markFailed();
+      return;
+    }
+
+    if (newStatus == PaymentStatus.CANCELED) {
+      payment.markCanceled();
+      return;
+    }
+
+    payment.markExpired();
   }
 }

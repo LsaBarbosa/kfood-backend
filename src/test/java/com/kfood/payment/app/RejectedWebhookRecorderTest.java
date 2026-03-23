@@ -49,4 +49,47 @@ class RejectedWebhookRecorderTest {
     assertThat(captor.getValue().getExternalEventId()).isNull();
     assertThat(captor.getValue().getRawPayload()).isEqualTo("not-json");
   }
+
+  @Test
+  void shouldUseEmptyJsonWhenPayloadIsBlank() {
+    var repository = mock(PaymentWebhookEventRepository.class);
+    when(repository.save(any(PaymentWebhookEvent.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0, PaymentWebhookEvent.class));
+    var recorder = new RejectedWebhookRecorder(repository);
+
+    recorder.recordInvalidSignature("mock-psp", " ");
+
+    var captor = ArgumentCaptor.forClass(PaymentWebhookEvent.class);
+    verify(repository).save(captor.capture());
+    assertThat(captor.getValue().getRawPayload()).isEqualTo("{}");
+    assertThat(captor.getValue().getExternalEventId()).isNull();
+  }
+
+  @Test
+  void shouldUseEmptyJsonWhenPayloadIsNull() {
+    var repository = mock(PaymentWebhookEventRepository.class);
+    when(repository.save(any(PaymentWebhookEvent.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0, PaymentWebhookEvent.class));
+    var recorder = new RejectedWebhookRecorder(repository);
+
+    recorder.recordInvalidSignature("mock-psp", null);
+
+    var captor = ArgumentCaptor.forClass(PaymentWebhookEvent.class);
+    verify(repository).save(captor.capture());
+    assertThat(captor.getValue().getRawPayload()).isEqualTo("{}");
+  }
+
+  @Test
+  void shouldTreatExplicitNullExternalEventIdAsMissing() {
+    var repository = mock(PaymentWebhookEventRepository.class);
+    when(repository.save(any(PaymentWebhookEvent.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0, PaymentWebhookEvent.class));
+    var recorder = new RejectedWebhookRecorder(repository);
+
+    recorder.recordInvalidSignature("mock-psp", "{\"externalEventId\":null}");
+
+    var captor = ArgumentCaptor.forClass(PaymentWebhookEvent.class);
+    verify(repository).save(captor.capture());
+    assertThat(captor.getValue().getExternalEventId()).isNull();
+  }
 }

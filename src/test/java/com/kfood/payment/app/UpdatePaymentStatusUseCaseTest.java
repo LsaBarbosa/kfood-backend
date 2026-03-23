@@ -128,6 +128,21 @@ class UpdatePaymentStatusUseCaseTest {
         .hasMessage("Invalid payment status transition from FAILED to PENDING");
   }
 
+  @Test
+  void shouldRejectNullCommandArguments() {
+    assertThatThrownBy(() -> useCase.execute(null))
+        .isInstanceOf(NullPointerException.class)
+        .hasMessage("command must not be null");
+    assertThatThrownBy(
+            () -> useCase.execute(new UpdatePaymentStatusCommand(null, PaymentStatus.PENDING)))
+        .isInstanceOf(NullPointerException.class)
+        .hasMessage("paymentId must not be null");
+    assertThatThrownBy(
+            () -> useCase.execute(new UpdatePaymentStatusCommand(UUID.randomUUID(), null)))
+        .isInstanceOf(NullPointerException.class)
+        .hasMessage("newStatus must not be null");
+  }
+
   private Payment pendingPayment() {
     var order =
         SalesOrder.create(
