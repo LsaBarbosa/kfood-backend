@@ -1,0 +1,9 @@
+package com.kfood.eventing.infra.persistence;
+
+import java.util.UUID;
+import org.springframework.data.jpa.repository.JpaRepository;
+
+public interface ProcessedEventRepository extends JpaRepository<ProcessedEvent, UUID> {
+
+  boolean existsByConsumerNameAndEventId(String consumerName, UUID eventId);
+}

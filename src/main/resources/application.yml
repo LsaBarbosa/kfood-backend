@@ -45,6 +45,13 @@ app:
       enabled: true
       startup-verify: true
       exchange: kfood.events
+      consumer:
+        max-attempts: 3
+        initial-interval-ms: 1000
+        multiplier: 2.0
+        max-interval-ms: 10000
+        dlx-exchange: kfood.events.dlx
+        dlq-routing-prefix: dlq.
       order-created:
         queue: kfood.order.created.q
         routing-key: order.created
