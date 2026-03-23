@@ -144,13 +144,18 @@ public class Payment extends AuditableEntity {
   }
 
   public void markConfirmed(OffsetDateTime confirmedAt) {
+    confirm(confirmedAt);
+  }
+
+  public boolean confirm(OffsetDateTime confirmedAt) {
     var validatedConfirmedAt = Objects.requireNonNull(confirmedAt, "confirmedAt must not be null");
 
     if (status == PaymentStatus.CONFIRMED) {
-      return;
+      return false;
     }
 
     transitionTo(PaymentStatus.CONFIRMED, validatedConfirmedAt);
+    return true;
   }
 
   public void markFailed() {

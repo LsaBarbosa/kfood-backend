@@ -34,6 +34,7 @@ public class UpdateOrderStatusUseCase {
   private final OrderStatusHistoryRepository orderStatusHistoryRepository;
   private final CurrentTenantProvider currentTenantProvider;
   private final CurrentAuthenticatedUserProvider currentAuthenticatedUserProvider;
+  private final OrderStatusChangedPublisher orderStatusChangedPublisher;
   private final Clock clock;
 
   public UpdateOrderStatusUseCase(
@@ -42,10 +43,27 @@ public class UpdateOrderStatusUseCase {
       CurrentTenantProvider currentTenantProvider,
       CurrentAuthenticatedUserProvider currentAuthenticatedUserProvider,
       Clock clock) {
+    this(
+        salesOrderRepository,
+        orderStatusHistoryRepository,
+        currentTenantProvider,
+        currentAuthenticatedUserProvider,
+        event -> {},
+        clock);
+  }
+
+  public UpdateOrderStatusUseCase(
+      SalesOrderRepository salesOrderRepository,
+      OrderStatusHistoryRepository orderStatusHistoryRepository,
+      CurrentTenantProvider currentTenantProvider,
+      CurrentAuthenticatedUserProvider currentAuthenticatedUserProvider,
+      OrderStatusChangedPublisher orderStatusChangedPublisher,
+      Clock clock) {
     this.salesOrderRepository = salesOrderRepository;
     this.orderStatusHistoryRepository = orderStatusHistoryRepository;
     this.currentTenantProvider = currentTenantProvider;
     this.currentAuthenticatedUserProvider = currentAuthenticatedUserProvider;
+    this.orderStatusChangedPublisher = orderStatusChangedPublisher;
     this.clock = clock;
   }
 
@@ -90,6 +108,9 @@ public class UpdateOrderStatusUseCase {
             actorUserId,
             changedAt,
             request.reason()));
+    orderStatusChangedPublisher.publish(
+        new OrderStatusChangedEvent(
+            order.getId(), storeId, previousStatus, order.getStatus(), changedAt));
 
     return new UpdateOrderStatusResponse(
         order.getId(), previousStatus, order.getStatus(), changedAt, actorUserId);

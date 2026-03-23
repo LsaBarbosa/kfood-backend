@@ -17,6 +17,23 @@ spring:
     password: ${RABBITMQ_PASSWORD}
 
 app:
+  eventing:
+    outbox:
+      batch-size: ${APP_EVENTING_OUTBOX_BATCH_SIZE:50}
+      retry-interval: ${APP_EVENTING_OUTBOX_RETRY_INTERVAL:5000}
+    rabbit:
+      enabled: ${APP_EVENTING_RABBIT_ENABLED:true}
+      startup-verify: true
+      exchange: ${APP_EVENTING_RABBIT_EXCHANGE:kfood.events}
+      order-created:
+        queue: ${APP_EVENTING_RABBIT_ORDER_CREATED_QUEUE:kfood.order.created.q}
+        routing-key: ${APP_EVENTING_RABBIT_ORDER_CREATED_ROUTING_KEY:order.created}
+      order-status-changed:
+        queue: ${APP_EVENTING_RABBIT_ORDER_STATUS_CHANGED_QUEUE:kfood.order.status.changed.q}
+        routing-key: ${APP_EVENTING_RABBIT_ORDER_STATUS_CHANGED_ROUTING_KEY:order.status.changed}
+      payment-confirmed:
+        queue: ${APP_EVENTING_RABBIT_PAYMENT_CONFIRMED_QUEUE:kfood.payment.confirmed.q}
+        routing-key: ${APP_EVENTING_RABBIT_PAYMENT_CONFIRMED_ROUTING_KEY:payment.confirmed}
   security:
     jwt-secret: ${JWT_SECRET}
     jwt-expiration-seconds: ${JWT_EXPIRATION_SECONDS}

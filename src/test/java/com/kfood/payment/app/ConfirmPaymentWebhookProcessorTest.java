@@ -2,6 +2,7 @@ package com.kfood.payment.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -27,8 +28,10 @@ import org.junit.jupiter.api.Test;
 class ConfirmPaymentWebhookProcessorTest {
 
   private final PaymentRepository paymentRepository = mock(PaymentRepository.class);
+  private final PaymentConfirmedPublisher paymentConfirmedPublisher =
+      mock(PaymentConfirmedPublisher.class);
   private final ConfirmPaymentWebhookProcessor processor =
-      new ConfirmPaymentWebhookProcessor(paymentRepository);
+      new ConfirmPaymentWebhookProcessor(paymentRepository, paymentConfirmedPublisher);
 
   @Test
   void shouldConfirmPaymentAndUpdateOrderSnapshot() {
@@ -53,6 +56,7 @@ class ConfirmPaymentWebhookProcessorTest {
     assertThat(order.getPaymentStatusSnapshot()).isEqualTo(PaymentStatusSnapshot.PAID);
     assertThat(event.getPayment()).isEqualTo(payment);
     verify(paymentRepository).save(payment);
+    verify(paymentConfirmedPublisher).publish(any(PaymentConfirmedEvent.class));
   }
 
   @Test
@@ -147,6 +151,7 @@ class ConfirmPaymentWebhookProcessorTest {
     assertThat(payment.getConfirmedAt()).isEqualTo(confirmedAt);
     assertThat(event.getPayment()).isEqualTo(payment);
     verify(paymentRepository).save(payment);
+    verify(paymentConfirmedPublisher, never()).publish(any(PaymentConfirmedEvent.class));
   }
 
   @Test

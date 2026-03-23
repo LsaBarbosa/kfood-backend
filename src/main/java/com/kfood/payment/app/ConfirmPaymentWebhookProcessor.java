@@ -6,6 +6,7 @@ import com.kfood.payment.infra.persistence.PaymentWebhookEvent;
 import java.time.OffsetDateTime;
 import java.util.Locale;
 import java.util.Objects;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,9 +14,17 @@ import org.springframework.transaction.annotation.Transactional;
 public class ConfirmPaymentWebhookProcessor implements PaymentWebhookProcessor {
 
   private final PaymentRepository paymentRepository;
+  private final PaymentConfirmedPublisher paymentConfirmedPublisher;
 
   public ConfirmPaymentWebhookProcessor(PaymentRepository paymentRepository) {
+    this(paymentRepository, event -> {});
+  }
+
+  @Autowired
+  public ConfirmPaymentWebhookProcessor(
+      PaymentRepository paymentRepository, PaymentConfirmedPublisher paymentConfirmedPublisher) {
     this.paymentRepository = paymentRepository;
+    this.paymentConfirmedPublisher = paymentConfirmedPublisher;
   }
 
   @Override
@@ -41,12 +50,22 @@ public class ConfirmPaymentWebhookProcessor implements PaymentWebhookProcessor {
 
     validateConfirmationAllowed(payment.getStatus());
 
-    if (payment.getStatus() != PaymentStatus.CONFIRMED) {
-      payment.markConfirmed(resolveConfirmedAt(request.paidAt()));
+    var confirmedAt = resolveConfirmedAt(request.paidAt());
+    var firstValidConfirmation = payment.confirm(confirmedAt);
+
+    if (firstValidConfirmation) {
       payment
           .getOrder()
           .markPaymentStatusSnapshot(
               OrderPaymentStatusMapper.fromPaymentStatus(payment.getStatus()));
+      paymentConfirmedPublisher.publish(
+          new PaymentConfirmedEvent(
+              payment.getId(),
+              payment.getOrder().getId(),
+              payment.getOrder().getStore().getId(),
+              payment.getProviderName(),
+              payment.getAmount(),
+              confirmedAt));
     }
 
     event.attachToPayment(payment);
