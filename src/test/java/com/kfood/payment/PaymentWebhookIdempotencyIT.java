@@ -23,7 +23,11 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 
-@SpringBootTest
+@SpringBootTest(
+    properties = {
+      "app.payment.webhook-security.providers.mock-psp.mode=NONE",
+      "app.payment.webhook-security.providers.mock-psp.required=false"
+    })
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Import(PaymentWebhookIdempotencyIT.TestConfig.class)

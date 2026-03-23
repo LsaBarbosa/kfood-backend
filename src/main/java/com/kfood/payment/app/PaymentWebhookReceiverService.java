@@ -39,6 +39,12 @@ public class PaymentWebhookReceiverService {
   @Transactional
   public PaymentWebhookResponse receive(
       String provider, PaymentWebhookRequest request, String rawPayload) {
+    return receive(provider, request, rawPayload, true);
+  }
+
+  @Transactional
+  public PaymentWebhookResponse receive(
+      String provider, PaymentWebhookRequest request, String rawPayload, boolean signatureValid) {
     var normalizedProvider = normalizeProvider(provider);
     var resolvedKey = webhookIdempotencyKeyResolver.resolve(request);
     var existingEvent =
@@ -68,6 +74,7 @@ public class PaymentWebhookReceiverService {
                   request.externalEventId(),
                   resolvedKey.value(),
                   rawPayload));
+      savedEvent.defineSignatureValidation(signatureValid);
     } catch (DataIntegrityViolationException exception) {
       var concurrentExisting =
           paymentWebhookEventRepository
@@ -81,6 +88,7 @@ public class PaymentWebhookReceiverService {
     }
 
     try {
+      paymentWebhookEventRepository.save(savedEvent);
       paymentWebhookProcessor.process(savedEvent, request);
       savedEvent.markProcessed();
       paymentWebhookEventRepository.save(savedEvent);
