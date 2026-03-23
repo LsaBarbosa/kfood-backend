@@ -64,6 +64,30 @@ class UpdatePaymentStatusUseCaseTest {
   }
 
   @Test
+  void shouldReflectCanceledStatusOnOrder() {
+    var payment = pendingPayment();
+    when(paymentRepository.findDetailedById(payment.getId())).thenReturn(Optional.of(payment));
+
+    useCase.execute(new UpdatePaymentStatusCommand(payment.getId(), PaymentStatus.CANCELED));
+
+    assertThat(payment.getStatus()).isEqualTo(PaymentStatus.CANCELED);
+    assertThat(payment.getOrder().getPaymentStatusSnapshot())
+        .isEqualTo(PaymentStatusSnapshot.FAILED);
+  }
+
+  @Test
+  void shouldReflectExpiredStatusOnOrder() {
+    var payment = pendingPayment();
+    when(paymentRepository.findDetailedById(payment.getId())).thenReturn(Optional.of(payment));
+
+    useCase.execute(new UpdatePaymentStatusCommand(payment.getId(), PaymentStatus.EXPIRED));
+
+    assertThat(payment.getStatus()).isEqualTo(PaymentStatus.EXPIRED);
+    assertThat(payment.getOrder().getPaymentStatusSnapshot())
+        .isEqualTo(PaymentStatusSnapshot.FAILED);
+  }
+
+  @Test
   void shouldBlockInvalidPaymentStatusUpdate() {
     var payment = pendingPayment();
     payment.markConfirmed(java.time.OffsetDateTime.parse("2026-03-22T12:30:00Z"));
@@ -88,6 +112,20 @@ class UpdatePaymentStatusUseCaseTest {
                 useCase.execute(new UpdatePaymentStatusCommand(paymentId, PaymentStatus.CONFIRMED)))
         .isInstanceOf(PaymentNotFoundException.class)
         .hasMessage("Payment not found for id: " + paymentId);
+  }
+
+  @Test
+  void shouldRejectReturningFailedPaymentToPending() {
+    var payment = pendingPayment();
+    payment.markFailed();
+    when(paymentRepository.findDetailedById(payment.getId())).thenReturn(Optional.of(payment));
+
+    assertThatThrownBy(
+            () ->
+                useCase.execute(
+                    new UpdatePaymentStatusCommand(payment.getId(), PaymentStatus.PENDING)))
+        .isInstanceOf(InvalidPaymentStatusTransitionException.class)
+        .hasMessage("Invalid payment status transition from FAILED to PENDING");
   }
 
   private Payment pendingPayment() {

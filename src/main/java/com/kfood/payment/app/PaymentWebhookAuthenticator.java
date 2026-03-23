@@ -32,9 +32,7 @@ public class PaymentWebhookAuthenticator {
     switch (config.getMode()) {
       case HMAC_SHA256 -> validateHmac(config, rawPayload, headers);
       case SHARED_TOKEN -> validateSharedToken(config, headers);
-      case NONE -> {
-        return;
-      }
+      case NONE -> {}
     }
   }
 

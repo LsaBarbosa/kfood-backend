@@ -104,7 +104,7 @@ public class CreatePublicOrderService {
             .findBySlug(storeSlug.trim())
             .orElseThrow(() -> new StoreSlugNotFoundException(storeSlug));
     if (idempotencyKey == null || idempotencyKey.isBlank()) {
-      return doCreate(store.getId(), request);
+      return doCreate(store, request);
     }
     return idempotencyService.execute(
         store.getId(),
@@ -112,11 +112,12 @@ public class CreatePublicOrderService {
         idempotencyKey,
         request,
         CreatePublicOrderResponse.class,
-        () -> doCreate(store.getId(), request));
+        () -> doCreate(store, request));
   }
 
-  private CreatePublicOrderResponse doCreate(UUID storeId, CreatePublicOrderRequest request) {
-    var store = storeRepository.findById(storeId).orElseThrow();
+  private CreatePublicOrderResponse doCreate(
+      com.kfood.merchant.infra.persistence.Store store, CreatePublicOrderRequest request) {
+    var storeId = store.getId();
 
     var customer =
         customerRepository

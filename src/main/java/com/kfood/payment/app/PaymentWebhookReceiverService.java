@@ -66,15 +66,11 @@ public class PaymentWebhookReceiverService {
 
     PaymentWebhookEvent savedEvent;
     try {
-      savedEvent =
-          paymentWebhookEventRepository.saveAndFlush(
-              PaymentWebhookEvent.received(
-                  null,
-                  normalizedProvider,
-                  request.externalEventId(),
-                  resolvedKey.value(),
-                  rawPayload));
-      savedEvent.defineSignatureValidation(signatureValid);
+      var event =
+          PaymentWebhookEvent.received(
+              null, normalizedProvider, request.externalEventId(), resolvedKey.value(), rawPayload);
+      event.defineSignatureValidation(signatureValid);
+      savedEvent = paymentWebhookEventRepository.saveAndFlush(event);
     } catch (DataIntegrityViolationException exception) {
       var concurrentExisting =
           paymentWebhookEventRepository
@@ -88,7 +84,6 @@ public class PaymentWebhookReceiverService {
     }
 
     try {
-      paymentWebhookEventRepository.save(savedEvent);
       paymentWebhookProcessor.process(savedEvent, request);
       savedEvent.markProcessed();
       paymentWebhookEventRepository.save(savedEvent);

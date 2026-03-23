@@ -390,6 +390,19 @@ class SalesOrderTest {
     assertThat(order.isAvailableForOperation(Clock.systemUTC())).isTrue();
   }
 
+  @Test
+  void shouldAllowTransitionWhenPaymentSnapshotStartsNull() throws Exception {
+    var order = createPickupOrder();
+    var field = SalesOrder.class.getDeclaredField("paymentStatusSnapshot");
+    field.setAccessible(true);
+    field.set(order, null);
+
+    order.markPaymentStatusSnapshot(com.kfood.payment.domain.PaymentStatusSnapshot.FAILED);
+
+    assertThat(order.getPaymentStatusSnapshot())
+        .isEqualTo(com.kfood.payment.domain.PaymentStatusSnapshot.FAILED);
+  }
+
   private SalesOrder createPickupOrder() {
     return SalesOrder.create(
         UUID.randomUUID(),

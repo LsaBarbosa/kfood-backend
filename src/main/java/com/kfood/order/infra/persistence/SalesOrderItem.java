@@ -19,6 +19,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import org.hibernate.annotations.Fetch;
+import org.hibernate.annotations.FetchMode;
 
 @Entity
 @Table(name = "sales_order_item")
@@ -52,6 +54,7 @@ public class SalesOrderItem extends AuditableEntity {
       mappedBy = "orderItem",
       cascade = jakarta.persistence.CascadeType.ALL,
       orphanRemoval = true)
+  @Fetch(FetchMode.SUBSELECT)
   private final List<SalesOrderItemOption> options = new ArrayList<>();
 
   protected SalesOrderItem() {}

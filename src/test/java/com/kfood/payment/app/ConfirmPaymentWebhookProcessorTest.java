@@ -3,6 +3,7 @@ package com.kfood.payment.app;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -110,6 +111,66 @@ class ConfirmPaymentWebhookProcessorTest {
     verify(paymentRepository, org.mockito.Mockito.never())
         .findByProviderNameAndProviderReference(
             org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+  }
+
+  @Test
+  void shouldAllowAlreadyConfirmedPaymentWithoutChangingConfirmedAt() {
+    var order = order();
+    var payment =
+        Payment.create(
+            UUID.randomUUID(), order, PaymentMethod.PIX, "mock-psp", "psp_ref_123", "payload");
+    var confirmedAt = OffsetDateTime.parse("2026-03-16T18:50:00Z");
+    payment.markConfirmed(confirmedAt);
+    var event =
+        PaymentWebhookEvent.received(
+            null, "mock-psp", "evt_001", "evt_001", "{\"eventType\":\"PAYMENT_CONFIRMED\"}");
+    var request =
+        new PaymentWebhookRequest("evt_001", "PAYMENT_CONFIRMED", "psp_ref_123", null, null);
+
+    when(paymentRepository.findByProviderNameAndProviderReference("mock-psp", "psp_ref_123"))
+        .thenReturn(Optional.of(payment));
+
+    processor.process(event, request);
+
+    assertThat(payment.getConfirmedAt()).isEqualTo(confirmedAt);
+    assertThat(event.getPayment()).isEqualTo(payment);
+    verify(paymentRepository).save(payment);
+  }
+
+  @Test
+  void shouldThrowGenericNotFoundWhenProviderReferenceIsMissing() {
+    var event =
+        PaymentWebhookEvent.received(
+            null, "mock-psp", "evt_404", "evt_404", "{\"eventType\":\"PAYMENT_CONFIRMED\"}");
+    var request = new PaymentWebhookRequest("evt_404", "PAYMENT_CONFIRMED", " ", null, null);
+
+    assertThatThrownBy(() -> processor.process(event, request))
+        .isInstanceOf(PaymentWebhookPaymentNotFoundException.class)
+        .hasMessage("Payment not found for the informed provider and reference.");
+
+    verify(paymentRepository, never())
+        .findByProviderNameAndProviderReference(
+            org.mockito.ArgumentMatchers.any(), org.mockito.ArgumentMatchers.any());
+  }
+
+  @Test
+  void shouldUseCurrentTimeWhenPaidAtIsMissing() {
+    var order = order();
+    var payment =
+        Payment.create(
+            UUID.randomUUID(), order, PaymentMethod.PIX, "mock-psp", "psp_ref_now", "payload");
+    var event =
+        PaymentWebhookEvent.received(
+            null, "mock-psp", "evt_now", "evt_now", "{\"eventType\":\"PAYMENT_CONFIRMED\"}");
+    var request =
+        new PaymentWebhookRequest("evt_now", "PAYMENT_CONFIRMED", "psp_ref_now", " ", null);
+
+    when(paymentRepository.findByProviderNameAndProviderReference("mock-psp", "psp_ref_now"))
+        .thenReturn(Optional.of(payment));
+
+    processor.process(event, request);
+
+    assertThat(payment.getConfirmedAt()).isNotNull();
   }
 
   private SalesOrder order() {

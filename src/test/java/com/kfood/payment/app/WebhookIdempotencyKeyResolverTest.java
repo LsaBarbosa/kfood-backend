@@ -43,4 +43,16 @@ class WebhookIdempotencyKeyResolverTest {
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessage("externalEventId or providerReference is required");
   }
+
+  @Test
+  void shouldRejectResolvedIdempotencyKeyWithoutSourceOrValue() {
+    assertThatThrownBy(() -> new WebhookIdempotencyKeyResolver.ResolvedIdempotencyKey(" ", "value"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("source must not be blank");
+
+    assertThatThrownBy(
+            () -> new WebhookIdempotencyKeyResolver.ResolvedIdempotencyKey("SOURCE", " "))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("value must not be blank");
+  }
 }
