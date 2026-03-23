@@ -18,6 +18,9 @@ spring:
 
 app:
   eventing:
+    outbox:
+      batch-size: ${APP_EVENTING_OUTBOX_BATCH_SIZE:50}
+      retry-interval: ${APP_EVENTING_OUTBOX_RETRY_INTERVAL:5000}
     rabbit:
       enabled: ${APP_EVENTING_RABBIT_ENABLED:true}
       startup-verify: true

@@ -38,6 +38,9 @@ server:
 
 app:
   eventing:
+    outbox:
+      batch-size: 50
+      retry-interval: 5000
     rabbit:
       enabled: true
       startup-verify: true
