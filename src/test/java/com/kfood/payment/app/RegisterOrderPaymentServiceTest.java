@@ -21,6 +21,7 @@ import com.kfood.shared.exceptions.ErrorCode;
 import java.math.BigDecimal;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 class RegisterOrderPaymentServiceTest {
 
@@ -77,6 +78,16 @@ class RegisterOrderPaymentServiceTest {
     assertThatThrownBy(() -> service.registerInitialPayment(null))
         .isInstanceOf(NullPointerException.class)
         .hasMessage("order must not be null");
+  }
+
+  @Test
+  void shouldIgnoreOrderWhenPaymentMethodIsUnexpectedlyNull() {
+    var order = order(enabledStore(), PaymentMethod.CASH);
+    ReflectionTestUtils.setField(order, "paymentMethod", null);
+
+    service.registerInitialPayment(order);
+
+    verify(paymentRepository, never()).saveAndFlush(any(Payment.class));
   }
 
   private Store enabledStore() {

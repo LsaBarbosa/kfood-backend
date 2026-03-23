@@ -141,6 +141,50 @@ class SalesOrderStatusMachineTest {
   }
 
   @Test
+  void shouldAllowCancelFromPreparingReadyAndOutForDelivery() {
+    var preparing = order(FulfillmentType.DELIVERY);
+    preparing.changeStatus(OrderStatus.PREPARING);
+    preparing.changeStatus(OrderStatus.CANCELED);
+    assertThat(preparing.getStatus()).isEqualTo(OrderStatus.CANCELED);
+
+    var readyDelivery = order(FulfillmentType.DELIVERY);
+    readyDelivery.changeStatus(OrderStatus.PREPARING);
+    readyDelivery.changeStatus(OrderStatus.READY);
+    readyDelivery.changeStatus(OrderStatus.CANCELED);
+    assertThat(readyDelivery.getStatus()).isEqualTo(OrderStatus.CANCELED);
+
+    var outForDelivery = order(FulfillmentType.DELIVERY);
+    outForDelivery.changeStatus(OrderStatus.PREPARING);
+    outForDelivery.changeStatus(OrderStatus.READY);
+    outForDelivery.changeStatus(OrderStatus.OUT_FOR_DELIVERY);
+    outForDelivery.changeStatus(OrderStatus.CANCELED);
+    assertThat(outForDelivery.getStatus()).isEqualTo(OrderStatus.CANCELED);
+  }
+
+  @Test
+  void shouldRejectOtherTransitionsFromPreparingReadyAndOutForDelivery() {
+    var preparing = order(FulfillmentType.DELIVERY);
+    preparing.changeStatus(OrderStatus.PREPARING);
+    assertThat(preparing.canTransitionTo(OrderStatus.OUT_FOR_DELIVERY)).isFalse();
+
+    var readyDelivery = order(FulfillmentType.DELIVERY);
+    readyDelivery.changeStatus(OrderStatus.PREPARING);
+    readyDelivery.changeStatus(OrderStatus.READY);
+    assertThat(readyDelivery.canTransitionTo(OrderStatus.COMPLETED)).isFalse();
+
+    var readyPickup = order(FulfillmentType.PICKUP);
+    readyPickup.changeStatus(OrderStatus.PREPARING);
+    readyPickup.changeStatus(OrderStatus.READY);
+    assertThat(readyPickup.canTransitionTo(OrderStatus.OUT_FOR_DELIVERY)).isFalse();
+
+    var outForDelivery = order(FulfillmentType.DELIVERY);
+    outForDelivery.changeStatus(OrderStatus.PREPARING);
+    outForDelivery.changeStatus(OrderStatus.READY);
+    outForDelivery.changeStatus(OrderStatus.OUT_FOR_DELIVERY);
+    assertThat(outForDelivery.canTransitionTo(OrderStatus.READY)).isFalse();
+  }
+
+  @Test
   void shouldRejectCancelingCompletedOrderUsingIntentMethod() {
     var order = order(FulfillmentType.PICKUP);
     order.changeStatus(OrderStatus.PREPARING);

@@ -178,6 +178,54 @@ class PaymentTest {
     assertThat(constructor.newInstance()).isNotNull();
   }
 
+  @Test
+  void shouldIgnoreRepeatedTransitions() throws Exception {
+    var confirmedPayment =
+        Payment.create(
+            UUID.randomUUID(), order(new BigDecimal("57.50")), PaymentMethod.PIX, null, null, null);
+    var confirmedAt = OffsetDateTime.parse("2026-03-22T12:30:00Z");
+    confirmedPayment.markConfirmed(confirmedAt);
+    confirmedPayment.markConfirmed(confirmedAt.plusMinutes(1));
+    assertThat(confirmedPayment.getConfirmedAt()).isEqualTo(confirmedAt);
+
+    var failedPayment =
+        Payment.create(
+            UUID.randomUUID(), order(new BigDecimal("57.50")), PaymentMethod.PIX, null, null, null);
+    failedPayment.markFailed();
+    failedPayment.markFailed();
+    assertThat(failedPayment.getStatus()).isEqualTo(PaymentStatus.FAILED);
+
+    var canceledPayment =
+        Payment.create(
+            UUID.randomUUID(), order(new BigDecimal("57.50")), PaymentMethod.PIX, null, null, null);
+    canceledPayment.markCanceled();
+    canceledPayment.markCanceled();
+    assertThat(canceledPayment.getStatus()).isEqualTo(PaymentStatus.CANCELED);
+
+    var expiredPayment =
+        Payment.create(
+            UUID.randomUUID(), order(new BigDecimal("57.50")), PaymentMethod.PIX, null, null, null);
+    expiredPayment.markExpired();
+    expiredPayment.markExpired();
+    assertThat(expiredPayment.getStatus()).isEqualTo(PaymentStatus.EXPIRED);
+
+    invokeTransitionTo(expiredPayment, PaymentStatus.EXPIRED, null);
+    assertThat(expiredPayment.getStatus()).isEqualTo(PaymentStatus.EXPIRED);
+  }
+
+  @Test
+  void shouldExposePendingTransitionMatrixThroughPrivateGuard() throws Exception {
+    var payment =
+        Payment.create(
+            UUID.randomUUID(), order(new BigDecimal("57.50")), PaymentMethod.PIX, null, null, null);
+
+    assertThat(invokeCanTransitionTo(payment, PaymentStatus.CONFIRMED)).isTrue();
+    assertThat(invokeCanTransitionTo(payment, PaymentStatus.FAILED)).isTrue();
+    assertThat(invokeCanTransitionTo(payment, PaymentStatus.CANCELED)).isTrue();
+    assertThat(invokeCanTransitionTo(payment, PaymentStatus.EXPIRED)).isTrue();
+    assertThat(invokeCanTransitionTo(payment, PaymentStatus.PENDING)).isFalse();
+  }
+
   private SalesOrder order(BigDecimal totalAmount) {
     var deliveryFee = new BigDecimal("8.00");
     return SalesOrder.create(
@@ -209,5 +257,20 @@ class PaymentTest {
     Field field = Payment.class.getDeclaredField(fieldName);
     field.setAccessible(true);
     field.set(payment, value);
+  }
+
+  private void invokeTransitionTo(
+      Payment payment, PaymentStatus nextStatus, OffsetDateTime confirmedAt) throws Exception {
+    Method method =
+        Payment.class.getDeclaredMethod("transitionTo", PaymentStatus.class, OffsetDateTime.class);
+    method.setAccessible(true);
+    method.invoke(payment, nextStatus, confirmedAt);
+  }
+
+  private boolean invokeCanTransitionTo(Payment payment, PaymentStatus nextStatus)
+      throws Exception {
+    Method method = Payment.class.getDeclaredMethod("canTransitionTo", PaymentStatus.class);
+    method.setAccessible(true);
+    return (Boolean) method.invoke(payment, nextStatus);
   }
 }

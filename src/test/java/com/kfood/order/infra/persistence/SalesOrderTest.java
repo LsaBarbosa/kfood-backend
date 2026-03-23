@@ -18,6 +18,8 @@ import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
+import org.springframework.test.util.ReflectionTestUtils;
 
 class SalesOrderTest {
 
@@ -277,6 +279,23 @@ class SalesOrderTest {
   }
 
   @Test
+  void shouldRejectNullOrderNumber() {
+    var order = createPickupOrder();
+
+    assertThatThrownBy(() -> order.assignOrderNumber(null))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("orderNumber must not be blank");
+  }
+
+  @Test
+  void shouldTreatBlankDeliveryStreetAsMissingSnapshot() {
+    var order = createPickupOrder();
+    ReflectionTestUtils.setField(order, "deliveryAddressStreet", " ");
+
+    assertThat(order.hasDeliveryAddressSnapshot()).isFalse();
+  }
+
+  @Test
   void shouldAllowClearingSchedule() {
     var order = createPickupOrder();
     var fixedClock = Clock.fixed(Instant.parse("2026-03-21T15:00:00Z"), ZoneOffset.UTC);
@@ -305,6 +324,17 @@ class SalesOrderTest {
 
     assertThat(order.getPaymentStatusSnapshot())
         .isEqualTo(com.kfood.payment.domain.PaymentStatusSnapshot.PAID);
+  }
+
+  @Test
+  void shouldAllowFailedSnapshotToReturnToPendingAndStayFailedOnSameValue() {
+    var order = createPickupOrder();
+    order.markPaymentStatusSnapshot(com.kfood.payment.domain.PaymentStatusSnapshot.FAILED);
+    order.markPaymentStatusSnapshot(com.kfood.payment.domain.PaymentStatusSnapshot.FAILED);
+    order.markPaymentStatusSnapshot(com.kfood.payment.domain.PaymentStatusSnapshot.PENDING);
+
+    assertThat(order.getPaymentStatusSnapshot())
+        .isEqualTo(com.kfood.payment.domain.PaymentStatusSnapshot.PENDING);
   }
 
   @Test
@@ -388,6 +418,118 @@ class SalesOrderTest {
     assertThat(order.getFulfillmentType()).isEqualTo(FulfillmentType.PICKUP);
     assertThat(order.isScheduledForFuture(Clock.systemUTC())).isFalse();
     assertThat(order.isAvailableForOperation(Clock.systemUTC())).isTrue();
+  }
+
+  @Test
+  void shouldNormalizeBlankNotesAndManageItems() {
+    var order =
+        SalesOrder.create(
+            UUID.randomUUID(),
+            mock(Store.class),
+            mock(Customer.class),
+            FulfillmentType.PICKUP,
+            PaymentMethod.PIX,
+            new BigDecimal("40.00"),
+            BigDecimal.ZERO,
+            new BigDecimal("40.00"),
+            null,
+            "   ");
+    var item = Mockito.mock(SalesOrderItem.class);
+
+    order.addItem(item);
+
+    assertThat(order.getNotes()).isNull();
+    assertThat(order.getItems()).containsExactly(item);
+    assertThatThrownBy(() -> order.addItem(null))
+        .isInstanceOf(NullPointerException.class)
+        .hasMessage("item must not be null");
+  }
+
+  @Test
+  void shouldAllowTransitionWhenPaymentSnapshotStartsNull() throws Exception {
+    var order = createPickupOrder();
+    var field = SalesOrder.class.getDeclaredField("paymentStatusSnapshot");
+    field.setAccessible(true);
+    field.set(order, null);
+
+    order.markPaymentStatusSnapshot(com.kfood.payment.domain.PaymentStatusSnapshot.FAILED);
+
+    assertThat(order.getPaymentStatusSnapshot())
+        .isEqualTo(com.kfood.payment.domain.PaymentStatusSnapshot.FAILED);
+  }
+
+  @Test
+  void shouldCoverPaymentSnapshotTransitionMatrix() throws Exception {
+    var order = createPickupOrder();
+
+    assertThat(
+            invokeCanTransitionPaymentSnapshotTo(
+                order, com.kfood.payment.domain.PaymentStatusSnapshot.PAID))
+        .isTrue();
+    assertThat(
+            invokeCanTransitionPaymentSnapshotTo(
+                order, com.kfood.payment.domain.PaymentStatusSnapshot.FAILED))
+        .isTrue();
+    assertThat(
+            invokeCanTransitionPaymentSnapshotTo(
+                order, com.kfood.payment.domain.PaymentStatusSnapshot.PENDING))
+        .isFalse();
+
+    ReflectionTestUtils.setField(
+        order, "paymentStatusSnapshot", com.kfood.payment.domain.PaymentStatusSnapshot.FAILED);
+    assertThat(
+            invokeCanTransitionPaymentSnapshotTo(
+                order, com.kfood.payment.domain.PaymentStatusSnapshot.PENDING))
+        .isTrue();
+    assertThat(
+            invokeCanTransitionPaymentSnapshotTo(
+                order, com.kfood.payment.domain.PaymentStatusSnapshot.PAID))
+        .isTrue();
+    assertThat(
+            invokeCanTransitionPaymentSnapshotTo(
+                order, com.kfood.payment.domain.PaymentStatusSnapshot.FAILED))
+        .isFalse();
+  }
+
+  @Test
+  void shouldCoverOperationalStatusTransitionMatrix() {
+    var order = createPickupOrder();
+
+    assertThat(order.canTransitionTo(OrderStatus.PREPARING)).isTrue();
+    assertThat(order.canTransitionTo(OrderStatus.CANCELED)).isTrue();
+    assertThat(order.canTransitionTo(OrderStatus.COMPLETED)).isFalse();
+
+    ReflectionTestUtils.setField(order, "status", OrderStatus.PREPARING);
+    assertThat(order.canTransitionTo(OrderStatus.READY)).isTrue();
+    assertThat(order.canTransitionTo(OrderStatus.CANCELED)).isTrue();
+    assertThat(order.canTransitionTo(OrderStatus.COMPLETED)).isFalse();
+
+    ReflectionTestUtils.setField(order, "status", OrderStatus.READY);
+    ReflectionTestUtils.setField(order, "fulfillmentType", FulfillmentType.PICKUP);
+    assertThat(order.canTransitionTo(OrderStatus.COMPLETED)).isTrue();
+    assertThat(order.canTransitionTo(OrderStatus.CANCELED)).isTrue();
+    assertThat(order.canTransitionTo(OrderStatus.OUT_FOR_DELIVERY)).isFalse();
+
+    ReflectionTestUtils.setField(order, "fulfillmentType", FulfillmentType.DELIVERY);
+    assertThat(order.canTransitionTo(OrderStatus.OUT_FOR_DELIVERY)).isTrue();
+    assertThat(order.canTransitionTo(OrderStatus.CANCELED)).isTrue();
+    assertThat(order.canTransitionTo(OrderStatus.COMPLETED)).isFalse();
+
+    ReflectionTestUtils.setField(order, "status", OrderStatus.OUT_FOR_DELIVERY);
+    assertThat(order.canTransitionTo(OrderStatus.COMPLETED)).isTrue();
+    assertThat(order.canTransitionTo(OrderStatus.CANCELED)).isTrue();
+    assertThat(order.canTransitionTo(OrderStatus.READY)).isFalse();
+  }
+
+  private boolean invokeCanTransitionPaymentSnapshotTo(
+      SalesOrder order, com.kfood.payment.domain.PaymentStatusSnapshot nextStatus)
+      throws Exception {
+    var method =
+        SalesOrder.class.getDeclaredMethod(
+            "canTransitionPaymentStatusSnapshotTo",
+            com.kfood.payment.domain.PaymentStatusSnapshot.class);
+    method.setAccessible(true);
+    return (Boolean) method.invoke(order, nextStatus);
   }
 
   private SalesOrder createPickupOrder() {

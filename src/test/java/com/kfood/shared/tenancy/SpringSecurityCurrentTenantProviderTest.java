@@ -9,6 +9,7 @@ import com.kfood.identity.domain.UserRoleName;
 import com.kfood.identity.domain.UserStatus;
 import com.kfood.identity.persistence.IdentityUserEntity;
 import com.kfood.identity.persistence.IdentityUserRepository;
+import com.kfood.shared.security.TenantAwarePrincipal;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
@@ -219,6 +220,16 @@ class SpringSecurityCurrentTenantProviderTest {
     assertThatThrownBy(provider::getRequiredStoreId)
         .isInstanceOf(TenantScopeAccessDeniedException.class)
         .hasMessage("Authenticated user is not bound to a store");
+  }
+
+  @Test
+  void shouldReturnStoreIdFromTenantAwarePrincipalThatIsNotAuthenticatedPrincipal() {
+    var storeId = UUID.randomUUID();
+    TenantAwarePrincipal principal = () -> storeId;
+    SecurityContextHolder.getContext()
+        .setAuthentication(new UsernamePasswordAuthenticationToken(principal, null, List.of()));
+
+    assertThat(provider.getRequiredStoreId()).isEqualTo(storeId);
   }
 
   private IdentityUserEntity userEntity(UUID userId, UUID storeId, UserRoleName roleName) {

@@ -15,9 +15,7 @@ public final class PixChargeResponseValidator {
       throw unavailable(provider, "Payment provider returned null Pix charge response.");
     }
 
-    if (isBlank(result.providerReference())
-        || isBlank(result.qrCodePayload())
-        || result.expiresAt() == null) {
+    if (isBlank(result.providerReference()) || isBlank(result.qrCodePayload())) {
       throw unavailable(provider, "Payment provider returned incomplete Pix charge response.");
     }
 
@@ -27,7 +25,7 @@ public final class PixChargeResponseValidator {
   }
 
   private static boolean isBlank(String value) {
-    return value == null || value.isBlank();
+    return value.isBlank();
   }
 
   private static BusinessException unavailable(String provider, String message) {

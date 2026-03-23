@@ -9,6 +9,7 @@ import com.kfood.catalog.api.UpdateCatalogCategoryRequest;
 import com.kfood.catalog.infra.persistence.CatalogCategory;
 import com.kfood.catalog.infra.persistence.CatalogCategoryRepository;
 import com.kfood.merchant.app.StoreNotActiveException;
+import com.kfood.merchant.app.StoreNotFoundException;
 import com.kfood.merchant.app.StoreOperationalGuard;
 import com.kfood.merchant.infra.persistence.Store;
 import com.kfood.merchant.infra.persistence.StoreRepository;
@@ -103,6 +104,22 @@ class UpdateCatalogCategoryUseCaseTest {
     assertThatThrownBy(() -> updateCatalogCategoryUseCase.execute(categoryId, request))
         .isInstanceOf(StoreNotActiveException.class)
         .hasMessageContaining("SUSPENDED");
+  }
+
+  @Test
+  void shouldThrowWhenStoreDoesNotExist() {
+    var storeId = UUID.randomUUID();
+    var categoryId = UUID.randomUUID();
+
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
+    when(storeRepository.findById(storeId)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(
+            () ->
+                updateCatalogCategoryUseCase.execute(
+                    categoryId, new UpdateCatalogCategoryRequest("Bebidas", 20)))
+        .isInstanceOf(StoreNotFoundException.class)
+        .hasMessageContaining(storeId.toString());
   }
 
   private Store store(UUID storeId) {

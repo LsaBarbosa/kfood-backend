@@ -49,7 +49,9 @@ class FlywayMigrationTest {
     assertThat(tableExists("sales_order_item")).isTrue();
     assertThat(tableExists("sales_order_item_option")).isTrue();
     assertThat(tableExists("payment")).isTrue();
+    assertThat(tableExists("payment_webhook_event")).isTrue();
     assertThat(columnExists("payment", "expires_at")).isTrue();
+    assertThat(columnExists("payment_webhook_event", "idempotency_key")).isTrue();
     assertThat(columnExists("store", "cash_payment_enabled")).isTrue();
     assertThat(tableExists("checkout_quote")).isTrue();
     assertThat(tableExists("checkout_quote_item")).isTrue();
@@ -427,6 +429,16 @@ class FlywayMigrationTest {
   @Test
   void shouldRegisterVersionTwentyFiveInFlywayHistory() throws Exception {
     assertVersionRegistered("25");
+  }
+
+  @Test
+  void shouldRegisterVersionTwentySixInFlywayHistory() throws Exception {
+    assertVersionRegistered("26");
+  }
+
+  @Test
+  void shouldRegisterVersionTwentySevenInFlywayHistory() throws Exception {
+    assertVersionRegistered("27");
   }
 
   @Test

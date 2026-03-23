@@ -39,17 +39,20 @@ public class StoreCheckoutRulesValidator {
     var currentDayOfWeek = currentDateTime.getDayOfWeek();
     var currentTime = currentDateTime.toLocalTime();
 
-    var openNow =
-        storeBusinessHourRepository
-            .findAllByStoreIdAndDayOfWeek(store.getId(), currentDayOfWeek)
-            .stream()
-            .filter(hour -> !hour.isClosed())
-            .anyMatch(
-                hour ->
-                    hour.getOpenTime() != null
-                        && hour.getCloseTime() != null
-                        && !currentTime.isBefore(hour.getOpenTime())
-                        && currentTime.isBefore(hour.getCloseTime()));
+    var openNow = false;
+    for (var hour :
+        storeBusinessHourRepository.findAllByStoreIdAndDayOfWeek(store.getId(), currentDayOfWeek)) {
+      if (hour.isClosed()) {
+        continue;
+      }
+      if (hour.getOpenTime() == null || hour.getCloseTime() == null) {
+        continue;
+      }
+      if (!currentTime.isBefore(hour.getOpenTime()) && currentTime.isBefore(hour.getCloseTime())) {
+        openNow = true;
+        break;
+      }
+    }
 
     if (!openNow) {
       throw new BusinessException(

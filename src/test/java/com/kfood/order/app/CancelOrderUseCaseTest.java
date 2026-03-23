@@ -158,6 +158,13 @@ class CancelOrderUseCaseTest {
         .hasMessage("request must not be null");
   }
 
+  @Test
+  void shouldRejectNullCancellationReason() {
+    assertThatThrownBy(() -> useCase.execute(UUID.randomUUID(), new CancelOrderRequest(null)))
+        .isInstanceOf(BusinessException.class)
+        .hasMessage("Cancellation reason must not be blank.");
+  }
+
   private SalesOrder newOrder(UUID storeId, FulfillmentType fulfillmentType) {
     var store =
         new Store(

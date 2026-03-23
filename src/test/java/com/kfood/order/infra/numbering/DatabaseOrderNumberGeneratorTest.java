@@ -88,4 +88,36 @@ class DatabaseOrderNumberGeneratorTest {
 
     assertThat(generator.next(order)).startsWith("PED-20260321-");
   }
+
+  @Test
+  void shouldUseDefaultTimezoneWhenStoreTimezoneIsNull() {
+    var entityManager = mock(EntityManager.class);
+    var query = mock(Query.class);
+    when(entityManager.createNativeQuery("select nextval('sales_order_number_seq')"))
+        .thenReturn(query);
+    when(query.getSingleResult()).thenReturn(1L);
+
+    var generator =
+        new DatabaseOrderNumberGenerator(
+            Clock.fixed(Instant.parse("2026-03-21T03:30:00Z"), ZoneId.of("UTC")));
+    ReflectionTestUtils.setField(generator, "entityManager", entityManager);
+
+    var store = mock(Store.class);
+    var customer = mock(Customer.class);
+    when(store.getTimezone()).thenReturn(null);
+    var order =
+        SalesOrder.create(
+            UUID.randomUUID(),
+            store,
+            customer,
+            FulfillmentType.DELIVERY,
+            PaymentMethod.PIX,
+            new BigDecimal("50.00"),
+            new BigDecimal("6.50"),
+            new BigDecimal("56.50"),
+            null,
+            null);
+
+    assertThat(generator.next(order)).startsWith("PED-20260321-");
+  }
 }

@@ -45,8 +45,23 @@ class CatalogProductAvailabilityWindowTest {
 
     assertThat(window.matches(DayOfWeek.MONDAY, LocalTime.of(11, 0))).isTrue();
     assertThat(window.matches(DayOfWeek.MONDAY, LocalTime.of(13, 59))).isTrue();
+    assertThat(window.matches(DayOfWeek.MONDAY, LocalTime.of(10, 59))).isFalse();
     assertThat(window.matches(DayOfWeek.MONDAY, LocalTime.of(14, 0))).isFalse();
     assertThat(window.matches(DayOfWeek.TUESDAY, LocalTime.of(12, 0))).isFalse();
+  }
+
+  @Test
+  void shouldNotMatchWhenWindowIsInactive() {
+    var window =
+        new CatalogProductAvailabilityWindow(
+            UUID.randomUUID(),
+            product(),
+            DayOfWeek.MONDAY,
+            LocalTime.of(11, 0),
+            LocalTime.of(14, 0),
+            false);
+
+    assertThat(window.matches(DayOfWeek.MONDAY, LocalTime.of(12, 0))).isFalse();
   }
 
   @Test

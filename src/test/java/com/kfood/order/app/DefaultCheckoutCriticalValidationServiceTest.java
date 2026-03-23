@@ -118,6 +118,24 @@ class DefaultCheckoutCriticalValidationServiceTest {
         .isEqualTo(ErrorCode.CATALOG_ITEM_UNAVAILABLE);
   }
 
+  @Test
+  void shouldRejectWhenProductIsPausedEvenIfActive() {
+    var store = store();
+    var customer = customer(store);
+    var pausedProduct = product(store, true, true);
+    var quote = pickupQuote(store.getId(), customer.getId(), pausedProduct.getId());
+    when(customerRepository.findByIdAndStoreId(customer.getId(), store.getId()))
+        .thenReturn(Optional.of(customer));
+    when(catalogProductRepository.findAllByStoreIdAndIdIn(eq(store.getId()), any()))
+        .thenReturn(List.of(pausedProduct));
+
+    assertThatThrownBy(() -> service.revalidate(store, quote))
+        .isInstanceOf(BusinessException.class)
+        .hasMessage("Product is not available for checkout.")
+        .extracting("errorCode")
+        .isEqualTo(ErrorCode.CATALOG_ITEM_UNAVAILABLE);
+  }
+
   private CheckoutQuoteSnapshot pickupQuote(UUID storeId, UUID customerId, UUID productId) {
     return new CheckoutQuoteSnapshot(
         UUID.randomUUID(),

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.kfood.customer.infra.persistence.Customer;
@@ -25,6 +26,7 @@ import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.http.HttpStatus;
 
 class CreatePixPaymentUseCaseTest {
@@ -159,6 +161,50 @@ class CreatePixPaymentUseCaseTest {
         .isInstanceOf(BusinessException.class)
         .extracting("errorCode", "status")
         .containsExactly(ErrorCode.VALIDATION_ERROR, HttpStatus.BAD_REQUEST);
+  }
+
+  @Test
+  void shouldGenerateFallbackIdempotencyKeyWhenHeaderIsMissing() {
+    var order = order(PaymentMethod.PIX, new BigDecimal("56.50"));
+    when(salesOrderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+    when(paymentRepository.saveAndFlush(any(Payment.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0, Payment.class));
+    when(requestPixChargeViaGatewayUseCase.execute(any(RequestPixChargeViaGatewayCommand.class)))
+        .thenReturn(
+            new CreatePixChargeGatewayResult(
+                "default-psp",
+                "psp_100",
+                "0002012636mockpix100",
+                OffsetDateTime.parse("2030-03-22T12:15:00Z")));
+
+    useCase.execute(
+        new CreatePixPaymentCommand(order.getId(), new BigDecimal("56.50"), "default-psp", " "));
+
+    var captor = ArgumentCaptor.forClass(RequestPixChargeViaGatewayCommand.class);
+    verify(requestPixChargeViaGatewayUseCase).execute(captor.capture());
+    assertThat(captor.getValue().idempotencyKey()).startsWith("pix-");
+  }
+
+  @Test
+  void shouldGenerateFallbackIdempotencyKeyWhenHeaderIsNull() {
+    var order = order(PaymentMethod.PIX, new BigDecimal("56.50"));
+    when(salesOrderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+    when(paymentRepository.saveAndFlush(any(Payment.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0, Payment.class));
+    when(requestPixChargeViaGatewayUseCase.execute(any(RequestPixChargeViaGatewayCommand.class)))
+        .thenReturn(
+            new CreatePixChargeGatewayResult(
+                "default-psp",
+                "psp_100",
+                "0002012636mockpix100",
+                OffsetDateTime.parse("2030-03-22T12:15:00Z")));
+
+    useCase.execute(
+        new CreatePixPaymentCommand(order.getId(), new BigDecimal("56.50"), "default-psp", null));
+
+    var captor = ArgumentCaptor.forClass(RequestPixChargeViaGatewayCommand.class);
+    verify(requestPixChargeViaGatewayUseCase).execute(captor.capture());
+    assertThat(captor.getValue().idempotencyKey()).startsWith("pix-");
   }
 
   private SalesOrder order(PaymentMethod paymentMethod, BigDecimal totalAmount) {
