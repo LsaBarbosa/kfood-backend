@@ -31,6 +31,9 @@ public class OutboxEvent {
   @Column(name = "routing_key", nullable = false, length = 120)
   private String routingKey;
 
+  @Column(name = "dedup_key", length = 160)
+  private String dedupKey;
+
   @Column(name = "payload", nullable = false, columnDefinition = "text")
   private String payload;
 
@@ -58,6 +61,7 @@ public class OutboxEvent {
       String aggregateId,
       String eventType,
       String routingKey,
+      String dedupKey,
       String payload,
       OutboxEventStatus publicationStatus,
       int attempts,
@@ -69,6 +73,7 @@ public class OutboxEvent {
     this.aggregateId = requireText(aggregateId, "aggregateId");
     this.eventType = requireText(eventType, "eventType");
     this.routingKey = requireText(routingKey, "routingKey");
+    this.dedupKey = normalizeNullable(dedupKey);
     this.payload = requireText(payload, "payload");
     this.publicationStatus =
         Objects.requireNonNull(publicationStatus, "publicationStatus must not be null");
@@ -84,12 +89,23 @@ public class OutboxEvent {
       String eventType,
       String routingKey,
       String payload) {
+    return newPending(aggregateType, aggregateId, eventType, routingKey, payload, null);
+  }
+
+  public static OutboxEvent newPending(
+      String aggregateType,
+      String aggregateId,
+      String eventType,
+      String routingKey,
+      String payload,
+      String dedupKey) {
     return new OutboxEvent(
         UUID.randomUUID(),
         aggregateType,
         aggregateId,
         eventType,
         routingKey,
+        dedupKey,
         payload,
         OutboxEventStatus.PENDING,
         0,
@@ -105,6 +121,7 @@ public class OutboxEvent {
     aggregateId = requireText(aggregateId, "aggregateId");
     eventType = requireText(eventType, "eventType");
     routingKey = requireText(routingKey, "routingKey");
+    dedupKey = normalizeNullable(dedupKey);
     payload = requireText(payload, "payload");
     publicationStatus =
         Objects.requireNonNull(publicationStatus, "publicationStatus must not be null");
@@ -130,6 +147,10 @@ public class OutboxEvent {
 
   public String getRoutingKey() {
     return routingKey;
+  }
+
+  public String getDedupKey() {
+    return dedupKey;
   }
 
   public String getPayload() {

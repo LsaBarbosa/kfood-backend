@@ -90,6 +90,22 @@ class PaymentTest {
   }
 
   @Test
+  void shouldReturnTrueOnlyOnFirstValidConfirmation() {
+    var payment =
+        Payment.create(
+            UUID.randomUUID(), order(new BigDecimal("57.50")), PaymentMethod.PIX, null, null, null);
+    var confirmedAt = OffsetDateTime.parse("2026-03-22T12:30:00Z");
+
+    var firstConfirmation = payment.confirm(confirmedAt);
+    var secondConfirmation = payment.confirm(confirmedAt.plusMinutes(1));
+
+    assertThat(firstConfirmation).isTrue();
+    assertThat(secondConfirmation).isFalse();
+    assertThat(payment.getStatus()).isEqualTo(PaymentStatus.CONFIRMED);
+    assertThat(payment.getConfirmedAt()).isEqualTo(confirmedAt);
+  }
+
+  @Test
   void shouldRejectInvalidPaymentStatusTransition() {
     var payment =
         Payment.create(
@@ -99,6 +115,18 @@ class PaymentTest {
     assertThatThrownBy(payment::markFailed)
         .isInstanceOf(InvalidPaymentStatusTransitionException.class)
         .hasMessage("Invalid payment status transition from CONFIRMED to FAILED");
+  }
+
+  @Test
+  void shouldRejectConfirmationFromFailedStatus() {
+    var payment =
+        Payment.create(
+            UUID.randomUUID(), order(new BigDecimal("57.50")), PaymentMethod.PIX, null, null, null);
+    payment.markFailed();
+
+    assertThatThrownBy(() -> payment.confirm(OffsetDateTime.parse("2026-03-22T12:30:00Z")))
+        .isInstanceOf(InvalidPaymentStatusTransitionException.class)
+        .hasMessage("Invalid payment status transition from FAILED to CONFIRMED");
   }
 
   @Test
