@@ -34,6 +34,20 @@ spring:
     password: kfood
 
 app:
+  eventing:
+    rabbit:
+      enabled: true
+      startup-verify: false
+      exchange: kfood.events
+      order-created:
+        queue: kfood.order.created.q
+        routing-key: order.created
+      order-status-changed:
+        queue: kfood.order.status.changed.q
+        routing-key: order.status.changed
+      payment-confirmed:
+        queue: kfood.payment.confirmed.q
+        routing-key: payment.confirmed
   security:
     jwt-secret: test-secret-change-me-change-me-1234
     jwt-expiration-seconds: 1800

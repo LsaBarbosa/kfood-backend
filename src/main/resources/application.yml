@@ -2,6 +2,16 @@ spring:
   application:
     name: kfood-backend
 
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    virtual-host: ${RABBITMQ_VHOST:/}
+    listener:
+      simple:
+        missing-queues-fatal: true
+
   security:
     user:
       name: ${SPRING_SECURITY_USER_NAME:kfood}
@@ -27,6 +37,20 @@ server:
   port: 8080
 
 app:
+  eventing:
+    rabbit:
+      enabled: true
+      startup-verify: true
+      exchange: kfood.events
+      order-created:
+        queue: kfood.order.created.q
+        routing-key: order.created
+      order-status-changed:
+        queue: kfood.order.status.changed.q
+        routing-key: order.status.changed
+      payment-confirmed:
+        queue: kfood.payment.confirmed.q
+        routing-key: payment.confirmed
   security:
     jwt-secret: ${JWT_SECRET}
     jwt-expiration-seconds: ${JWT_EXPIRATION_SECONDS}

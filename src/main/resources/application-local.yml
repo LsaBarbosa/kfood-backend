@@ -17,6 +17,20 @@ spring:
     password: ${RABBITMQ_PASSWORD:kfood}
 
 app:
+  eventing:
+    rabbit:
+      enabled: true
+      startup-verify: true
+      exchange: kfood.events
+      order-created:
+        queue: kfood.order.created.q
+        routing-key: order.created
+      order-status-changed:
+        queue: kfood.order.status.changed.q
+        routing-key: order.status.changed
+      payment-confirmed:
+        queue: kfood.payment.confirmed.q
+        routing-key: payment.confirmed
   security:
     jwt-secret: ${JWT_SECRET:local-dev-secret-change-me-12345}
     jwt-expiration-seconds: ${JWT_EXPIRATION_SECONDS:3600}
