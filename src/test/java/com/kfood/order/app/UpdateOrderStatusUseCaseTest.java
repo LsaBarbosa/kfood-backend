@@ -39,6 +39,8 @@ class UpdateOrderStatusUseCaseTest {
   private final CurrentTenantProvider currentTenantProvider = mock(CurrentTenantProvider.class);
   private final CurrentAuthenticatedUserProvider currentAuthenticatedUserProvider =
       mock(CurrentAuthenticatedUserProvider.class);
+  private final OrderStatusChangedPublisher orderStatusChangedPublisher =
+      mock(OrderStatusChangedPublisher.class);
   private final Clock clock = Clock.fixed(Instant.parse("2026-03-22T18:40:00Z"), ZoneOffset.UTC);
   private final UpdateOrderStatusUseCase useCase =
       new UpdateOrderStatusUseCase(
@@ -46,6 +48,7 @@ class UpdateOrderStatusUseCaseTest {
           orderStatusHistoryRepository,
           currentTenantProvider,
           currentAuthenticatedUserProvider,
+          orderStatusChangedPublisher,
           clock);
 
   @Test
@@ -85,6 +88,16 @@ class UpdateOrderStatusUseCaseTest {
     assertThat(history.getActorUserId()).isEqualTo(actorUserId);
     assertThat(history.getChangedAt()).isEqualTo(Instant.parse("2026-03-22T18:40:00Z"));
     assertThat(history.getReason()).isEqualTo("Order entered preparation");
+
+    var eventCaptor = ArgumentCaptor.forClass(OrderStatusChangedEvent.class);
+    verify(orderStatusChangedPublisher).publish(eventCaptor.capture());
+
+    var event = eventCaptor.getValue();
+    assertThat(event.orderId()).isEqualTo(order.getId());
+    assertThat(event.storeId()).isEqualTo(storeId);
+    assertThat(event.previousStatus()).isEqualTo(OrderStatus.NEW);
+    assertThat(event.newStatus()).isEqualTo(OrderStatus.PREPARING);
+    assertThat(event.changedAt()).isEqualTo(Instant.parse("2026-03-22T18:40:00Z"));
   }
 
   @Test
@@ -114,6 +127,7 @@ class UpdateOrderStatusUseCaseTest {
 
     assertThat(order.getStatus()).isEqualTo(OrderStatus.NEW);
     verifyNoInteractions(orderStatusHistoryRepository);
+    verifyNoInteractions(orderStatusChangedPublisher);
   }
 
   @Test
@@ -134,6 +148,7 @@ class UpdateOrderStatusUseCaseTest {
 
     verifyNoInteractions(salesOrderRepository);
     verifyNoInteractions(orderStatusHistoryRepository);
+    verifyNoInteractions(orderStatusChangedPublisher);
   }
 
   @Test
@@ -151,6 +166,8 @@ class UpdateOrderStatusUseCaseTest {
                 useCase.execute(orderId, new UpdateOrderStatusRequest(OrderStatus.PREPARING, null)))
         .isInstanceOf(OrderNotFoundException.class)
         .hasMessage("Order not found for id: " + orderId);
+
+    verifyNoInteractions(orderStatusChangedPublisher);
   }
 
   @Test
