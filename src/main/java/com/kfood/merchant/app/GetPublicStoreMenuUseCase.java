@@ -1,10 +1,8 @@
 package com.kfood.merchant.app;
 
 import com.kfood.catalog.infra.persistence.CatalogCategoryRepository;
-import com.kfood.catalog.infra.persistence.CatalogProduct;
 import com.kfood.catalog.infra.persistence.CatalogProductRepository;
 import com.kfood.merchant.api.PublicStoreMenuCategoryResponse;
-import com.kfood.merchant.api.PublicStoreMenuProductResponse;
 import com.kfood.merchant.api.PublicStoreMenuResponse;
 import com.kfood.merchant.infra.persistence.StoreRepository;
 import java.time.ZoneId;
@@ -56,7 +54,7 @@ public class GetPublicStoreMenuUseCase {
               ignored ->
                   new PublicStoreMenuCategoryAccumulator(category.getId(), category.getName()))
           .products()
-          .add(toProductResponse(product));
+          .add(PublicStoreMapper.toMenuProductResponse(product));
     }
 
     return new PublicStoreMenuResponse(
@@ -67,23 +65,14 @@ public class GetPublicStoreMenuUseCase {
                         category.id(), category.name(), java.util.List.copyOf(category.products())))
             .toList());
   }
-
-  private PublicStoreMenuProductResponse toProductResponse(CatalogProduct product) {
-    return new PublicStoreMenuProductResponse(
-        product.getId(),
-        product.getName(),
-        product.getDescription(),
-        product.getBasePrice(),
-        product.getImageUrl(),
-        product.isPaused());
-  }
-
   private String normalize(String slug) {
     return Objects.requireNonNull(slug, "slug is required").trim();
   }
 
   private record PublicStoreMenuCategoryAccumulator(
-      java.util.UUID id, String name, java.util.List<PublicStoreMenuProductResponse> products) {
+      java.util.UUID id,
+      String name,
+      java.util.List<com.kfood.merchant.api.PublicStoreMenuProductResponse> products) {
 
     private PublicStoreMenuCategoryAccumulator(java.util.UUID id, String name) {
       this(id, name, new java.util.ArrayList<>());
