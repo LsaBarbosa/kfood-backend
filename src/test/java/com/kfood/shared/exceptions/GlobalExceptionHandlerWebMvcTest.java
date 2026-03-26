@@ -23,7 +23,11 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(controllers = GlobalExceptionHandlerTestController.class)
 @AutoConfigureMockMvc(addFilters = false)
-@Import({GlobalExceptionHandler.class, GlobalExceptionHandlerWebMvcTest.MockConfig.class})
+@Import({
+  GlobalExceptionHandler.class,
+  ApiErrorResponseFactory.class,
+  GlobalExceptionHandlerWebMvcTest.MockConfig.class
+})
 class GlobalExceptionHandlerWebMvcTest {
 
   @Autowired private MockMvc mockMvc;
@@ -47,6 +51,7 @@ class GlobalExceptionHandlerWebMvcTest {
         .andExpect(jsonPath("$.timestamp").exists())
         .andExpect(jsonPath("$.path").value("/test-errors/validation"))
         .andExpect(jsonPath("$.details").isArray())
+        .andExpect(jsonPath("$.traceId").value(org.hamcrest.Matchers.nullValue()))
         .andExpect(jsonPath("$.details[0].field").value("name"))
         .andExpect(jsonPath("$.details[0].message").value("name must not be blank"));
   }
@@ -60,7 +65,52 @@ class GlobalExceptionHandlerWebMvcTest {
         .andExpect(jsonPath("$.code").value("STORE_NOT_ACTIVE"))
         .andExpect(jsonPath("$.message").value("Store is not active."))
         .andExpect(jsonPath("$.timestamp").exists())
-        .andExpect(jsonPath("$.path").value("/test-errors/business"));
+        .andExpect(jsonPath("$.path").value("/test-errors/business"))
+        .andExpect(jsonPath("$.details").isEmpty())
+        .andExpect(jsonPath("$.traceId").value(org.hamcrest.Matchers.nullValue()));
+  }
+
+  @Test
+  @DisplayName("should return standardized payload for resource not found")
+  void shouldReturnStandardizedPayloadForResourceNotFound() throws Exception {
+    mockMvc
+        .perform(get("/test-errors/not-found"))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"))
+        .andExpect(jsonPath("$.message").value("Request could not be processed."))
+        .andExpect(jsonPath("$.timestamp").exists())
+        .andExpect(jsonPath("$.path").value("/test-errors/not-found"))
+        .andExpect(jsonPath("$.details").isEmpty())
+        .andExpect(jsonPath("$.traceId").value(org.hamcrest.Matchers.nullValue()));
+  }
+
+  @Test
+  @DisplayName("should return standardized payload for conflict")
+  void shouldReturnStandardizedPayloadForConflict() throws Exception {
+    mockMvc
+        .perform(get("/test-errors/conflict"))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+        .andExpect(jsonPath("$.message").value("Phone and email belong to different customers."))
+        .andExpect(jsonPath("$.timestamp").exists())
+        .andExpect(jsonPath("$.path").value("/test-errors/conflict"))
+        .andExpect(jsonPath("$.details").isEmpty())
+        .andExpect(jsonPath("$.traceId").value(org.hamcrest.Matchers.nullValue()));
+  }
+
+  @Test
+  @DisplayName("should return tenant access denied code for tenant violations")
+  void shouldReturnTenantAccessDeniedCodeForTenantViolations() throws Exception {
+    mockMvc
+        .perform(get("/test-errors/tenant-denied"))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.code").value("TENANT_ACCESS_DENIED"))
+        .andExpect(
+            jsonPath("$.message").value("Authenticated user cannot access another tenant."))
+        .andExpect(jsonPath("$.timestamp").exists())
+        .andExpect(jsonPath("$.path").value("/test-errors/tenant-denied"))
+        .andExpect(jsonPath("$.details").isEmpty())
+        .andExpect(jsonPath("$.traceId").value(org.hamcrest.Matchers.nullValue()));
   }
 
   @Test
@@ -73,7 +123,8 @@ class GlobalExceptionHandlerWebMvcTest {
         .andExpect(jsonPath("$.message").value("An unexpected error occurred."))
         .andExpect(jsonPath("$.timestamp").exists())
         .andExpect(jsonPath("$.path").value("/test-errors/unexpected"))
-        .andExpect(jsonPath("$.traceId").doesNotHaveJsonPath())
+        .andExpect(jsonPath("$.details").isEmpty())
+        .andExpect(jsonPath("$.traceId").value(org.hamcrest.Matchers.nullValue()))
         .andExpect(
             content()
                 .string(

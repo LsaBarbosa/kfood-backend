@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.kfood.shared.tenancy.TenantScopeAccessDeniedException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
 import jakarta.validation.ConstraintViolationException;
@@ -25,7 +26,9 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 
 class GlobalExceptionHandlerCoverageTest {
 
-  private final GlobalExceptionHandler handler = new GlobalExceptionHandler();
+  private final ApiErrorResponseFactory apiErrorResponseFactory =
+      new ApiErrorResponseFactory();
+  private final GlobalExceptionHandler handler = new GlobalExceptionHandler(apiErrorResponseFactory);
 
   @AfterEach
   void clearMdc() {
@@ -127,6 +130,23 @@ class GlobalExceptionHandlerCoverageTest {
   }
 
   @Test
+  void shouldMapTenantAccessDeniedExceptionToTenantCode() {
+    HttpServletRequest request = request("/tenant");
+
+    ResponseEntity<ApiErrorResponse> response =
+        handler.handleAccessDenied(
+            new TenantScopeAccessDeniedException("Authenticated user cannot access another tenant."),
+            request);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody().code()).isEqualTo("TENANT_ACCESS_DENIED");
+    assertThat(response.getBody().message())
+        .isEqualTo("Authenticated user cannot access another tenant.");
+    assertThat(response.getBody().details()).isEmpty();
+  }
+
+  @Test
   void shouldMapUnauthorizedErrorResponseExceptionWhenProblemDetailIsBlank() {
     HttpServletRequest request = request("/unauthorized");
     ErrorResponseException exception =
@@ -162,20 +182,13 @@ class GlobalExceptionHandlerCoverageTest {
   }
 
   @Test
-  void shouldBuildResponseWithEmptyDetailsWhenNullIsProvided() throws Exception {
-    Method method =
-        GlobalExceptionHandler.class.getDeclaredMethod(
-            "buildResponse", ErrorCode.class, String.class, HttpServletRequest.class, List.class);
-    method.setAccessible(true);
-
+  void shouldBuildResponseWithEmptyDetailsWhenNullIsProvided() {
     ApiErrorResponse response =
-        (ApiErrorResponse)
-            method.invoke(
-                handler,
-                ErrorCode.UNEXPECTED_ERROR,
-                "An unexpected error occurred.",
-                request("/oops"),
-                null);
+        apiErrorResponseFactory.create(
+            ErrorCode.UNEXPECTED_ERROR,
+            "An unexpected error occurred.",
+            request("/oops"),
+            null);
 
     assertThat(response.details()).isEmpty();
     assertThat(response.path()).isEqualTo("/oops");

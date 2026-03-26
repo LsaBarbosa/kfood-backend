@@ -38,7 +38,12 @@ class SecureRouteProtectionWebMvcTest {
     mockMvc
         .perform(get("/v1/merchant/me").contentType(APPLICATION_JSON))
         .andExpect(status().isUnauthorized())
-        .andExpect(jsonPath("$.code").value("AUTH_INVALID_CREDENTIALS"));
+        .andExpect(jsonPath("$.code").value("AUTH_INVALID_CREDENTIALS"))
+        .andExpect(jsonPath("$.message").value("Authentication is required or token is invalid."))
+        .andExpect(jsonPath("$.path").value("/v1/merchant/me"))
+        .andExpect(jsonPath("$.timestamp").exists())
+        .andExpect(jsonPath("$.details").isEmpty())
+        .andExpect(jsonPath("$.traceId").value(org.hamcrest.Matchers.nullValue()));
   }
 
   @Test
@@ -50,7 +55,12 @@ class SecureRouteProtectionWebMvcTest {
                 .header("Authorization", "Bearer token-invalido")
                 .contentType(APPLICATION_JSON))
         .andExpect(status().isUnauthorized())
-        .andExpect(jsonPath("$.code").value("AUTH_INVALID_CREDENTIALS"));
+        .andExpect(jsonPath("$.code").value("AUTH_INVALID_CREDENTIALS"))
+        .andExpect(jsonPath("$.message").value("Authentication is required or token is invalid."))
+        .andExpect(jsonPath("$.path").value("/v1/merchant/me"))
+        .andExpect(jsonPath("$.timestamp").exists())
+        .andExpect(jsonPath("$.details").isEmpty())
+        .andExpect(jsonPath("$.traceId").value(org.hamcrest.Matchers.nullValue()));
   }
 
   @Test

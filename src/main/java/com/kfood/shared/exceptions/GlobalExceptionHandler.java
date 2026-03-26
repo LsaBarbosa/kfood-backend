@@ -2,9 +2,7 @@ package com.kfood.shared.exceptions;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolationException;
-import java.time.OffsetDateTime;
 import java.util.List;
-import org.slf4j.MDC;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
@@ -18,14 +16,19 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+  private final ApiErrorResponseFactory apiErrorResponseFactory;
+
+  public GlobalExceptionHandler(ApiErrorResponseFactory apiErrorResponseFactory) {
+    this.apiErrorResponseFactory = apiErrorResponseFactory;
+  }
+
   @ExceptionHandler(MethodArgumentNotValidException.class)
   public ResponseEntity<ApiErrorResponse> handleMethodArgumentNotValid(
       MethodArgumentNotValidException ex, HttpServletRequest request) {
     List<ApiFieldError> details =
         ex.getBindingResult().getFieldErrors().stream().map(this::mapFieldError).toList();
 
-    ApiErrorResponse response =
-        buildResponse(ErrorCode.VALIDATION_ERROR, "Validation failed.", request, details);
+    ApiErrorResponse response = apiErrorResponseFactory.createValidationError(request, details);
 
     return ResponseEntity.badRequest().body(response);
   }
@@ -41,8 +44,7 @@ public class GlobalExceptionHandler {
                         violation.getPropertyPath().toString(), violation.getMessage()))
             .toList();
 
-    ApiErrorResponse response =
-        buildResponse(ErrorCode.VALIDATION_ERROR, "Validation failed.", request, details);
+    ApiErrorResponse response = apiErrorResponseFactory.createValidationError(request, details);
 
     return ResponseEntity.badRequest().body(response);
   }
@@ -51,7 +53,7 @@ public class GlobalExceptionHandler {
   public ResponseEntity<ApiErrorResponse> handleBusinessException(
       BusinessException ex, HttpServletRequest request) {
     ApiErrorResponse response =
-        buildResponse(ex.getErrorCode(), ex.getMessage(), request, ex.getDetails());
+        apiErrorResponseFactory.create(ex.getErrorCode(), ex.getMessage(), request, ex.getDetails());
 
     return ResponseEntity.status(ex.getStatus()).body(response);
   }
@@ -59,12 +61,7 @@ public class GlobalExceptionHandler {
   @ExceptionHandler(AccessDeniedException.class)
   public ResponseEntity<ApiErrorResponse> handleAccessDenied(
       AccessDeniedException ex, HttpServletRequest request) {
-    ApiErrorResponse response =
-        buildResponse(
-            ErrorCode.AUTH_FORBIDDEN_ROLE,
-            "Authenticated user does not have permission for this resource.",
-            request,
-            List.of());
+    ApiErrorResponse response = apiErrorResponseFactory.createAccessDeniedError(request, ex);
 
     return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
   }
@@ -77,7 +74,7 @@ public class GlobalExceptionHandler {
     String message = extractSafeMessage(ex);
     ErrorCode errorCode = mapHttpStatusToDefaultCode(status);
 
-    ApiErrorResponse response = buildResponse(errorCode, message, request, List.of());
+    ApiErrorResponse response = apiErrorResponseFactory.create(errorCode, message, request, List.of());
 
     return ResponseEntity.status(status).body(response);
   }
@@ -86,7 +83,7 @@ public class GlobalExceptionHandler {
   public ResponseEntity<ApiErrorResponse> handleUnexpectedException(
       Exception ex, HttpServletRequest request) {
     ApiErrorResponse response =
-        buildResponse(
+        apiErrorResponseFactory.create(
             ErrorCode.UNEXPECTED_ERROR, "An unexpected error occurred.", request, List.of());
 
     return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
@@ -96,25 +93,6 @@ public class GlobalExceptionHandler {
     return new ApiFieldError(
         fieldError.getField(),
         fieldError.getDefaultMessage() == null ? "Invalid value." : fieldError.getDefaultMessage());
-  }
-
-  private ApiErrorResponse buildResponse(
-      ErrorCode errorCode,
-      String message,
-      HttpServletRequest request,
-      List<ApiFieldError> details) {
-    return new ApiErrorResponse(
-        errorCode.name(),
-        message,
-        OffsetDateTime.now(),
-        request.getRequestURI(),
-        resolveTraceId(),
-        details == null ? List.of() : details);
-  }
-
-  private String resolveTraceId() {
-    String traceId = MDC.get("traceId");
-    return traceId == null || traceId.isBlank() ? null : traceId;
   }
 
   private String extractSafeMessage(ErrorResponseException ex) {

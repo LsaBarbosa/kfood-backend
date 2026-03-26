@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.kfood.identity.app.JwtTokenReader;
+import com.kfood.shared.exceptions.ApiErrorResponseFactory;
 import com.kfood.identity.app.LoginService;
 import com.kfood.shared.exceptions.BusinessException;
 import com.kfood.shared.exceptions.ErrorCode;
@@ -30,7 +31,11 @@ import org.springframework.test.web.servlet.MockMvc;
 
 @WebMvcTest(AuthController.class)
 @AutoConfigureMockMvc(addFilters = false)
-@Import({GlobalExceptionHandler.class, AuthControllerWebMvcTest.MockConfig.class})
+@Import({
+  GlobalExceptionHandler.class,
+  ApiErrorResponseFactory.class,
+  AuthControllerWebMvcTest.MockConfig.class
+})
 class AuthControllerWebMvcTest {
 
   @Autowired private MockMvc mockMvc;
