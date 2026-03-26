@@ -1,8 +1,10 @@
 package com.kfood.order.api;
 
 import com.kfood.order.app.CreatePublicOrderService;
+import com.kfood.order.app.GetPublicOrderByNumberUseCase;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -17,10 +19,13 @@ import org.springframework.web.bind.annotation.RestController;
 public class PublicOrderController {
 
   private final ObjectProvider<CreatePublicOrderService> createPublicOrderServiceProvider;
+  private final ObjectProvider<GetPublicOrderByNumberUseCase> getPublicOrderByNumberUseCaseProvider;
 
   public PublicOrderController(
-      ObjectProvider<CreatePublicOrderService> createPublicOrderServiceProvider) {
+      ObjectProvider<CreatePublicOrderService> createPublicOrderServiceProvider,
+      ObjectProvider<GetPublicOrderByNumberUseCase> getPublicOrderByNumberUseCaseProvider) {
     this.createPublicOrderServiceProvider = createPublicOrderServiceProvider;
+    this.getPublicOrderByNumberUseCaseProvider = getPublicOrderByNumberUseCaseProvider;
   }
 
   @PostMapping
@@ -34,5 +39,15 @@ public class PublicOrderController {
       throw new IllegalStateException("CreatePublicOrderService is not available.");
     }
     return createPublicOrderService.create(slug, idempotencyKey, request);
+  }
+
+  @GetMapping("/{orderNumber}")
+  public PublicOrderLookupResponse getByOrderNumber(
+      @PathVariable String slug, @PathVariable String orderNumber) {
+    var getPublicOrderByNumberUseCase = getPublicOrderByNumberUseCaseProvider.getIfAvailable();
+    if (getPublicOrderByNumberUseCase == null) {
+      throw new IllegalStateException("GetPublicOrderByNumberUseCase is not available.");
+    }
+    return getPublicOrderByNumberUseCase.execute(slug, orderNumber);
   }
 }
