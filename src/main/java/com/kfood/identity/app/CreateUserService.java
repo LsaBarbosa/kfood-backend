@@ -6,8 +6,10 @@ import com.kfood.identity.persistence.IdentityUserEntity;
 import com.kfood.identity.persistence.IdentityUserRepository;
 import java.util.Set;
 import java.util.UUID;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Service
 public class CreateUserService {
 
   private final IdentityUserRepository identityUserRepository;

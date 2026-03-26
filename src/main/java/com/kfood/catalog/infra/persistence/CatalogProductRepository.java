@@ -29,37 +29,37 @@ public interface CatalogProductRepository extends JpaRepository<CatalogProduct, 
   @EntityGraph(attributePaths = "category")
   List<CatalogProduct> findAllByStoreIdOrderBySortOrderAscNameAsc(UUID storeId);
 
-  @Query(
-      """
-      select distinct product
-      from CatalogProduct product
-      join fetch product.category category
-      left join fetch product.optionGroups optionGroup
-      left join fetch optionGroup.items optionItem
-      where product.store.id = :storeId
-        and product.active = true
-        and product.paused = false
-        and category.store.id = :storeId
-        and category.active = true
-        and (
-          not exists (
-            select 1
-            from CatalogProductAvailabilityWindow configuredWindow
-            where configuredWindow.product = product
-              and configuredWindow.active = true
-          )
-          or exists (
-            select 1
-            from CatalogProductAvailabilityWindow matchingWindow
-            where matchingWindow.product = product
-              and matchingWindow.active = true
-              and matchingWindow.dayOfWeek = :dayOfWeek
-              and :localTime >= matchingWindow.startTime
-              and :localTime < matchingWindow.endTime
-          )
-        )
-      order by category.sortOrder asc, category.name asc, product.sortOrder asc, product.name asc
-      """)
+  @Query("""
+       select distinct product
+    from CatalogProduct product
+    join fetch product.category category
+    left join fetch product.optionGroups optionGroup
+    left join fetch optionGroup.items optionItem
+    where product.store.id = :storeId
+      and product.active = true
+      and product.paused = false
+      and category.store.id = :storeId
+      and category.active = true
+      and (
+        (
+          select count(configuredWindow)
+          from CatalogProductAvailabilityWindow configuredWindow
+          where configuredWindow.product = product
+            and configuredWindow.active = true
+        ) = 0
+        or
+        (
+          select count(matchingWindow)
+          from CatalogProductAvailabilityWindow matchingWindow
+          where matchingWindow.product = product
+            and matchingWindow.active = true
+            and matchingWindow.dayOfWeek = :dayOfWeek
+            and :localTime >= matchingWindow.startTime
+            and :localTime < matchingWindow.endTime
+        ) > 0
+      )
+    order by category.sortOrder asc, category.name asc, product.sortOrder asc, product.name asc
+    """)
   List<CatalogProduct> findAllVisibleForPublicMenu(
       UUID storeId, DayOfWeek dayOfWeek, LocalTime localTime);
 }
