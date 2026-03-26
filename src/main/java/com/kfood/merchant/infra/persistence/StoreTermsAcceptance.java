@@ -34,6 +34,9 @@ public class StoreTermsAcceptance {
   @Column(name = "accepted_at", nullable = false)
   private Instant acceptedAt;
 
+  @Column(name = "request_ip", nullable = false, length = 45)
+  private String requestIp;
+
   @CreationTimestamp
   @Column(name = "created_at", nullable = false, updatable = false)
   private Instant createdAt;
@@ -46,7 +49,8 @@ public class StoreTermsAcceptance {
       UUID acceptedByUserId,
       LegalDocumentType documentType,
       String documentVersion,
-      Instant acceptedAt) {
+      Instant acceptedAt,
+      String requestIp) {
     this.id = Objects.requireNonNull(id, "id is required");
     this.storeId = Objects.requireNonNull(storeId, "storeId is required");
     this.acceptedByUserId =
@@ -55,6 +59,7 @@ public class StoreTermsAcceptance {
     this.documentVersion =
         normalize(Objects.requireNonNull(documentVersion, "documentVersion is required"));
     this.acceptedAt = Objects.requireNonNull(acceptedAt, "acceptedAt is required");
+    this.requestIp = normalize(Objects.requireNonNull(requestIp, "requestIp is required"));
   }
 
   public UUID getId() {
@@ -79,6 +84,10 @@ public class StoreTermsAcceptance {
 
   public Instant getAcceptedAt() {
     return acceptedAt;
+  }
+
+  public String getRequestIp() {
+    return requestIp;
   }
 
   public Instant getCreatedAt() {

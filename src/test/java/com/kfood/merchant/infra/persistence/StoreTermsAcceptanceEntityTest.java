@@ -22,7 +22,8 @@ class StoreTermsAcceptanceEntityTest {
             userId,
             LegalDocumentType.TERMS_OF_USE,
             " 2026.03 ",
-            Instant.parse("2026-03-20T13:15:00Z"));
+            Instant.parse("2026-03-20T13:15:00Z"),
+            " 203.0.113.9 ");
 
     assertThat(acceptance.getId()).isEqualTo(id);
     assertThat(acceptance.getStoreId()).isEqualTo(storeId);
@@ -30,6 +31,7 @@ class StoreTermsAcceptanceEntityTest {
     assertThat(acceptance.getDocumentType()).isEqualTo(LegalDocumentType.TERMS_OF_USE);
     assertThat(acceptance.getDocumentVersion()).isEqualTo("2026.03");
     assertThat(acceptance.getAcceptedAt()).isEqualTo(Instant.parse("2026-03-20T13:15:00Z"));
+    assertThat(acceptance.getRequestIp()).isEqualTo("203.0.113.9");
     assertThat(acceptance.getCreatedAt()).isNull();
   }
 

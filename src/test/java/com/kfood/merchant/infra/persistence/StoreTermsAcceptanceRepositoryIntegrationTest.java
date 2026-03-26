@@ -65,7 +65,8 @@ class StoreTermsAcceptanceRepositoryIntegrationTest extends PostgreSqlContainerI
             owner.getId(),
             LegalDocumentType.TERMS_OF_USE,
             "2026.03",
-            Instant.parse("2026-03-20T13:15:00Z")));
+            Instant.parse("2026-03-20T13:15:00Z"),
+            "203.0.113.9"));
 
     storeTermsAcceptanceRepository.saveAndFlush(
         new StoreTermsAcceptance(
@@ -74,13 +75,15 @@ class StoreTermsAcceptanceRepositoryIntegrationTest extends PostgreSqlContainerI
             owner.getId(),
             LegalDocumentType.TERMS_OF_USE,
             "2026.04",
-            Instant.parse("2026-04-20T13:15:00Z")));
+            Instant.parse("2026-04-20T13:15:00Z"),
+            "203.0.113.10"));
 
     var history =
         storeTermsAcceptanceRepository.findAllByStoreIdOrderByAcceptedAtDesc(store.getId());
 
     assertThat(history).hasSize(2);
     assertThat(history.getFirst().getDocumentVersion()).isEqualTo("2026.04");
+    assertThat(history.getFirst().getRequestIp()).isEqualTo("203.0.113.10");
     assertThat(history.getLast().getDocumentVersion()).isEqualTo("2026.03");
     assertThat(storeTermsAcceptanceRepository.existsByStoreId(store.getId())).isTrue();
   }
