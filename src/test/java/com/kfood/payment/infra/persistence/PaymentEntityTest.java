@@ -11,6 +11,7 @@ import com.kfood.payment.domain.PaymentStatus;
 import java.lang.reflect.Constructor;
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -20,6 +21,7 @@ class PaymentEntityTest {
   void shouldExposeNormalizedPaymentData() {
     var id = UUID.randomUUID();
     var confirmedAt = Instant.parse("2026-03-27T15:00:00Z");
+    var expiresAt = Instant.parse("2026-03-27T15:30:00Z");
     var payment =
         new Payment(
             id,
@@ -30,7 +32,8 @@ class PaymentEntityTest {
             PaymentStatus.PENDING,
             new BigDecimal("57.5"),
             "  copia-e-cola  ",
-            confirmedAt);
+            confirmedAt,
+            expiresAt);
 
     assertThat(payment.getId()).isEqualTo(id);
     assertThat(payment.getOrder()).isNotNull();
@@ -41,6 +44,7 @@ class PaymentEntityTest {
     assertThat(payment.getAmount()).isEqualByComparingTo("57.50");
     assertThat(payment.getQrCodePayload()).isEqualTo("copia-e-cola");
     assertThat(payment.getConfirmedAt()).isEqualTo(confirmedAt);
+    assertThat(payment.getExpiresAt()).isEqualTo(expiresAt);
     assertThat(payment.getCreatedAt()).isNull();
     assertThat(payment.getUpdatedAt()).isNull();
   }
@@ -57,12 +61,14 @@ class PaymentEntityTest {
             PaymentStatus.CONFIRMED,
             new BigDecimal("10.00"),
             "",
+            null,
             null);
 
     assertThat(payment.getProviderName()).isNull();
     assertThat(payment.getProviderReference()).isNull();
     assertThat(payment.getQrCodePayload()).isNull();
     assertThat(payment.getConfirmedAt()).isNull();
+    assertThat(payment.getExpiresAt()).isNull();
   }
 
   @Test
@@ -78,6 +84,33 @@ class PaymentEntityTest {
     assertThat(payment.getProviderReference()).isNull();
     assertThat(payment.getQrCodePayload()).isNull();
     assertThat(payment.getConfirmedAt()).isNull();
+    assertThat(payment.getExpiresAt()).isNull();
+  }
+
+  @Test
+  void shouldCreatePendingPixPaymentUsingFactoryMethod() {
+    var payment = Payment.createPendingPix(UUID.randomUUID(), order(), new BigDecimal("57.5"));
+
+    assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PENDING);
+    assertThat(payment.getPaymentMethod()).isEqualTo(PaymentMethod.PIX);
+    assertThat(payment.getAmount()).isEqualByComparingTo("57.50");
+    assertThat(payment.getProviderName()).isNull();
+    assertThat(payment.getProviderReference()).isNull();
+    assertThat(payment.getQrCodePayload()).isNull();
+    assertThat(payment.getExpiresAt()).isNull();
+  }
+
+  @Test
+  void shouldAttachPixChargeData() {
+    var payment = Payment.createPendingPix(UUID.randomUUID(), order(), new BigDecimal("57.50"));
+    var expiresAt = OffsetDateTime.parse("2026-03-27T16:00:00Z");
+
+    payment.attachPixChargeData("  mock  ", "  tx-123  ", "  copia-e-cola  ", expiresAt);
+
+    assertThat(payment.getProviderName()).isEqualTo("mock");
+    assertThat(payment.getProviderReference()).isEqualTo("tx-123");
+    assertThat(payment.getQrCodePayload()).isEqualTo("copia-e-cola");
+    assertThat(payment.getExpiresAt()).isEqualTo(expiresAt.toInstant());
   }
 
   @Test

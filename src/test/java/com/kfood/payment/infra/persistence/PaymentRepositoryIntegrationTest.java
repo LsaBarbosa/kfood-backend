@@ -54,7 +54,8 @@ class PaymentRepositoryIntegrationTest extends PostgreSqlContainerIT {
             PaymentStatus.PENDING,
             new BigDecimal("57.50"),
             "000201...",
-            null);
+            null,
+            Instant.parse("2026-03-27T16:00:00Z"));
 
     var savedPayment = paymentRepository.saveAndFlush(payment);
 
@@ -83,7 +84,8 @@ class PaymentRepositoryIntegrationTest extends PostgreSqlContainerIT {
                 PaymentStatus.CONFIRMED,
                 new BigDecimal("57.50"),
                 null,
-                Instant.parse("2026-03-27T15:00:00Z")));
+                Instant.parse("2026-03-27T15:00:00Z"),
+                Instant.parse("2026-03-27T16:00:00Z")));
 
     var row =
         jdbcTemplate.queryForObject(

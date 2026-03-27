@@ -272,9 +272,32 @@ class FlywayMigrationTest {
   }
 
   @Test
+  void shouldRegisterVersionTwentyFiveInFlywayHistory() throws Exception {
+    try (Connection connection = dataSource.getConnection();
+        Statement statement = connection.createStatement();
+        ResultSet resultSet =
+            statement.executeQuery(
+                """
+                     select count(*)
+                     from flyway_schema_history
+                     where version = '25'
+                       and success = true
+                     """)) {
+
+      assertThat(resultSet.next()).isTrue();
+      assertThat(resultSet.getInt(1)).isEqualTo(1);
+    }
+  }
+
+  @Test
   void shouldAddCashPaymentAndPaymentMethodSnapshotColumns() throws Exception {
     assertThat(columnExists("store", "cash_payment_enabled")).isTrue();
     assertThat(columnExists("sales_order", "payment_method_snapshot")).isTrue();
+  }
+
+  @Test
+  void shouldAddPaymentExpiresAtColumn() throws Exception {
+    assertThat(columnExists("payment", "expires_at")).isTrue();
   }
 
   @Test

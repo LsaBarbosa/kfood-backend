@@ -79,7 +79,8 @@ class CreatePaymentUseCaseTest {
                   payment.getStatus(),
                   payment.getAmount(),
                   payment.getQrCodePayload(),
-                  payment.getConfirmedAt());
+                  payment.getConfirmedAt(),
+                  payment.getExpiresAt());
             });
 
     var result = useCase.execute(command);

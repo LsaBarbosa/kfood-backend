@@ -16,6 +16,7 @@ import jakarta.persistence.Table;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.Instant;
+import java.time.OffsetDateTime;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -52,11 +53,19 @@ public class Payment extends AuditableEntity {
   @Column(name = "confirmed_at")
   private Instant confirmedAt;
 
+  @Column(name = "expires_at")
+  private Instant expiresAt;
+
   protected Payment() {}
 
   public static Payment createPending(
       UUID id, SalesOrder order, PaymentMethod paymentMethod, BigDecimal amount) {
-    return new Payment(id, order, paymentMethod, null, null, PaymentStatus.PENDING, amount, null, null);
+    return new Payment(
+        id, order, paymentMethod, null, null, PaymentStatus.PENDING, amount, null, null, null);
+  }
+
+  public static Payment createPendingPix(UUID id, SalesOrder order, BigDecimal amount) {
+    return createPending(id, order, PaymentMethod.PIX, amount);
   }
 
   public Payment(
@@ -68,7 +77,8 @@ public class Payment extends AuditableEntity {
       PaymentStatus status,
       BigDecimal amount,
       String qrCodePayload,
-      Instant confirmedAt) {
+      Instant confirmedAt,
+      Instant expiresAt) {
     this.id = Objects.requireNonNull(id, "id is required");
     this.order = Objects.requireNonNull(order, "order is required");
     this.paymentMethod = Objects.requireNonNull(paymentMethod, "paymentMethod is required");
@@ -78,6 +88,7 @@ public class Payment extends AuditableEntity {
     this.amount = normalizeMoney(amount);
     this.qrCodePayload = normalizeNullable(qrCodePayload);
     this.confirmedAt = confirmedAt;
+    this.expiresAt = expiresAt;
   }
 
   public UUID getId() {
@@ -114,6 +125,18 @@ public class Payment extends AuditableEntity {
 
   public Instant getConfirmedAt() {
     return confirmedAt;
+  }
+
+  public Instant getExpiresAt() {
+    return expiresAt;
+  }
+
+  public void attachPixChargeData(
+      String providerName, String providerReference, String qrCodePayload, OffsetDateTime expiresAt) {
+    this.providerName = normalizeNullable(providerName);
+    this.providerReference = normalizeNullable(providerReference);
+    this.qrCodePayload = normalizeNullable(qrCodePayload);
+    this.expiresAt = Objects.requireNonNull(expiresAt, "expiresAt is required").toInstant();
   }
 
   private static BigDecimal normalizeMoney(BigDecimal value) {
