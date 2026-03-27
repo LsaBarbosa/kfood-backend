@@ -12,8 +12,10 @@ import com.kfood.identity.app.JwtTokenService;
 import com.kfood.identity.domain.UserRoleName;
 import com.kfood.identity.domain.UserStatus;
 import com.kfood.identity.persistence.IdentityUserEntity;
-import com.kfood.merchant.app.CreateMerchantUserUseCase;
-import com.kfood.merchant.app.ListMerchantUsersUseCase;
+import com.kfood.merchant.application.user.CreateMerchantUserCommand;
+import com.kfood.merchant.application.user.MerchantUserOutput;
+import com.kfood.merchant.application.user.port.MerchantTenantAccessPort;
+import com.kfood.merchant.application.user.port.MerchantUserManagementPort;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
@@ -38,14 +40,16 @@ class MerchantUserControllerWebMvcTest {
   @Autowired private MockMvc mockMvc;
   @Autowired private JwtTokenService jwtTokenService;
 
-  @MockitoBean private CreateMerchantUserUseCase createMerchantUserUseCase;
-  @MockitoBean private ListMerchantUsersUseCase listMerchantUsersUseCase;
+  @MockitoBean private MerchantUserManagementPort merchantUserManagementPort;
+  @MockitoBean private MerchantTenantAccessPort merchantTenantAccessPort;
 
   @Test
   void shouldCreateMerchantUserWithValidPayload() throws Exception {
-    when(createMerchantUserUseCase.execute(any(CreateMerchantUserRequest.class)))
+    when(merchantTenantAccessPort.getRequiredStoreId()).thenReturn(UUID.randomUUID());
+    when(merchantUserManagementPort.create(
+            any(UUID.class), any(String.class), any(String.class), any(Set.class)))
         .thenReturn(
-            new MerchantUserResponse(
+            new MerchantUserOutput(
                 UUID.randomUUID(),
                 "manager@kfood.local",
                 List.of("MANAGER"),
@@ -75,10 +79,11 @@ class MerchantUserControllerWebMvcTest {
 
   @Test
   void shouldListMerchantUsers() throws Exception {
-    when(listMerchantUsersUseCase.execute())
+    when(merchantTenantAccessPort.getRequiredStoreId()).thenReturn(UUID.randomUUID());
+    when(merchantUserManagementPort.listByStoreId(any(UUID.class)))
         .thenReturn(
             List.of(
-                new MerchantUserResponse(
+                new MerchantUserOutput(
                     UUID.randomUUID(),
                     "attendant@kfood.local",
                     List.of("ATTENDANT"),

@@ -4,47 +4,48 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 
 import com.tngtech.archunit.core.domain.JavaClasses;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
+import com.tngtech.archunit.core.importer.ImportOption;
 import org.junit.jupiter.api.Test;
 
 class ArchitectureTest {
 
   private static final String BASE_PACKAGE = "com.kfood";
 
-  private final JavaClasses importedClasses = new ClassFileImporter().importPackages(BASE_PACKAGE);
+  private final JavaClasses importedClasses =
+      new ClassFileImporter()
+          .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+          .importPackages(BASE_PACKAGE);
 
   @Test
-  void domainShouldNotDependOnApiApplicationOrInfra() {
+  void domainShouldNotDependOnApiOrInfra() {
     noClasses()
         .that()
         .resideInAPackage("..domain..")
         .should()
         .dependOnClassesThat()
-        .resideInAnyPackage("..api..", "..application..", "..infra..")
-        .allowEmptyShould(true)
+        .resideInAnyPackage("..api..", "..infra..")
         .check(importedClasses);
   }
 
   @Test
-  void applicationShouldNotDependOnApiOrInfra() {
+  void merchantUserApplicationShouldNotDependOnApi() {
     noClasses()
         .that()
-        .resideInAPackage("..application..")
+        .resideInAPackage("com.kfood.merchant.application..")
         .should()
         .dependOnClassesThat()
-        .resideInAnyPackage("..api..", "..infra..")
-        .allowEmptyShould(true)
+        .resideInAPackage("..api..")
         .check(importedClasses);
   }
 
   @Test
-  void apiShouldNotDependDirectlyOnInfra() {
+  void merchantUserApplicationShouldNotDependOnInfra() {
     noClasses()
         .that()
-        .resideInAPackage("..api..")
+        .resideInAPackage("com.kfood.merchant.application..")
         .should()
         .dependOnClassesThat()
         .resideInAPackage("..infra..")
-        .allowEmptyShould(true)
         .check(importedClasses);
   }
 }

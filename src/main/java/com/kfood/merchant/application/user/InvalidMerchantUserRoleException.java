@@ -1,4 +1,4 @@
-package com.kfood.merchant.app;
+package com.kfood.merchant.application.user;
 
 import com.kfood.identity.domain.UserRoleName;
 import com.kfood.shared.exceptions.BusinessException;
