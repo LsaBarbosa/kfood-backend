@@ -6,6 +6,8 @@ import com.kfood.merchant.app.CreateStoreTermsAcceptanceUseCase;
 import com.kfood.merchant.app.CreateStoreUseCase;
 import com.kfood.merchant.app.GetStoreDetailsUseCase;
 import com.kfood.merchant.app.UpdateStoreUseCase;
+import com.kfood.shared.web.ClientIpResolver;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
@@ -29,18 +31,21 @@ public class StoreController {
   private final ObjectProvider<CreateStoreTermsAcceptanceUseCase>
       createStoreTermsAcceptanceUseCaseProvider;
   private final ObjectProvider<ChangeStoreStatusUseCase> changeStoreStatusUseCaseProvider;
+  private final ClientIpResolver clientIpResolver;
 
   public StoreController(
       ObjectProvider<CreateStoreUseCase> createStoreUseCaseProvider,
       ObjectProvider<UpdateStoreUseCase> updateStoreUseCaseProvider,
       ObjectProvider<GetStoreDetailsUseCase> getStoreDetailsUseCaseProvider,
       ObjectProvider<CreateStoreTermsAcceptanceUseCase> createStoreTermsAcceptanceUseCaseProvider,
-      ObjectProvider<ChangeStoreStatusUseCase> changeStoreStatusUseCaseProvider) {
+      ObjectProvider<ChangeStoreStatusUseCase> changeStoreStatusUseCaseProvider,
+      ClientIpResolver clientIpResolver) {
     this.createStoreUseCaseProvider = createStoreUseCaseProvider;
     this.updateStoreUseCaseProvider = updateStoreUseCaseProvider;
     this.getStoreDetailsUseCaseProvider = getStoreDetailsUseCaseProvider;
     this.createStoreTermsAcceptanceUseCaseProvider = createStoreTermsAcceptanceUseCaseProvider;
     this.changeStoreStatusUseCaseProvider = changeStoreStatusUseCaseProvider;
+    this.clientIpResolver = clientIpResolver;
   }
 
   @PostMapping
@@ -60,8 +65,10 @@ public class StoreController {
   @ResponseStatus(HttpStatus.CREATED)
   @PreAuthorize(Roles.OWNER)
   public StoreTermsAcceptanceResponse acceptTerms(
-      @Valid @RequestBody CreateStoreTermsAcceptanceRequest request) {
-    return createStoreTermsAcceptanceUseCase().execute(request);
+      @Valid @RequestBody CreateStoreTermsAcceptanceRequest request,
+      HttpServletRequest httpServletRequest) {
+    return createStoreTermsAcceptanceUseCase()
+        .execute(request, clientIpResolver.resolve(httpServletRequest));
   }
 
   @GetMapping

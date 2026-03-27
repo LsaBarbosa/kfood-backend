@@ -1,3 +1,5 @@
+import java.io.ByteArrayOutputStream
+
 plugins {
     id 'java'
     id 'org.springframework.boot' version '4.0.3'
@@ -57,14 +59,74 @@ tasks.named('test') {
     useJUnitPlatform()
     systemProperty 'api.version', '1.44'
     finalizedBy tasks.named('jacocoTestReport')
+    finalizedBy tasks.named('jacocoTestCoverageVerification')
 }
 
 jacoco {
     toolVersion = '0.8.13'
 }
 
-jacocoTestReport {
+def jacocoCoverageExclusions = [
+    'com/kfood/KfoodBackendApplication*'
+]
+
+def filteredJacocoClassDirectories = sourceSets.main.output.asFileTree.matching {
+    exclude jacocoCoverageExclusions
+}
+
+def runGitDiff = { List<String> gitArgs ->
+    try {
+        def process = new ProcessBuilder(gitArgs)
+            .directory(rootDir)
+            .redirectErrorStream(true)
+            .start()
+        def output = new StringBuffer()
+        process.inputStream.eachLine { output.append(it).append('\n') }
+        def exitCode = process.waitFor()
+
+        if (exitCode != 0) {
+            return []
+        }
+
+        return output
+            .toString()
+            .readLines()
+            .collect { it.trim() }
+            .findAll { !it.isEmpty() }
+    } catch (IOException ignored) {
+        return []
+    }
+}
+
+def changedMainClasses = providers.provider {
+    def workingTreeChanges = runGitDiff([
+        'git', 'diff', '--name-only', '--diff-filter=ACMRTUXB', 'HEAD', '--', 'src/main/java'
+    ])
+
+    def diffBase = providers.gradleProperty('jacocoDiffBase').orElse('HEAD~1').get()
+    def committedChanges = workingTreeChanges.isEmpty()
+        ? runGitDiff([
+            'git', 'diff', '--name-only', '--diff-filter=ACMRTUXB', diffBase, 'HEAD', '--', 'src/main/java'
+        ])
+        : []
+
+    (workingTreeChanges + committedChanges)
+        .findAll { it.endsWith('.java') }
+        .collect { it - 'src/main/java/' }
+        .collect { it[0..-6] }
+        .collect { it.replace(File.separatorChar, '/' as char) }
+        .unique()
+        .findAll { it != 'com/kfood/KfoodBackendApplication' }
+}
+
+def minimumCoverage = providers
+    .gradleProperty('jacocoMinimumCoverage')
+    .map { new BigDecimal(it) }
+    .orElse(new BigDecimal('0.99'))
+
+tasks.named('jacocoTestReport') {
     dependsOn tasks.named('test')
+    classDirectories.setFrom(filteredJacocoClassDirectories)
 
     reports {
         xml.required = true
@@ -73,13 +135,9 @@ jacocoTestReport {
     }
 }
 
-def minimumCoverage = providers
-    .gradleProperty('jacocoMinimumCoverage')
-    .map { new BigDecimal(it) }
-    .orElse(new BigDecimal('0.00'))
-
-jacocoTestCoverageVerification {
+tasks.named('jacocoTestCoverageVerification') {
     dependsOn tasks.named('test')
+    classDirectories.setFrom(filteredJacocoClassDirectories)
 
     violationRules {
         rule {
@@ -90,6 +148,21 @@ jacocoTestCoverageVerification {
                 counter = 'LINE'
                 value = 'COVEREDRATIO'
                 minimum = minimumCoverage.get()
+            }
+        }
+
+        def changedClasses = changedMainClasses.get()
+        if (!changedClasses.isEmpty()) {
+            rule {
+                enabled = true
+                element = 'CLASS'
+                includes = changedClasses
+
+                limit {
+                    counter = 'LINE'
+                    value = 'COVEREDRATIO'
+                    minimum = new BigDecimal('1.00')
+                }
             }
         }
     }

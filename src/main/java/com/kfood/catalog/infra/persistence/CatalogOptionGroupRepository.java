@@ -9,4 +9,8 @@ public interface CatalogOptionGroupRepository extends JpaRepository<CatalogOptio
 
   @EntityGraph(attributePaths = "items")
   List<CatalogOptionGroup> findAllByProduct_IdAndActiveTrueOrderByIdAsc(UUID productId);
+
+  @EntityGraph(attributePaths = "items")
+  List<CatalogOptionGroup> findAllByProduct_IdInAndActiveTrueOrderByProduct_IdAscIdAsc(
+      List<UUID> productIds);
 }

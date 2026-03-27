@@ -7,7 +7,6 @@ import static org.mockito.Mockito.when;
 
 import com.kfood.catalog.infra.persistence.CatalogCategory;
 import com.kfood.catalog.infra.persistence.CatalogOptionGroup;
-import com.kfood.catalog.infra.persistence.CatalogOptionGroupRepository;
 import com.kfood.catalog.infra.persistence.CatalogOptionItem;
 import com.kfood.catalog.infra.persistence.CatalogProduct;
 import com.kfood.merchant.infra.persistence.Store;
@@ -17,13 +16,20 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 
 class ProductOptionSelectionValidatorTest {
 
-  private final CatalogOptionGroupRepository catalogOptionGroupRepository =
-      mock(CatalogOptionGroupRepository.class);
+  private final CatalogOptionGroupLookup catalogOptionGroupLookup =
+      mock(CatalogOptionGroupLookup.class);
+  private final ObjectProvider<CatalogOptionGroupLookup> catalogOptionGroupLookupProvider =
+      mock(ObjectProvider.class);
   private final ProductOptionSelectionValidator validator =
-      new ProductOptionSelectionValidator(catalogOptionGroupRepository);
+      new ProductOptionSelectionValidator(catalogOptionGroupLookupProvider);
+
+  ProductOptionSelectionValidatorTest() {
+    when(catalogOptionGroupLookupProvider.getIfAvailable()).thenReturn(catalogOptionGroupLookup);
+  }
 
   @Test
   void shouldAcceptSelectionWithinMinAndMax() {
@@ -39,8 +45,7 @@ class ProductOptionSelectionValidatorTest {
             true,
             List.of(activeItemFixture(firstItemId), activeItemFixture(secondItemId)));
 
-    when(catalogOptionGroupRepository.findAllByProduct_IdAndActiveTrueOrderByIdAsc(productId))
-        .thenReturn(List.of(group));
+    when(catalogOptionGroupLookup.findActiveByProductId(productId)).thenReturn(groups(group));
 
     assertThatCode(
             () ->
@@ -59,8 +64,7 @@ class ProductOptionSelectionValidatorTest {
         group(
             productId, "Stuffed Crust", 1, 2, true, List.of(activeItemFixture(UUID.randomUUID())));
 
-    when(catalogOptionGroupRepository.findAllByProduct_IdAndActiveTrueOrderByIdAsc(productId))
-        .thenReturn(List.of(group));
+    when(catalogOptionGroupLookup.findActiveByProductId(productId)).thenReturn(groups(group));
 
     assertThatThrownBy(() -> validator.validate(productId, List.of()))
         .isInstanceOf(BusinessException.class)
@@ -81,8 +85,7 @@ class ProductOptionSelectionValidatorTest {
             true,
             List.of(activeItemFixture(firstItemId), activeItemFixture(secondItemId)));
 
-    when(catalogOptionGroupRepository.findAllByProduct_IdAndActiveTrueOrderByIdAsc(productId))
-        .thenReturn(List.of(group));
+    when(catalogOptionGroupLookup.findActiveByProductId(productId)).thenReturn(groups(group));
 
     assertThatThrownBy(
             () ->
@@ -101,8 +104,7 @@ class ProductOptionSelectionValidatorTest {
     var group =
         group(productId, "Sauces", 0, 2, true, List.of(activeItemFixture(UUID.randomUUID())));
 
-    when(catalogOptionGroupRepository.findAllByProduct_IdAndActiveTrueOrderByIdAsc(productId))
-        .thenReturn(List.of(group));
+    when(catalogOptionGroupLookup.findActiveByProductId(productId)).thenReturn(groups(group));
 
     assertThatCode(() -> validator.validate(productId, List.of())).doesNotThrowAnyException();
   }
@@ -113,8 +115,7 @@ class ProductOptionSelectionValidatorTest {
     var group =
         group(productId, "Sauces", 0, 2, true, List.of(activeItemFixture(UUID.randomUUID())));
 
-    when(catalogOptionGroupRepository.findAllByProduct_IdAndActiveTrueOrderByIdAsc(productId))
-        .thenReturn(List.of(group));
+    when(catalogOptionGroupLookup.findActiveByProductId(productId)).thenReturn(groups(group));
 
     assertThatThrownBy(
             () ->
@@ -131,8 +132,7 @@ class ProductOptionSelectionValidatorTest {
   void shouldRejectWhenSelectionGroupIdIsMissing() {
     var productId = UUID.randomUUID();
 
-    when(catalogOptionGroupRepository.findAllByProduct_IdAndActiveTrueOrderByIdAsc(productId))
-        .thenReturn(List.of());
+    when(catalogOptionGroupLookup.findActiveByProductId(productId)).thenReturn(List.of());
 
     assertThatThrownBy(
             () ->
@@ -148,8 +148,7 @@ class ProductOptionSelectionValidatorTest {
     var group =
         group(productId, "Sauces", 0, 2, true, List.of(activeItemFixture(UUID.randomUUID())));
 
-    when(catalogOptionGroupRepository.findAllByProduct_IdAndActiveTrueOrderByIdAsc(productId))
-        .thenReturn(List.of(group));
+    when(catalogOptionGroupLookup.findActiveByProductId(productId)).thenReturn(groups(group));
 
     assertThatThrownBy(
             () ->
@@ -168,8 +167,7 @@ class ProductOptionSelectionValidatorTest {
     var itemId = UUID.randomUUID();
     var group = group(productId, "Sauces", 0, 2, true, List.of(activeItemFixture(itemId)));
 
-    when(catalogOptionGroupRepository.findAllByProduct_IdAndActiveTrueOrderByIdAsc(productId))
-        .thenReturn(List.of(group));
+    when(catalogOptionGroupLookup.findActiveByProductId(productId)).thenReturn(groups(group));
 
     assertThatThrownBy(
             () ->
@@ -186,8 +184,7 @@ class ProductOptionSelectionValidatorTest {
     var group =
         group(productId, "Sauces", 0, 2, true, List.of(activeItemFixture(UUID.randomUUID())));
 
-    when(catalogOptionGroupRepository.findAllByProduct_IdAndActiveTrueOrderByIdAsc(productId))
-        .thenReturn(List.of(group));
+    when(catalogOptionGroupLookup.findActiveByProductId(productId)).thenReturn(groups(group));
 
     assertThatThrownBy(
             () ->
@@ -205,8 +202,7 @@ class ProductOptionSelectionValidatorTest {
     var group =
         group(productId, "Sauces", 0, 2, true, List.of(inactiveItemFixture(inactiveItemId)));
 
-    when(catalogOptionGroupRepository.findAllByProduct_IdAndActiveTrueOrderByIdAsc(productId))
-        .thenReturn(List.of(group));
+    when(catalogOptionGroupLookup.findActiveByProductId(productId)).thenReturn(groups(group));
 
     assertThatThrownBy(
             () ->
@@ -223,8 +219,7 @@ class ProductOptionSelectionValidatorTest {
     var group =
         group(productId, "Sauces", 0, 0, true, List.of(activeItemFixture(UUID.randomUUID())));
 
-    when(catalogOptionGroupRepository.findAllByProduct_IdAndActiveTrueOrderByIdAsc(productId))
-        .thenReturn(List.of(group));
+    when(catalogOptionGroupLookup.findActiveByProductId(productId)).thenReturn(groups(group));
 
     assertThatCode(() -> validator.validate(productId, null)).doesNotThrowAnyException();
   }
@@ -235,14 +230,22 @@ class ProductOptionSelectionValidatorTest {
     var group =
         group(productId, "Sauces", 0, 1, true, List.of(activeItemFixture(UUID.randomUUID())));
 
-    when(catalogOptionGroupRepository.findAllByProduct_IdAndActiveTrueOrderByIdAsc(productId))
-        .thenReturn(List.of(group));
+    when(catalogOptionGroupLookup.findActiveByProductId(productId)).thenReturn(groups(group));
 
     assertThatCode(
             () ->
                 validator.validate(
                     productId, List.of(new OptionGroupSelectionInput(group.getId(), null))))
         .doesNotThrowAnyException();
+  }
+
+  @Test
+  void shouldFailFastWhenLookupBeanIsUnavailable() {
+    when(catalogOptionGroupLookupProvider.getIfAvailable()).thenReturn(null);
+
+    assertThatThrownBy(() -> validator.validate(UUID.randomUUID(), List.of()))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessage("CatalogOptionGroupLookup bean is required");
   }
 
   private CatalogOptionGroup group(
@@ -283,6 +286,10 @@ class ProductOptionSelectionValidatorTest {
                     item.id(), group, "Catupiry", new BigDecimal("8.00"), item.active(), 10))
         .forEach(group::addItem);
     return group;
+  }
+
+  private List<CatalogOptionGroupView> groups(CatalogOptionGroup group) {
+    return List.of(group);
   }
 
   private OptionItemFixture activeItemFixture(UUID itemId) {

@@ -1,7 +1,5 @@
 package com.kfood.catalog.app.selection;
 
-import com.kfood.catalog.infra.persistence.CatalogOptionGroup;
-import com.kfood.catalog.infra.persistence.CatalogOptionGroupRepository;
 import com.kfood.shared.exceptions.BusinessException;
 import com.kfood.shared.exceptions.ErrorCode;
 import java.util.HashMap;
@@ -12,27 +10,30 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 @Service
-@ConditionalOnBean(CatalogOptionGroupRepository.class)
 public class ProductOptionSelectionValidator {
 
-  private final CatalogOptionGroupRepository catalogOptionGroupRepository;
+  private final ObjectProvider<CatalogOptionGroupLookup> catalogOptionGroupLookupProvider;
 
   public ProductOptionSelectionValidator(
-      CatalogOptionGroupRepository catalogOptionGroupRepository) {
-    this.catalogOptionGroupRepository = catalogOptionGroupRepository;
+      ObjectProvider<CatalogOptionGroupLookup> catalogOptionGroupLookupProvider) {
+    this.catalogOptionGroupLookupProvider = catalogOptionGroupLookupProvider;
   }
 
   public void validate(UUID productId, List<OptionGroupSelectionInput> selections) {
-    var activeGroups =
-        catalogOptionGroupRepository.findAllByProduct_IdAndActiveTrueOrderByIdAsc(productId);
+    var catalogOptionGroupLookup = catalogOptionGroupLookupProvider.getIfAvailable();
+    if (catalogOptionGroupLookup == null) {
+      throw new IllegalStateException("CatalogOptionGroupLookup bean is required");
+    }
+
+    var activeGroups = catalogOptionGroupLookup.findActiveByProductId(productId);
     var groupsById =
         activeGroups.stream()
-            .collect(Collectors.toMap(CatalogOptionGroup::getId, Function.identity()));
+            .collect(Collectors.toMap(CatalogOptionGroupView::getId, Function.identity()));
     var selectionsByGroupId = indexSelections(groupsById, selections);
 
     for (var group : activeGroups) {
@@ -43,7 +44,8 @@ public class ProductOptionSelectionValidator {
   }
 
   private Map<UUID, OptionGroupSelectionInput> indexSelections(
-      Map<UUID, CatalogOptionGroup> groupsById, List<OptionGroupSelectionInput> selections) {
+      Map<UUID, ? extends CatalogOptionGroupView> groupsById,
+      List<OptionGroupSelectionInput> selections) {
     var result = new HashMap<UUID, OptionGroupSelectionInput>();
 
     if (selections == null || selections.isEmpty()) {
@@ -84,7 +86,7 @@ public class ProductOptionSelectionValidator {
     return ids;
   }
 
-  private void validateSelectedItems(CatalogOptionGroup group, Set<UUID> selectedItemIds) {
+  private void validateSelectedItems(CatalogOptionGroupView group, Set<UUID> selectedItemIds) {
     var activeItemIds =
         group.getItems().stream()
             .filter(item -> item.isActive())
@@ -103,7 +105,7 @@ public class ProductOptionSelectionValidator {
     }
   }
 
-  private void validateSelectionCount(CatalogOptionGroup group, int selectedCount) {
+  private void validateSelectionCount(CatalogOptionGroupView group, int selectedCount) {
     if (selectedCount < group.getMinSelect()) {
       throw validation(
           "Selection below minimum for group '"

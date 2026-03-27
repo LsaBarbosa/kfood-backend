@@ -75,6 +75,7 @@ class GetStoreTermsAcceptanceHistoryUseCaseTest {
         UUID.randomUUID(),
         LegalDocumentType.TERMS_OF_USE,
         version,
-        acceptedAt);
+        acceptedAt,
+        "203.0.113.9");
   }
 }

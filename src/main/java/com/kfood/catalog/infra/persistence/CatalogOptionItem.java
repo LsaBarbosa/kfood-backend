@@ -1,5 +1,6 @@
 package com.kfood.catalog.infra.persistence;
 
+import com.kfood.catalog.app.selection.CatalogOptionItemView;
 import com.kfood.shared.infra.persistence.AuditableEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -21,7 +22,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "catalog_option_item")
-public class CatalogOptionItem extends AuditableEntity {
+public class CatalogOptionItem extends AuditableEntity implements CatalogOptionItemView {
 
   @Id private UUID id;
 

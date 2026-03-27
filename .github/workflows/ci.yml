@@ -36,7 +36,7 @@ jobs:
         run: ./gradlew --no-daemon spotlessCheck
 
       - name: Build project and generate coverage report
-        run: ./gradlew --no-daemon clean build -PjacocoMinimumCoverage=0.00
+        run: ./gradlew --no-daemon clean test jacocoTestReport jacocoTestCoverageVerification
 
       - name: Upload JaCoCo reports
         if: always()

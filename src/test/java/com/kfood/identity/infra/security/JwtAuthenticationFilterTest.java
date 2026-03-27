@@ -2,6 +2,7 @@ package com.kfood.identity.infra.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.same;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -9,13 +10,18 @@ import static org.mockito.Mockito.when;
 
 import com.kfood.identity.app.JwtTokenReader;
 import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.CredentialsExpiredException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 
@@ -67,11 +73,17 @@ class JwtAuthenticationFilterTest {
 
     filter.doFilter(request, response, chain);
 
-    verify(authenticationEntryPoint).commence(any(), any(), any());
+    ArgumentCaptor<org.springframework.security.core.AuthenticationException> captor =
+        ArgumentCaptor.forClass(org.springframework.security.core.AuthenticationException.class);
+    verify(authenticationEntryPoint).commence(same(request), same(response), captor.capture());
     verify(chain, never()).doFilter(any(), any());
+    assertThat(captor.getValue()).isInstanceOf(BadCredentialsException.class);
+    assertThat(captor.getValue().getMessage()).isEqualTo("Invalid authorization header.");
+    assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
   }
 
   @Test
+  @DisplayName("should reject expired token with credentials expired exception")
   void shouldRejectExpiredToken() throws Exception {
     var request = new MockHttpServletRequest();
     request.addHeader("Authorization", "Bearer expired");
@@ -84,8 +96,13 @@ class JwtAuthenticationFilterTest {
 
     filter.doFilter(request, response, chain);
 
-    verify(authenticationEntryPoint).commence(any(), any(), any());
+    ArgumentCaptor<org.springframework.security.core.AuthenticationException> captor =
+        ArgumentCaptor.forClass(org.springframework.security.core.AuthenticationException.class);
+    verify(authenticationEntryPoint).commence(same(request), same(response), captor.capture());
     verify(chain, never()).doFilter(any(), any());
+    assertThat(captor.getValue()).isInstanceOf(CredentialsExpiredException.class);
+    assertThat(captor.getValue().getCause()).isSameAs(expiredException);
+    assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
   }
 
   @Test
@@ -98,8 +115,31 @@ class JwtAuthenticationFilterTest {
 
     filter.doFilter(request, response, chain);
 
-    verify(authenticationEntryPoint).commence(any(), any(), any());
+    ArgumentCaptor<org.springframework.security.core.AuthenticationException> captor =
+        ArgumentCaptor.forClass(org.springframework.security.core.AuthenticationException.class);
+    verify(authenticationEntryPoint).commence(same(request), same(response), captor.capture());
     verify(chain, never()).doFilter(any(), any());
+    assertThat(captor.getValue()).isInstanceOf(BadCredentialsException.class);
+    assertThat(captor.getValue().getMessage()).isEqualTo("Invalid token.");
+    assertThat(SecurityContextHolder.getContext().getAuthentication()).isNull();
+  }
+
+  @Test
+  void shouldRejectJwtExceptionToken() throws Exception {
+    var request = new MockHttpServletRequest();
+    request.addHeader("Authorization", "Bearer malformed");
+    var response = new MockHttpServletResponse();
+    var chain = mock(jakarta.servlet.FilterChain.class);
+    when(jwtTokenReader.read("malformed")).thenThrow(new JwtException("bad jwt"));
+
+    filter.doFilter(request, response, chain);
+
+    ArgumentCaptor<org.springframework.security.core.AuthenticationException> captor =
+        ArgumentCaptor.forClass(org.springframework.security.core.AuthenticationException.class);
+    verify(authenticationEntryPoint).commence(same(request), same(response), captor.capture());
+    verify(chain, never()).doFilter(any(), any());
+    assertThat(captor.getValue()).isInstanceOf(BadCredentialsException.class);
+    assertThat(captor.getValue().getMessage()).isEqualTo("Invalid token.");
   }
 
   @Test

@@ -1,10 +1,10 @@
 package com.kfood.merchant.app;
 
 import com.kfood.catalog.infra.persistence.CatalogCategoryRepository;
-import com.kfood.catalog.infra.persistence.CatalogProduct;
+import com.kfood.catalog.infra.persistence.CatalogOptionGroup;
+import com.kfood.catalog.infra.persistence.CatalogOptionGroupRepository;
 import com.kfood.catalog.infra.persistence.CatalogProductRepository;
 import com.kfood.merchant.api.PublicStoreMenuCategoryResponse;
-import com.kfood.merchant.api.PublicStoreMenuProductResponse;
 import com.kfood.merchant.api.PublicStoreMenuResponse;
 import com.kfood.merchant.infra.persistence.StoreRepository;
 import java.time.ZoneId;
@@ -18,20 +18,24 @@ import org.springframework.transaction.annotation.Transactional;
 @ConditionalOnBean({
   StoreRepository.class,
   CatalogCategoryRepository.class,
+  CatalogOptionGroupRepository.class,
   CatalogProductRepository.class
 })
 public class GetPublicStoreMenuUseCase {
 
   private final StoreRepository storeRepository;
   private final CatalogCategoryRepository catalogCategoryRepository;
+  private final CatalogOptionGroupRepository catalogOptionGroupRepository;
   private final CatalogProductRepository catalogProductRepository;
 
   public GetPublicStoreMenuUseCase(
       StoreRepository storeRepository,
       CatalogCategoryRepository catalogCategoryRepository,
+      CatalogOptionGroupRepository catalogOptionGroupRepository,
       CatalogProductRepository catalogProductRepository) {
     this.storeRepository = storeRepository;
     this.catalogCategoryRepository = catalogCategoryRepository;
+    this.catalogOptionGroupRepository = catalogOptionGroupRepository;
     this.catalogProductRepository = catalogProductRepository;
   }
 
@@ -46,9 +50,12 @@ public class GetPublicStoreMenuUseCase {
     var categoriesById = new LinkedHashMap<java.util.UUID, PublicStoreMenuCategoryAccumulator>();
     var storeZoneId = ZoneId.of(store.getTimezone());
     var now = java.time.ZonedDateTime.now(storeZoneId);
-    for (var product :
+    var products =
         catalogProductRepository.findAllVisibleForPublicMenu(
-            store.getId(), now.getDayOfWeek(), now.toLocalTime())) {
+            store.getId(), now.getDayOfWeek(), now.toLocalTime());
+    var optionGroupsByProductId = loadOptionGroupsByProductId(products);
+
+    for (var product : products) {
       var category = product.getCategory();
       categoriesById
           .computeIfAbsent(
@@ -56,7 +63,10 @@ public class GetPublicStoreMenuUseCase {
               ignored ->
                   new PublicStoreMenuCategoryAccumulator(category.getId(), category.getName()))
           .products()
-          .add(toProductResponse(product));
+          .add(
+              PublicStoreMapper.toMenuProductResponse(
+                  product,
+                  optionGroupsByProductId.getOrDefault(product.getId(), java.util.List.of())));
     }
 
     return new PublicStoreMenuResponse(
@@ -68,22 +78,35 @@ public class GetPublicStoreMenuUseCase {
             .toList());
   }
 
-  private PublicStoreMenuProductResponse toProductResponse(CatalogProduct product) {
-    return new PublicStoreMenuProductResponse(
-        product.getId(),
-        product.getName(),
-        product.getDescription(),
-        product.getBasePrice(),
-        product.getImageUrl(),
-        product.isPaused());
-  }
-
   private String normalize(String slug) {
     return Objects.requireNonNull(slug, "slug is required").trim();
   }
 
+  private java.util.Map<java.util.UUID, java.util.List<CatalogOptionGroup>>
+      loadOptionGroupsByProductId(
+          java.util.List<com.kfood.catalog.infra.persistence.CatalogProduct> products) {
+    if (products.isEmpty()) {
+      return java.util.Map.of();
+    }
+
+    var groupsByProductId =
+        new java.util.LinkedHashMap<java.util.UUID, java.util.List<CatalogOptionGroup>>();
+    var productIds =
+        products.stream().map(com.kfood.catalog.infra.persistence.CatalogProduct::getId).toList();
+    for (var group :
+        catalogOptionGroupRepository.findAllByProduct_IdInAndActiveTrueOrderByProduct_IdAscIdAsc(
+            productIds)) {
+      groupsByProductId
+          .computeIfAbsent(group.getProduct().getId(), ignored -> new java.util.ArrayList<>())
+          .add(group);
+    }
+    return groupsByProductId;
+  }
+
   private record PublicStoreMenuCategoryAccumulator(
-      java.util.UUID id, String name, java.util.List<PublicStoreMenuProductResponse> products) {
+      java.util.UUID id,
+      String name,
+      java.util.List<com.kfood.merchant.api.PublicStoreMenuProductResponse> products) {
 
     private PublicStoreMenuCategoryAccumulator(java.util.UUID id, String name) {
       this(id, name, new java.util.ArrayList<>());

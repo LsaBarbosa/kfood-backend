@@ -24,6 +24,8 @@ public interface SalesOrderRepository
 
   Optional<SalesOrder> findByOrderNumber(String orderNumber);
 
+  Optional<SalesOrder> findByStoreIdAndOrderNumber(UUID storeId, String orderNumber);
+
   @Override
   @EntityGraph(attributePaths = "customer")
   Page<SalesOrder> findAll(Specification<SalesOrder> spec, Pageable pageable);
