@@ -13,6 +13,9 @@ import com.kfood.order.infra.persistence.SalesOrder;
 import com.kfood.order.infra.persistence.SalesOrderItem;
 import com.kfood.order.infra.persistence.SalesOrderItemOption;
 import com.kfood.order.infra.persistence.SalesOrderRepository;
+import com.kfood.payment.app.RegisterCashPaymentCommand;
+import com.kfood.payment.app.RegisterCashPaymentUseCase;
+import com.kfood.payment.domain.PaymentMethod;
 import com.kfood.shared.exceptions.BusinessException;
 import com.kfood.shared.exceptions.ErrorCode;
 import com.kfood.shared.idempotency.IdempotencyService;
@@ -20,6 +23,7 @@ import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.UUID;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,8 +47,10 @@ public class CreatePublicOrderService {
   private final AssignOrderNumberService assignOrderNumberService;
   private final OrderCreatedPublisher orderCreatedPublisher;
   private final IdempotencyService idempotencyService;
+  private final RegisterCashPaymentUseCase registerCashPaymentUseCase;
   private final Clock clock;
 
+  @Autowired
   public CreatePublicOrderService(
       StoreRepository storeRepository,
       CustomerRepository customerRepository,
@@ -55,6 +61,7 @@ public class CreatePublicOrderService {
       AssignOrderNumberService assignOrderNumberService,
       OrderCreatedPublisher orderCreatedPublisher,
       IdempotencyService idempotencyService,
+      RegisterCashPaymentUseCase registerCashPaymentUseCase,
       Clock clock) {
     this.storeRepository = storeRepository;
     this.customerRepository = customerRepository;
@@ -65,7 +72,33 @@ public class CreatePublicOrderService {
     this.assignOrderNumberService = assignOrderNumberService;
     this.orderCreatedPublisher = orderCreatedPublisher;
     this.idempotencyService = idempotencyService;
+    this.registerCashPaymentUseCase = registerCashPaymentUseCase;
     this.clock = clock;
+  }
+
+  CreatePublicOrderService(
+      StoreRepository storeRepository,
+      CustomerRepository customerRepository,
+      CustomerAddressRepository customerAddressRepository,
+      CheckoutQuoteSnapshotGateway checkoutQuoteSnapshotGateway,
+      CheckoutCriticalValidationService checkoutCriticalValidationService,
+      SalesOrderRepository salesOrderRepository,
+      AssignOrderNumberService assignOrderNumberService,
+      OrderCreatedPublisher orderCreatedPublisher,
+      IdempotencyService idempotencyService,
+      Clock clock) {
+    this(
+        storeRepository,
+        customerRepository,
+        customerAddressRepository,
+        checkoutQuoteSnapshotGateway,
+        checkoutCriticalValidationService,
+        salesOrderRepository,
+        assignOrderNumberService,
+        orderCreatedPublisher,
+        idempotencyService,
+        null,
+        clock);
   }
 
   @Transactional
@@ -168,6 +201,9 @@ public class CreatePublicOrderService {
 
     assignOrderNumberService.assignIfMissing(order);
     var saved = salesOrderRepository.save(order);
+    if (request.paymentMethod() == PaymentMethod.CASH && registerCashPaymentUseCase != null) {
+      registerCashPaymentUseCase.execute(new RegisterCashPaymentCommand(saved.getId()));
+    }
     orderCreatedPublisher.publish(
         new OrderCreatedEvent(
             saved.getId(),
