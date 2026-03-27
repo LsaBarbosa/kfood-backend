@@ -12,15 +12,13 @@ public class MerchantUserUseCaseConfiguration {
   CreateMerchantUserUseCase createMerchantUserUseCase(
       MerchantUserManagementPort merchantUserManagementPort,
       MerchantTenantAccessPort merchantTenantAccessPort) {
-    return new CreateMerchantUserUseCase(
-        merchantUserManagementPort, merchantTenantAccessPort);
+    return new CreateMerchantUserUseCase(merchantUserManagementPort, merchantTenantAccessPort);
   }
 
   @Bean
   ListMerchantUsersUseCase listMerchantUsersUseCase(
       MerchantUserManagementPort merchantUserManagementPort,
       MerchantTenantAccessPort merchantTenantAccessPort) {
-    return new ListMerchantUsersUseCase(
-        merchantUserManagementPort, merchantTenantAccessPort);
+    return new ListMerchantUsersUseCase(merchantUserManagementPort, merchantTenantAccessPort);
   }
 }

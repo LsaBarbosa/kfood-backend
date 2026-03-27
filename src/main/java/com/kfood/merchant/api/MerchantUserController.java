@@ -34,10 +34,8 @@ public class MerchantUserController {
   @PreAuthorize(Roles.OWNER_OR_MANAGER)
   public MerchantUserResponse create(@Valid @RequestBody CreateMerchantUserRequest request) {
     return MerchantUserApiMapper.toResponse(
-        createMerchantUserUseCase
-            .execute(
-                new CreateMerchantUserCommand(
-                    request.email(), request.password(), request.roles())));
+        createMerchantUserUseCase.execute(
+            new CreateMerchantUserCommand(request.email(), request.password(), request.roles())));
   }
 
   @GetMapping
