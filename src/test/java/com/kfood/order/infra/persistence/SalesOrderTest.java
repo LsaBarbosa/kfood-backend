@@ -42,6 +42,8 @@ class SalesOrderTest {
     assertThat(order.getStore()).isEqualTo(store);
     assertThat(order.getCustomer()).isEqualTo(customer);
     assertThat(order.getStatus()).isEqualTo(OrderStatus.NEW);
+    assertThat(order.getPaymentMethod()).isEqualTo(PaymentMethod.PIX);
+    assertThat(order.getPaymentMethodSnapshot()).isEqualTo(PaymentMethod.PIX);
     assertThat(order.getSubtotalAmount()).isEqualByComparingTo("40.00");
     assertThat(order.getDeliveryFeeAmount()).isEqualByComparingTo("8.00");
     assertThat(order.getTotalAmount()).isEqualByComparingTo("48.00");
@@ -135,6 +137,51 @@ class SalesOrderTest {
     assertThatThrownBy(() -> order.assignOrderNumber("PED-20260321-000002"))
         .isInstanceOf(IllegalStateException.class)
         .hasMessage("orderNumber is already assigned");
+  }
+
+  @Test
+  void shouldAllowUpdatingPaymentMethodSnapshot() {
+    var store = mock(Store.class);
+    var customer = mock(Customer.class);
+    var order =
+        SalesOrder.create(
+            UUID.randomUUID(),
+            store,
+            customer,
+            FulfillmentType.DELIVERY,
+            PaymentMethod.PIX,
+            new BigDecimal("40.00"),
+            new BigDecimal("8.00"),
+            new BigDecimal("48.00"),
+            null,
+            null);
+
+    order.markPaymentMethodSnapshot(PaymentMethod.CASH);
+
+    assertThat(order.getPaymentMethod()).isEqualTo(PaymentMethod.CASH);
+    assertThat(order.getPaymentMethodSnapshot()).isEqualTo(PaymentMethod.CASH);
+  }
+
+  @Test
+  void shouldRejectNullPaymentMethodSnapshot() {
+    var store = mock(Store.class);
+    var customer = mock(Customer.class);
+    var order =
+        SalesOrder.create(
+            UUID.randomUUID(),
+            store,
+            customer,
+            FulfillmentType.DELIVERY,
+            PaymentMethod.PIX,
+            new BigDecimal("40.00"),
+            new BigDecimal("8.00"),
+            new BigDecimal("48.00"),
+            null,
+            null);
+
+    assertThatThrownBy(() -> order.markPaymentMethodSnapshot(null))
+        .isInstanceOf(NullPointerException.class)
+        .hasMessage("paymentMethod must not be null");
   }
 
   @Test

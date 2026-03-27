@@ -52,6 +52,10 @@ public class SalesOrder extends AuditableEntity {
   private PaymentMethod paymentMethod;
 
   @Enumerated(EnumType.STRING)
+  @Column(name = "payment_method_snapshot", nullable = false, length = 20)
+  private PaymentMethod paymentMethodSnapshot;
+
+  @Enumerated(EnumType.STRING)
   @Column(name = "payment_status_snapshot", nullable = false, length = 20)
   private PaymentStatusSnapshot paymentStatusSnapshot;
 
@@ -127,6 +131,7 @@ public class SalesOrder extends AuditableEntity {
     this.fulfillmentType =
         Objects.requireNonNull(fulfillmentType, "fulfillmentType must not be null");
     this.paymentMethod = Objects.requireNonNull(paymentMethod, "paymentMethod must not be null");
+    paymentMethodSnapshot = this.paymentMethod;
     this.subtotalAmount = normalizeMoney(subtotalAmount, "subtotalAmount");
     this.deliveryFeeAmount = normalizeMoney(deliveryFeeAmount, "deliveryFeeAmount");
     this.totalAmount = normalizeMoney(totalAmount, "totalAmount");
@@ -189,6 +194,10 @@ public class SalesOrder extends AuditableEntity {
 
   public PaymentMethod getPaymentMethod() {
     return paymentMethod;
+  }
+
+  public PaymentMethod getPaymentMethodSnapshot() {
+    return paymentMethodSnapshot;
   }
 
   public PaymentStatusSnapshot getPaymentStatusSnapshot() {
@@ -263,6 +272,13 @@ public class SalesOrder extends AuditableEntity {
       throw new IllegalStateException("orderNumber is already assigned");
     }
     this.orderNumber = orderNumber.trim();
+  }
+
+  public void markPaymentMethodSnapshot(PaymentMethod paymentMethod) {
+    var validatedPaymentMethod =
+        Objects.requireNonNull(paymentMethod, "paymentMethod must not be null");
+    this.paymentMethod = validatedPaymentMethod;
+    paymentMethodSnapshot = validatedPaymentMethod;
   }
 
   public void addItem(SalesOrderItem item) {
@@ -366,6 +382,14 @@ public class SalesOrder extends AuditableEntity {
   }
 
   private void validateBusinessRules() {
+    if (paymentMethod == null && paymentMethodSnapshot != null) {
+      paymentMethod = paymentMethodSnapshot;
+    } else if (paymentMethod != null && paymentMethodSnapshot == null) {
+      paymentMethodSnapshot = paymentMethod;
+    } else if (paymentMethod != null && paymentMethodSnapshot != paymentMethod) {
+      paymentMethod = paymentMethodSnapshot;
+    }
+
     if (subtotalAmount.signum() < 0) {
       throw new IllegalArgumentException("subtotalAmount must not be negative");
     }

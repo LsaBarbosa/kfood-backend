@@ -41,6 +41,7 @@ class StoreRepositoryIntegrationTest extends PostgreSqlContainerIT {
 
     assertThat(savedStore.getId()).isNotNull();
     assertThat(savedStore.getStatus()).isEqualTo(StoreStatus.SETUP);
+    assertThat(savedStore.isCashPaymentEnabled()).isFalse();
     assertThat(savedStore.getCreatedAt()).isNotNull();
     assertThat(savedStore.getUpdatedAt()).isNotNull();
     assertThat(storeRepository.findBySlug("loja-do-bairro")).isPresent();
