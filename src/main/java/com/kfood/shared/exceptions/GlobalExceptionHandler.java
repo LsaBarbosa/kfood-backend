@@ -99,7 +99,7 @@ public class GlobalExceptionHandler {
 
   private String extractSafeMessage(ErrorResponseException ex) {
     ProblemDetail body = ex.getBody();
-    if (body.getDetail() != null && !body.getDetail().isBlank()) {
+    if (body != null && body.getDetail() != null && !body.getDetail().isBlank()) {
       return body.getDetail();
     }
     return "Request could not be processed.";

@@ -34,8 +34,6 @@ public interface CatalogProductRepository extends JpaRepository<CatalogProduct, 
        select distinct product
     from CatalogProduct product
     join fetch product.category category
-    left join fetch product.optionGroups optionGroup
-    left join fetch optionGroup.items optionItem
     where product.store.id = :storeId
       and product.active = true
       and product.paused = false
