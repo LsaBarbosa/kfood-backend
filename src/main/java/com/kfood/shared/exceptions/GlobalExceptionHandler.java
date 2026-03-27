@@ -99,10 +99,17 @@ public class GlobalExceptionHandler {
 
   private String extractSafeMessage(ErrorResponseException ex) {
     ProblemDetail body = ex.getBody();
+
     if (body != null && body.getDetail() != null && !body.getDetail().isBlank()) {
       return body.getDetail();
     }
-    return "Request could not be processed.";
+
+    String message = ex.getMessage();
+    if (message != null && !message.isBlank()) {
+      return message;
+    }
+
+    return "Unexpected error";
   }
 
   private ErrorCode mapHttpStatusToDefaultCode(HttpStatus status) {

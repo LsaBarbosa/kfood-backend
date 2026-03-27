@@ -9,6 +9,7 @@ import static org.mockito.Mockito.when;
 import com.kfood.catalog.infra.persistence.CatalogCategory;
 import com.kfood.catalog.infra.persistence.CatalogCategoryRepository;
 import com.kfood.catalog.infra.persistence.CatalogOptionGroup;
+import com.kfood.catalog.infra.persistence.CatalogOptionGroupRepository;
 import com.kfood.catalog.infra.persistence.CatalogOptionItem;
 import com.kfood.catalog.infra.persistence.CatalogProduct;
 import com.kfood.catalog.infra.persistence.CatalogProductRepository;
@@ -28,11 +29,22 @@ class GetPublicStoreMenuUseCaseTest {
   private final CatalogCategoryRepository catalogCategoryRepository =
       mock(CatalogCategoryRepository.class);
 
+  private final CatalogOptionGroupRepository catalogOptionGroupRepository =
+      mock(CatalogOptionGroupRepository.class);
   private final CatalogProductRepository catalogProductRepository =
       mock(CatalogProductRepository.class);
   private final GetPublicStoreMenuUseCase getPublicStoreMenuUseCase =
       new GetPublicStoreMenuUseCase(
-          storeRepository, catalogCategoryRepository, catalogProductRepository);
+          storeRepository,
+          catalogCategoryRepository,
+          catalogOptionGroupRepository,
+          catalogProductRepository);
+
+  GetPublicStoreMenuUseCaseTest() {
+    when(catalogOptionGroupRepository.findAllByProduct_IdInAndActiveTrueOrderByProduct_IdAscIdAsc(
+            any()))
+        .thenReturn(List.of());
+  }
 
   @Test
   void shouldReturnOnlyVisibleOrderedMenuForStore() {
@@ -126,6 +138,9 @@ class GetPublicStoreMenuUseCaseTest {
             any(java.time.DayOfWeek.class),
             any(java.time.LocalTime.class)))
         .thenReturn(List.of(product));
+    when(catalogOptionGroupRepository.findAllByProduct_IdInAndActiveTrueOrderByProduct_IdAscIdAsc(
+            any()))
+        .thenReturn(List.of(group));
 
     var response = getPublicStoreMenuUseCase.execute("loja-com-opcoes");
 
@@ -155,6 +170,9 @@ class GetPublicStoreMenuUseCaseTest {
             any(java.time.DayOfWeek.class),
             any(java.time.LocalTime.class)))
         .thenReturn(List.of(product));
+    when(catalogOptionGroupRepository.findAllByProduct_IdInAndActiveTrueOrderByProduct_IdAscIdAsc(
+            any()))
+        .thenReturn(List.of(crust, sauce));
 
     var response = getPublicStoreMenuUseCase.execute("loja-com-multiplos-grupos");
 
@@ -181,6 +199,9 @@ class GetPublicStoreMenuUseCaseTest {
             any(java.time.DayOfWeek.class),
             any(java.time.LocalTime.class)))
         .thenReturn(List.of(product));
+    when(catalogOptionGroupRepository.findAllByProduct_IdInAndActiveTrueOrderByProduct_IdAscIdAsc(
+            any()))
+        .thenReturn(List.of(activeGroup));
 
     var response = getPublicStoreMenuUseCase.execute("loja-com-filtro");
 

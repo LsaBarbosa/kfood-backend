@@ -42,6 +42,11 @@ public final class PublicStoreMapper {
   }
 
   public static PublicStoreMenuProductResponse toMenuProductResponse(CatalogProduct product) {
+    return toMenuProductResponse(product, product.getOptionGroups());
+  }
+
+  public static PublicStoreMenuProductResponse toMenuProductResponse(
+      CatalogProduct product, List<CatalogOptionGroup> optionGroups) {
     return new PublicStoreMenuProductResponse(
         product.getId(),
         product.getName(),
@@ -49,7 +54,7 @@ public final class PublicStoreMapper {
         product.getBasePrice(),
         product.getImageUrl(),
         product.isPaused(),
-        product.getOptionGroups().stream()
+        optionGroups.stream()
             .filter(CatalogOptionGroup::isActive)
             .map(PublicStoreMapper::toMenuOptionGroupResponse)
             .toList());
