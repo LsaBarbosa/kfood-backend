@@ -54,6 +54,11 @@ public class Payment extends AuditableEntity {
 
   protected Payment() {}
 
+  public static Payment createPending(
+      UUID id, SalesOrder order, PaymentMethod paymentMethod, BigDecimal amount) {
+    return new Payment(id, order, paymentMethod, null, null, PaymentStatus.PENDING, amount, null, null);
+  }
+
   public Payment(
       UUID id,
       SalesOrder order,

@@ -66,6 +66,21 @@ class PaymentEntityTest {
   }
 
   @Test
+  void shouldCreatePendingPaymentUsingFactoryMethod() {
+    var payment =
+        Payment.createPending(
+            UUID.randomUUID(), order(), PaymentMethod.PIX, new BigDecimal("57.5"));
+
+    assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PENDING);
+    assertThat(payment.getPaymentMethod()).isEqualTo(PaymentMethod.PIX);
+    assertThat(payment.getAmount()).isEqualByComparingTo("57.50");
+    assertThat(payment.getProviderName()).isNull();
+    assertThat(payment.getProviderReference()).isNull();
+    assertThat(payment.getQrCodePayload()).isNull();
+    assertThat(payment.getConfirmedAt()).isNull();
+  }
+
+  @Test
   void shouldInstantiateProtectedConstructorForJpa() throws Exception {
     Constructor<Payment> constructor = Payment.class.getDeclaredConstructor();
     constructor.setAccessible(true);
