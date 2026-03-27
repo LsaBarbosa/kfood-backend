@@ -10,11 +10,9 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Component;
 
 @Component
-@ConditionalOnBean({CreateUserService.class, IdentityUserRepository.class})
 public class MerchantUserManagementAdapter implements MerchantUserManagementPort {
 
   private final CreateUserService createUserService;
