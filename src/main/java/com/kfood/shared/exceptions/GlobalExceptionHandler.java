@@ -104,12 +104,7 @@ public class GlobalExceptionHandler {
       return body.getDetail();
     }
 
-    String message = ex.getMessage();
-    if (message != null && !message.isBlank()) {
-      return message;
-    }
-
-    return "Unexpected error";
+    return "Request could not be processed.";
   }
 
   private ErrorCode mapHttpStatusToDefaultCode(HttpStatus status) {
