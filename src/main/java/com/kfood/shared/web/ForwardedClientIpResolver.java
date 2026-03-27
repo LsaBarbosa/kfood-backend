@@ -1,6 +1,7 @@
 package com.kfood.shared.web;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -8,17 +9,25 @@ public class ForwardedClientIpResolver implements ClientIpResolver {
 
   private static final String FALLBACK_IP = "0.0.0.0";
   private static final int MAX_IP_LENGTH = 45;
+  private final boolean trustForwardedHeaders;
+
+  public ForwardedClientIpResolver(
+      @Value("${app.web.trust-forwarded-headers:false}") boolean trustForwardedHeaders) {
+    this.trustForwardedHeaders = trustForwardedHeaders;
+  }
 
   @Override
   public String resolve(HttpServletRequest request) {
-    var forwardedFor = firstNonBlankToken(request.getHeader("X-Forwarded-For"));
-    if (forwardedFor != null) {
-      return forwardedFor;
-    }
+    if (trustForwardedHeaders) {
+      var forwardedFor = firstNonBlankToken(request.getHeader("X-Forwarded-For"));
+      if (forwardedFor != null) {
+        return forwardedFor;
+      }
 
-    var realIp = normalize(request.getHeader("X-Real-IP"));
-    if (realIp != null) {
-      return realIp;
+      var realIp = normalize(request.getHeader("X-Real-IP"));
+      if (realIp != null) {
+        return realIp;
+      }
     }
 
     var remoteAddr = normalize(request.getRemoteAddr());
