@@ -10,16 +10,9 @@ import com.kfood.shared.security.CurrentAuthenticatedUserProvider;
 import com.kfood.shared.tenancy.CurrentTenantProvider;
 import java.util.Objects;
 import java.util.UUID;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Service;
 
 @Service
-@ConditionalOnBean({
-  StoreRepository.class,
-  IdentityUserRepository.class,
-  CurrentTenantProvider.class,
-  CurrentAuthenticatedUserProvider.class
-})
 public class MerchantTenantAccessAdapter implements MerchantTenantAccessPort {
 
   private final StoreRepository storeRepository;

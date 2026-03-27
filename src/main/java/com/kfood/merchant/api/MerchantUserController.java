@@ -4,11 +4,8 @@ import com.kfood.identity.app.Roles;
 import com.kfood.merchant.application.user.CreateMerchantUserCommand;
 import com.kfood.merchant.application.user.CreateMerchantUserUseCase;
 import com.kfood.merchant.application.user.ListMerchantUsersUseCase;
-import com.kfood.merchant.application.user.port.MerchantTenantAccessPort;
-import com.kfood.merchant.application.user.port.MerchantUserManagementPort;
 import jakarta.validation.Valid;
 import java.util.List;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,14 +19,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/v1/merchant/users")
 public class MerchantUserController {
 
-  private final ObjectProvider<MerchantUserManagementPort> merchantUserManagementPortProvider;
-  private final ObjectProvider<MerchantTenantAccessPort> merchantTenantAccessPortProvider;
+  private final CreateMerchantUserUseCase createMerchantUserUseCase;
+  private final ListMerchantUsersUseCase listMerchantUsersUseCase;
 
   public MerchantUserController(
-      ObjectProvider<MerchantUserManagementPort> merchantUserManagementPortProvider,
-      ObjectProvider<MerchantTenantAccessPort> merchantTenantAccessPortProvider) {
-    this.merchantUserManagementPortProvider = merchantUserManagementPortProvider;
-    this.merchantTenantAccessPortProvider = merchantTenantAccessPortProvider;
+      CreateMerchantUserUseCase createMerchantUserUseCase,
+      ListMerchantUsersUseCase listMerchantUsersUseCase) {
+    this.createMerchantUserUseCase = createMerchantUserUseCase;
+    this.listMerchantUsersUseCase = listMerchantUsersUseCase;
   }
 
   @PostMapping
@@ -37,7 +34,7 @@ public class MerchantUserController {
   @PreAuthorize(Roles.OWNER_OR_MANAGER)
   public MerchantUserResponse create(@Valid @RequestBody CreateMerchantUserRequest request) {
     return MerchantUserApiMapper.toResponse(
-        createUseCase()
+        createMerchantUserUseCase
             .execute(
                 new CreateMerchantUserCommand(
                     request.email(), request.password(), request.roles())));
@@ -46,18 +43,8 @@ public class MerchantUserController {
   @GetMapping
   @PreAuthorize(Roles.OWNER_OR_MANAGER)
   public List<MerchantUserResponse> list() {
-    return listUseCase().execute().stream().map(MerchantUserApiMapper::toResponse).toList();
-  }
-
-  private CreateMerchantUserUseCase createUseCase() {
-    return new CreateMerchantUserUseCase(
-        merchantUserManagementPortProvider.getObject(),
-        merchantTenantAccessPortProvider.getObject());
-  }
-
-  private ListMerchantUsersUseCase listUseCase() {
-    return new ListMerchantUsersUseCase(
-        merchantUserManagementPortProvider.getObject(),
-        merchantTenantAccessPortProvider.getObject());
+    return listMerchantUsersUseCase.execute().stream()
+        .map(MerchantUserApiMapper::toResponse)
+        .toList();
   }
 }
