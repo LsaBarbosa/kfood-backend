@@ -29,7 +29,8 @@ public interface CatalogProductRepository extends JpaRepository<CatalogProduct, 
   @EntityGraph(attributePaths = "category")
   List<CatalogProduct> findAllByStoreIdOrderBySortOrderAscNameAsc(UUID storeId);
 
-  @Query("""
+  @Query(
+      """
        select distinct product
     from CatalogProduct product
     join fetch product.category category

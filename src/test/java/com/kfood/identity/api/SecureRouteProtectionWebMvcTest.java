@@ -24,7 +24,8 @@ import org.springframework.test.web.servlet.MockMvc;
 @TestPropertySource(
     properties = {
       "app.security.jwt-secret=12345678901234567890123456789012",
-      "app.security.jwt-expiration-seconds=3600"
+      "app.security.jwt-expiration-seconds=3600",
+      "kfood.test-endpoints.enabled=true"
     })
 class SecureRouteProtectionWebMvcTest {
 

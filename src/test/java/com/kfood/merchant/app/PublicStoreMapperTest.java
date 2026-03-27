@@ -83,7 +83,12 @@ class PublicStoreMapperTest {
   }
 
   private CatalogOptionGroup optionGroup(
-      CatalogProduct product, String name, int minSelect, int maxSelect, boolean required, boolean active) {
+      CatalogProduct product,
+      String name,
+      int minSelect,
+      int maxSelect,
+      boolean required,
+      boolean active) {
     var group =
         new CatalogOptionGroup(
             UUID.randomUUID(), product, name, minSelect, maxSelect, required, active);

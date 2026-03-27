@@ -8,7 +8,8 @@ import java.util.UUID;
 
 public interface MerchantUserManagementPort {
 
-  MerchantUserOutput create(UUID storeId, String email, String rawPassword, Set<UserRoleName> roles);
+  MerchantUserOutput create(
+      UUID storeId, String email, String rawPassword, Set<UserRoleName> roles);
 
   List<MerchantUserOutput> listByStoreId(UUID storeId);
 }

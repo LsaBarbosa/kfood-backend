@@ -3,8 +3,8 @@ package com.kfood.shared.exceptions;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.ErrorResponseException;
 import org.springframework.validation.annotation.Validated;
+import org.springframework.web.ErrorResponseException;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -26,7 +26,9 @@ class GlobalExceptionHandlerTestController {
   @GetMapping("/conflict")
   public String conflict() {
     throw new BusinessException(
-        ErrorCode.VALIDATION_ERROR, "Phone and email belong to different customers.", HttpStatus.CONFLICT);
+        ErrorCode.VALIDATION_ERROR,
+        "Phone and email belong to different customers.",
+        HttpStatus.CONFLICT);
   }
 
   @GetMapping("/not-found")

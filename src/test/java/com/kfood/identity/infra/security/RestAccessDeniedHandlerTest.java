@@ -32,8 +32,7 @@ class RestAccessDeniedHandlerTest {
     assertThat(response.getContentType()).isEqualTo("application/json");
     assertThat(body)
         .containsEntry("code", "AUTH_FORBIDDEN_ROLE")
-        .containsEntry(
-            "message", "Authenticated user does not have permission for this resource.")
+        .containsEntry("message", "Authenticated user does not have permission for this resource.")
         .containsEntry("path", "/v1/admin/\"audit\"\\logs")
         .containsEntry("traceId", null);
     assertThat(body.get("timestamp")).isNotNull();

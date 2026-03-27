@@ -27,7 +27,8 @@ class MerchantUserManagementAdapterTest {
     var storeId = UUID.randomUUID();
     var user = user(storeId, "manager@kfood.local", Set.of(UserRoleName.MANAGER));
 
-    when(createUserService.create(storeId, "manager@kfood.local", "Senha@123", Set.of(UserRoleName.MANAGER)))
+    when(createUserService.create(
+            storeId, "manager@kfood.local", "Senha@123", Set.of(UserRoleName.MANAGER)))
         .thenReturn(user);
 
     var output =
@@ -49,7 +50,9 @@ class MerchantUserManagementAdapterTest {
     var outputs = adapter.listByStoreId(storeId);
 
     assertThat(outputs).hasSize(2);
-    assertThat(outputs).extracting(item -> item.email()).containsExactly("a@kfood.local", "b@kfood.local");
+    assertThat(outputs)
+        .extracting(item -> item.email())
+        .containsExactly("a@kfood.local", "b@kfood.local");
   }
 
   private IdentityUserEntity user(UUID storeId, String email, Set<UserRoleName> roles) {

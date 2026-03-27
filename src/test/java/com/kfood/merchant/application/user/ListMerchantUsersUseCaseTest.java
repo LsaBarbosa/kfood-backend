@@ -28,13 +28,14 @@ class ListMerchantUsersUseCaseTest {
     when(merchantTenantAccessPort.getRequiredStoreId()).thenReturn(storeId);
     when(merchantUserManagementPort.listByStoreId(storeId))
         .thenReturn(
-            List.of(
-                output("a@kfood.local", "ATTENDANT"), output("b@kfood.local", "MANAGER")));
+            List.of(output("a@kfood.local", "ATTENDANT"), output("b@kfood.local", "MANAGER")));
 
     var response = useCase.execute();
 
     assertThat(response).hasSize(2);
-    assertThat(response).extracting(item -> item.email()).containsExactly("a@kfood.local", "b@kfood.local");
+    assertThat(response)
+        .extracting(item -> item.email())
+        .containsExactly("a@kfood.local", "b@kfood.local");
     verify(merchantUserManagementPort).listByStoreId(storeId);
   }
 
@@ -65,6 +66,10 @@ class ListMerchantUsersUseCaseTest {
 
   private MerchantUserOutput output(String email, String role) {
     return new MerchantUserOutput(
-        UUID.randomUUID(), email, List.of(role), UserStatus.ACTIVE, Instant.parse("2026-03-26T12:00:00Z"));
+        UUID.randomUUID(),
+        email,
+        List.of(role),
+        UserStatus.ACTIVE,
+        Instant.parse("2026-03-26T12:00:00Z"));
   }
 }

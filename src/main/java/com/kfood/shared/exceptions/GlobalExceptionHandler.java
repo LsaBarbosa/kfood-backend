@@ -53,7 +53,8 @@ public class GlobalExceptionHandler {
   public ResponseEntity<ApiErrorResponse> handleBusinessException(
       BusinessException ex, HttpServletRequest request) {
     ApiErrorResponse response =
-        apiErrorResponseFactory.create(ex.getErrorCode(), ex.getMessage(), request, ex.getDetails());
+        apiErrorResponseFactory.create(
+            ex.getErrorCode(), ex.getMessage(), request, ex.getDetails());
 
     return ResponseEntity.status(ex.getStatus()).body(response);
   }
@@ -74,7 +75,8 @@ public class GlobalExceptionHandler {
     String message = extractSafeMessage(ex);
     ErrorCode errorCode = mapHttpStatusToDefaultCode(status);
 
-    ApiErrorResponse response = apiErrorResponseFactory.create(errorCode, message, request, List.of());
+    ApiErrorResponse response =
+        apiErrorResponseFactory.create(errorCode, message, request, List.of());
 
     return ResponseEntity.status(status).body(response);
   }

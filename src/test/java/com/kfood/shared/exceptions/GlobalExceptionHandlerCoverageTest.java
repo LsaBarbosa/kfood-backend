@@ -26,9 +26,9 @@ import org.springframework.web.bind.MethodArgumentNotValidException;
 
 class GlobalExceptionHandlerCoverageTest {
 
-  private final ApiErrorResponseFactory apiErrorResponseFactory =
-      new ApiErrorResponseFactory();
-  private final GlobalExceptionHandler handler = new GlobalExceptionHandler(apiErrorResponseFactory);
+  private final ApiErrorResponseFactory apiErrorResponseFactory = new ApiErrorResponseFactory();
+  private final GlobalExceptionHandler handler =
+      new GlobalExceptionHandler(apiErrorResponseFactory);
 
   @AfterEach
   void clearMdc() {
@@ -135,7 +135,8 @@ class GlobalExceptionHandlerCoverageTest {
 
     ResponseEntity<ApiErrorResponse> response =
         handler.handleAccessDenied(
-            new TenantScopeAccessDeniedException("Authenticated user cannot access another tenant."),
+            new TenantScopeAccessDeniedException(
+                "Authenticated user cannot access another tenant."),
             request);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN);
@@ -185,10 +186,7 @@ class GlobalExceptionHandlerCoverageTest {
   void shouldBuildResponseWithEmptyDetailsWhenNullIsProvided() {
     ApiErrorResponse response =
         apiErrorResponseFactory.create(
-            ErrorCode.UNEXPECTED_ERROR,
-            "An unexpected error occurred.",
-            request("/oops"),
-            null);
+            ErrorCode.UNEXPECTED_ERROR, "An unexpected error occurred.", request("/oops"), null);
 
     assertThat(response.details()).isEmpty();
     assertThat(response.path()).isEqualTo("/oops");

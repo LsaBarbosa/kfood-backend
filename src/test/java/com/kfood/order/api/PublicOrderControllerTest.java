@@ -10,9 +10,7 @@ class PublicOrderControllerTest {
 
   @Test
   void shouldRejectWhenCreatePublicOrderServiceIsUnavailable() {
-    var controller =
-        new PublicOrderController(
-            unavailableProvider(), unavailableGetProvider());
+    var controller = new PublicOrderController(unavailableProvider(), unavailableGetProvider());
 
     assertThatThrownBy(() -> controller.create("loja-do-bairro", null, null))
         .isInstanceOf(IllegalStateException.class)
@@ -21,8 +19,7 @@ class PublicOrderControllerTest {
 
   @Test
   void shouldRejectWhenGetPublicOrderByNumberUseCaseIsUnavailable() {
-    var controller =
-        new PublicOrderController(unavailableProvider(), unavailableGetProvider());
+    var controller = new PublicOrderController(unavailableProvider(), unavailableGetProvider());
 
     assertThatThrownBy(() -> controller.getByOrderNumber("loja-do-bairro", "PED-20260326-000123"))
         .isInstanceOf(IllegalStateException.class)

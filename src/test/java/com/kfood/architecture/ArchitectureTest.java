@@ -28,10 +28,10 @@ class ArchitectureTest {
   }
 
   @Test
-  void merchantUserApplicationShouldNotDependOnApi() {
+  void applicationPackageShouldNotDependOnApi() {
     noClasses()
         .that()
-        .resideInAPackage("com.kfood.merchant.application..")
+        .resideInAPackage("..application..")
         .should()
         .dependOnClassesThat()
         .resideInAPackage("..api..")
@@ -39,10 +39,32 @@ class ArchitectureTest {
   }
 
   @Test
-  void merchantUserApplicationShouldNotDependOnInfra() {
+  void applicationPackageShouldNotDependOnInfra() {
     noClasses()
         .that()
-        .resideInAPackage("com.kfood.merchant.application..")
+        .resideInAPackage("..application..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage("..infra..")
+        .check(importedClasses);
+  }
+
+  @Test
+  void catalogAvailabilityShouldNotDependOnInfra() {
+    noClasses()
+        .that()
+        .resideInAPackage("com.kfood.catalog.app.availability..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage("..infra..")
+        .check(importedClasses);
+  }
+
+  @Test
+  void catalogSelectionShouldNotDependOnInfra() {
+    noClasses()
+        .that()
+        .resideInAPackage("com.kfood.catalog.app.selection..")
         .should()
         .dependOnClassesThat()
         .resideInAPackage("..infra..")

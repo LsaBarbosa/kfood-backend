@@ -6,5 +6,4 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 public record CreateStoreTermsAcceptanceRequest(
-    @NotNull LegalDocumentType documentType,
-    @NotBlank @Size(max = 40) String documentVersion) {}
+    @NotNull LegalDocumentType documentType, @NotBlank @Size(max = 40) String documentVersion) {}

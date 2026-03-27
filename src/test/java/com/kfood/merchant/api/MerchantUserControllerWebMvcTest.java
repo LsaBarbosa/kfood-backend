@@ -12,7 +12,6 @@ import com.kfood.identity.app.JwtTokenService;
 import com.kfood.identity.domain.UserRoleName;
 import com.kfood.identity.domain.UserStatus;
 import com.kfood.identity.persistence.IdentityUserEntity;
-import com.kfood.merchant.application.user.CreateMerchantUserCommand;
 import com.kfood.merchant.application.user.MerchantUserOutput;
 import com.kfood.merchant.application.user.port.MerchantTenantAccessPort;
 import com.kfood.merchant.application.user.port.MerchantUserManagementPort;

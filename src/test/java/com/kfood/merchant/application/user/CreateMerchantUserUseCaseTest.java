@@ -7,9 +7,9 @@ import static org.mockito.Mockito.when;
 
 import com.kfood.identity.domain.UserRoleName;
 import com.kfood.identity.domain.UserStatus;
+import com.kfood.merchant.app.TenantAccessDeniedException;
 import com.kfood.merchant.application.user.port.MerchantTenantAccessPort;
 import com.kfood.merchant.application.user.port.MerchantUserManagementPort;
-import com.kfood.merchant.app.TenantAccessDeniedException;
 import java.lang.reflect.RecordComponent;
 import java.time.Instant;
 import java.util.List;
@@ -69,7 +69,8 @@ class CreateMerchantUserUseCaseTest {
         new CreateMerchantUserCommand(
             "manager@kfood.local", "Senha@123", Set.of(UserRoleName.MANAGER));
 
-    when(merchantTenantAccessPort.getRequiredStoreId()).thenThrow(new TenantAccessDeniedException());
+    when(merchantTenantAccessPort.getRequiredStoreId())
+        .thenThrow(new TenantAccessDeniedException());
 
     assertThatThrownBy(() -> useCase.execute(command))
         .isInstanceOf(TenantAccessDeniedException.class)
@@ -99,9 +100,9 @@ class CreateMerchantUserUseCaseTest {
 
     assertThat(response.email()).isEqualTo("attendant@kfood.local");
     assertThat(response.roles()).containsExactly("ATTENDANT");
-    assertThat(java.util.Arrays.stream(response.getClass().getRecordComponents())
-            .map(RecordComponent::getName))
+    assertThat(
+            java.util.Arrays.stream(response.getClass().getRecordComponents())
+                .map(RecordComponent::getName))
         .doesNotContain("password", "passwordHash", "storeId");
   }
-
 }

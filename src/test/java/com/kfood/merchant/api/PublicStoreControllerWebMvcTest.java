@@ -157,14 +157,11 @@ class PublicStoreControllerWebMvcTest {
         .andExpect(jsonPath("$.categories[0].products[0].optionGroups[0].maxSelect").value(2))
         .andExpect(jsonPath("$.categories[0].products[0].optionGroups[0].required").value(true))
         .andExpect(
-            jsonPath("$.categories[0].products[0].optionGroups[0].items[0].name")
-                .value("Catupiry"))
+            jsonPath("$.categories[0].products[0].optionGroups[0].items[0].name").value("Catupiry"))
         .andExpect(
-            jsonPath("$.categories[0].products[0].optionGroups[0].items[0].extraPrice")
-                .value(8.0))
+            jsonPath("$.categories[0].products[0].optionGroups[0].items[0].extraPrice").value(8.0))
         .andExpect(
-            jsonPath("$.categories[0].products[0].optionGroups[0].items[1].name")
-                .value("Cheddar"))
+            jsonPath("$.categories[0].products[0].optionGroups[0].items[1].name").value("Cheddar"))
         .andExpect(jsonPath("$.categories[0].products[0].paymentMethod").doesNotExist())
         .andExpect(jsonPath("$.categories[0].products[0].notes").doesNotExist());
   }

@@ -15,8 +15,7 @@ import org.springframework.security.authentication.CredentialsExpiredException;
 
 class ApiErrorResponseFactoryTest {
 
-  private final ApiErrorResponseFactory factory =
-      new ApiErrorResponseFactory();
+  private final ApiErrorResponseFactory factory = new ApiErrorResponseFactory();
 
   @AfterEach
   void clearMdc() {
@@ -64,7 +63,8 @@ class ApiErrorResponseFactoryTest {
     MockHttpServletRequest request = new MockHttpServletRequest();
     request.setRequestURI("/v1/merchant/me");
     ExpiredJwtException expiredJwtException =
-        new ExpiredJwtException(null, Jwts.claims().subject("owner@kfood.local").build(), "expired");
+        new ExpiredJwtException(
+            null, Jwts.claims().subject("owner@kfood.local").build(), "expired");
 
     ApiErrorResponse response =
         factory.createAuthenticationError(

@@ -46,18 +46,18 @@ public class MerchantUserController {
   @GetMapping
   @PreAuthorize(Roles.OWNER_OR_MANAGER)
   public List<MerchantUserResponse> list() {
-    return listUseCase().execute().stream()
-        .map(MerchantUserApiMapper::toResponse)
-        .toList();
+    return listUseCase().execute().stream().map(MerchantUserApiMapper::toResponse).toList();
   }
 
   private CreateMerchantUserUseCase createUseCase() {
     return new CreateMerchantUserUseCase(
-        merchantUserManagementPortProvider.getObject(), merchantTenantAccessPortProvider.getObject());
+        merchantUserManagementPortProvider.getObject(),
+        merchantTenantAccessPortProvider.getObject());
   }
 
   private ListMerchantUsersUseCase listUseCase() {
     return new ListMerchantUsersUseCase(
-        merchantUserManagementPortProvider.getObject(), merchantTenantAccessPortProvider.getObject());
+        merchantUserManagementPortProvider.getObject(),
+        merchantTenantAccessPortProvider.getObject());
   }
 }

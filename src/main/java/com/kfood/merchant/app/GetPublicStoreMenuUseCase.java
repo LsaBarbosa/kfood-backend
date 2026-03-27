@@ -65,6 +65,7 @@ public class GetPublicStoreMenuUseCase {
                         category.id(), category.name(), java.util.List.copyOf(category.products())))
             .toList());
   }
+
   private String normalize(String slug) {
     return Objects.requireNonNull(slug, "slug is required").trim();
   }

@@ -105,8 +105,7 @@ class GlobalExceptionHandlerWebMvcTest {
         .perform(get("/test-errors/tenant-denied"))
         .andExpect(status().isForbidden())
         .andExpect(jsonPath("$.code").value("TENANT_ACCESS_DENIED"))
-        .andExpect(
-            jsonPath("$.message").value("Authenticated user cannot access another tenant."))
+        .andExpect(jsonPath("$.message").value("Authenticated user cannot access another tenant."))
         .andExpect(jsonPath("$.timestamp").exists())
         .andExpect(jsonPath("$.path").value("/test-errors/tenant-denied"))
         .andExpect(jsonPath("$.details").isEmpty())

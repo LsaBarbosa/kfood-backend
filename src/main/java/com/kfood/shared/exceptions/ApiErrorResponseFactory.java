@@ -107,7 +107,8 @@ public class ApiErrorResponseFactory {
 
   public String resolveAccessDeniedMessage(AccessDeniedException accessDeniedException) {
     if (accessDeniedException instanceof TenantScopeAccessDeniedException) {
-      return accessDeniedException.getMessage() == null || accessDeniedException.getMessage().isBlank()
+      return accessDeniedException.getMessage() == null
+              || accessDeniedException.getMessage().isBlank()
           ? DEFAULT_TENANT_ACCESS_DENIED_MESSAGE
           : accessDeniedException.getMessage();
     }

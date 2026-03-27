@@ -104,7 +104,9 @@ class MerchantTenantAccessAdapterTest {
   }
 
   private IdentityUserEntity user(UUID userId, UUID storeId) {
-    var user = new IdentityUserEntity(userId, storeId, "user@kfood.local", "$2a$10$hash", UserStatus.ACTIVE);
+    var user =
+        new IdentityUserEntity(
+            userId, storeId, "user@kfood.local", "$2a$10$hash", UserStatus.ACTIVE);
     user.replaceRoles(Set.of(UserRoleName.MANAGER));
     return user;
   }

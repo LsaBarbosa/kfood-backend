@@ -1,5 +1,6 @@
 package com.kfood.catalog.infra.persistence;
 
+import com.kfood.catalog.app.availability.CatalogProductAvailabilityView;
 import com.kfood.merchant.infra.persistence.Store;
 import com.kfood.shared.infra.persistence.AuditableEntity;
 import jakarta.persistence.Column;
@@ -34,7 +35,7 @@ import java.util.UUID;
           name = "uk_catalog_product_store_id_id",
           columnNames = {"store_id", "id"})
     })
-public class CatalogProduct extends AuditableEntity {
+public class CatalogProduct extends AuditableEntity implements CatalogProductAvailabilityView {
 
   @Id private UUID id;
 

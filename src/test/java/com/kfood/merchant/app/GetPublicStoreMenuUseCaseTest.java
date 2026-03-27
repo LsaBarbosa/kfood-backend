@@ -7,9 +7,9 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.kfood.catalog.infra.persistence.CatalogCategory;
+import com.kfood.catalog.infra.persistence.CatalogCategoryRepository;
 import com.kfood.catalog.infra.persistence.CatalogOptionGroup;
 import com.kfood.catalog.infra.persistence.CatalogOptionItem;
-import com.kfood.catalog.infra.persistence.CatalogCategoryRepository;
 import com.kfood.catalog.infra.persistence.CatalogProduct;
 import com.kfood.catalog.infra.persistence.CatalogProductRepository;
 import com.kfood.merchant.infra.persistence.Store;
@@ -133,7 +133,8 @@ class GetPublicStoreMenuUseCaseTest {
     assertThat(optionGroups).hasSize(1);
     assertThat(optionGroups.getFirst().name()).isEqualTo("Bordas");
     assertThat(optionGroups.getFirst().required()).isTrue();
-    assertThat(optionGroups.getFirst().items()).extracting(item -> item.name())
+    assertThat(optionGroups.getFirst().items())
+        .extracting(item -> item.name())
         .containsExactly("Catupiry", "Cheddar");
   }
 
@@ -186,7 +187,8 @@ class GetPublicStoreMenuUseCaseTest {
     var optionGroups = response.categories().getFirst().products().getFirst().optionGroups();
     assertThat(optionGroups).hasSize(1);
     assertThat(optionGroups.getFirst().name()).isEqualTo("Molhos");
-    assertThat(optionGroups.getFirst().items()).extracting(item -> item.name())
+    assertThat(optionGroups.getFirst().items())
+        .extracting(item -> item.name())
         .containsExactly("Barbecue");
   }
 
@@ -227,7 +229,12 @@ class GetPublicStoreMenuUseCaseTest {
   }
 
   private CatalogOptionGroup optionGroup(
-      CatalogProduct product, String name, int minSelect, int maxSelect, boolean required, boolean active) {
+      CatalogProduct product,
+      String name,
+      int minSelect,
+      int maxSelect,
+      boolean required,
+      boolean active) {
     var group =
         new CatalogOptionGroup(
             UUID.randomUUID(), product, name, minSelect, maxSelect, required, active);

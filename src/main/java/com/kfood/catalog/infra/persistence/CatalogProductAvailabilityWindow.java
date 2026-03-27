@@ -1,5 +1,6 @@
 package com.kfood.catalog.infra.persistence;
 
+import com.kfood.catalog.app.availability.CatalogAvailabilityWindowView;
 import com.kfood.shared.infra.persistence.AuditableEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -19,7 +20,8 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "catalog_product_availability")
-public class CatalogProductAvailabilityWindow extends AuditableEntity {
+public class CatalogProductAvailabilityWindow extends AuditableEntity
+    implements CatalogAvailabilityWindowView {
 
   @Id private UUID id;
 

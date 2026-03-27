@@ -60,12 +60,11 @@ class RestAuthenticationEntryPointTest {
     request.setRequestURI("/v1/merchant/me");
     MockHttpServletResponse response = new MockHttpServletResponse();
     ExpiredJwtException expiredJwtException =
-        new ExpiredJwtException(null, Jwts.claims().subject("owner@kfood.local").build(), "expired");
+        new ExpiredJwtException(
+            null, Jwts.claims().subject("owner@kfood.local").build(), "expired");
 
     entryPoint.commence(
-        request,
-        response,
-        new CredentialsExpiredException("Expired token.", expiredJwtException));
+        request, response, new CredentialsExpiredException("Expired token.", expiredJwtException));
 
     Map<String, Object> body = objectMapper.readValue(response.getContentAsByteArray(), Map.class);
     assertThat(body.get("code")).isEqualTo("AUTH_TOKEN_EXPIRED");
