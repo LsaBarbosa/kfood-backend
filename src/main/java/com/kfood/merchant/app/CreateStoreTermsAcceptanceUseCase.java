@@ -8,6 +8,8 @@ import com.kfood.merchant.infra.persistence.StoreTermsAcceptance;
 import com.kfood.merchant.infra.persistence.StoreTermsAcceptanceRepository;
 import com.kfood.shared.security.CurrentAuthenticatedUserProvider;
 import com.kfood.shared.tenancy.CurrentTenantProvider;
+import java.time.Clock;
+import java.time.Instant;
 import java.util.Objects;
 import java.util.UUID;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -29,22 +31,26 @@ public class CreateStoreTermsAcceptanceUseCase {
   private final IdentityUserRepository identityUserRepository;
   private final CurrentTenantProvider currentTenantProvider;
   private final CurrentAuthenticatedUserProvider currentAuthenticatedUserProvider;
+  private final Clock clock;
 
   public CreateStoreTermsAcceptanceUseCase(
       StoreRepository storeRepository,
       StoreTermsAcceptanceRepository storeTermsAcceptanceRepository,
       IdentityUserRepository identityUserRepository,
       CurrentTenantProvider currentTenantProvider,
-      CurrentAuthenticatedUserProvider currentAuthenticatedUserProvider) {
+      CurrentAuthenticatedUserProvider currentAuthenticatedUserProvider,
+      Clock clock) {
     this.storeRepository = storeRepository;
     this.storeTermsAcceptanceRepository = storeTermsAcceptanceRepository;
     this.identityUserRepository = identityUserRepository;
     this.currentTenantProvider = currentTenantProvider;
     this.currentAuthenticatedUserProvider = currentAuthenticatedUserProvider;
+    this.clock = clock;
   }
 
   @Transactional
-  public StoreTermsAcceptanceResponse execute(CreateStoreTermsAcceptanceRequest request) {
+  public StoreTermsAcceptanceResponse execute(
+      CreateStoreTermsAcceptanceRequest request, String requestIp) {
     var storeId = currentTenantProvider.getRequiredStoreId();
     var authenticatedUserId = currentAuthenticatedUserProvider.getRequiredUserId();
 
@@ -66,9 +72,14 @@ public class CreateStoreTermsAcceptanceUseCase {
             authenticatedUserId,
             request.documentType(),
             request.documentVersion(),
-            request.acceptedAt());
+            Instant.now(clock),
+            normalizeRequestIp(requestIp));
 
     return StoreTermsAcceptanceMapper.toResponse(
         storeTermsAcceptanceRepository.saveAndFlush(acceptance));
+  }
+
+  private String normalizeRequestIp(String requestIp) {
+    return Objects.requireNonNull(requestIp, "requestIp is required").trim();
   }
 }

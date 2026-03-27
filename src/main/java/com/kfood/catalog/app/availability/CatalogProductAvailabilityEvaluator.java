@@ -1,6 +1,5 @@
 package com.kfood.catalog.app.availability;
 
-import com.kfood.catalog.infra.persistence.CatalogProduct;
 import java.time.Clock;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -20,19 +19,19 @@ public class CatalogProductAvailabilityEvaluator {
     this.clock = Objects.requireNonNull(clock, "clock is required");
   }
 
-  public boolean isAvailableNow(CatalogProduct product, ZoneId storeZoneId) {
+  public boolean isAvailableNow(CatalogProductAvailabilityView product, ZoneId storeZoneId) {
     var now = ZonedDateTime.now(clock).withZoneSameInstant(storeZoneId);
     return isAvailableAt(product, now);
   }
 
-  public boolean isAvailableAt(CatalogProduct product, ZonedDateTime dateTime) {
+  public boolean isAvailableAt(CatalogProductAvailabilityView product, ZonedDateTime dateTime) {
     if (!product.isActive() || product.isPaused()) {
       return false;
     }
 
     var activeWindows =
         product.getAvailabilityWindows().stream()
-            .filter(com.kfood.catalog.infra.persistence.CatalogProductAvailabilityWindow::isActive)
+            .filter(CatalogAvailabilityWindowView::isActive)
             .toList();
 
     if (activeWindows.isEmpty()) {

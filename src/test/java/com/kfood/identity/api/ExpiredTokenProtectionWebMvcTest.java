@@ -24,7 +24,8 @@ import org.springframework.test.web.servlet.MockMvc;
 @TestPropertySource(
     properties = {
       "app.security.jwt-secret=12345678901234567890123456789012",
-      "app.security.jwt-expiration-seconds=1"
+      "app.security.jwt-expiration-seconds=1",
+      "kfood.test-endpoints.enabled=true"
     })
 class ExpiredTokenProtectionWebMvcTest {
 
@@ -54,6 +55,11 @@ class ExpiredTokenProtectionWebMvcTest {
                 .header("Authorization", "Bearer " + token)
                 .contentType(APPLICATION_JSON))
         .andExpect(status().isUnauthorized())
-        .andExpect(jsonPath("$.code").value("AUTH_INVALID_CREDENTIALS"));
+        .andExpect(jsonPath("$.code").value("AUTH_TOKEN_EXPIRED"))
+        .andExpect(jsonPath("$.message").value("Authentication token has expired."))
+        .andExpect(jsonPath("$.path").value("/v1/merchant/me"))
+        .andExpect(jsonPath("$.timestamp").exists())
+        .andExpect(jsonPath("$.details").isEmpty())
+        .andExpect(jsonPath("$.traceId").value(org.hamcrest.Matchers.nullValue()));
   }
 }

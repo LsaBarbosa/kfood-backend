@@ -1,6 +1,7 @@
 package com.kfood.merchant.api;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 public record PublicStoreMenuProductResponse(
@@ -9,4 +10,5 @@ public record PublicStoreMenuProductResponse(
     String description,
     BigDecimal basePrice,
     String imageUrl,
-    boolean paused) {}
+    boolean paused,
+    List<PublicStoreMenuOptionGroupResponse> optionGroups) {}

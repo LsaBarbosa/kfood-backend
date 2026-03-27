@@ -24,6 +24,7 @@ import com.kfood.merchant.app.StoreNotFoundException;
 import com.kfood.merchant.app.UpdateStoreUseCase;
 import com.kfood.merchant.domain.LegalDocumentType;
 import com.kfood.merchant.domain.StoreStatus;
+import com.kfood.shared.web.ClientIpResolver;
 import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
@@ -57,6 +58,8 @@ class StoreControllerWebMvcTest {
   @MockitoBean private CreateStoreTermsAcceptanceUseCase createStoreTermsAcceptanceUseCase;
 
   @MockitoBean private ChangeStoreStatusUseCase changeStoreStatusUseCase;
+
+  @MockitoBean private ClientIpResolver clientIpResolver;
 
   @Test
   void shouldCreateStoreSuccessfully() throws Exception {
@@ -317,7 +320,9 @@ class StoreControllerWebMvcTest {
 
   @Test
   void shouldAcceptTermsSuccessfully() throws Exception {
-    when(createStoreTermsAcceptanceUseCase.execute(any(CreateStoreTermsAcceptanceRequest.class)))
+    when(clientIpResolver.resolve(any())).thenReturn("203.0.113.9");
+    when(createStoreTermsAcceptanceUseCase.execute(
+            any(CreateStoreTermsAcceptanceRequest.class), any(String.class)))
         .thenReturn(
             new StoreTermsAcceptanceResponse(
                 UUID.randomUUID(),
@@ -334,8 +339,7 @@ class StoreControllerWebMvcTest {
                     """
                     {
                       "documentType": "TERMS_OF_USE",
-                      "documentVersion": "2026.03",
-                      "acceptedAt": "2026-03-20T10:15:00Z"
+                      "documentVersion": "2026.03"
                     }
                     """))
         .andExpect(status().isCreated())
@@ -354,8 +358,7 @@ class StoreControllerWebMvcTest {
                     """
                     {
                       "documentType": "TERMS_OF_USE",
-                      "documentVersion": "2026.03",
-                      "acceptedAt": "2026-03-20T10:15:00Z"
+                      "documentVersion": "2026.03"
                     }
                     """))
         .andExpect(status().isForbidden())
@@ -373,7 +376,7 @@ class StoreControllerWebMvcTest {
                     """
                     {
                       "documentVersion": "",
-                      "acceptedAt": null
+                      "documentType": null
                     }
                     """))
         .andExpect(status().isBadRequest())

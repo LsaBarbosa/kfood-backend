@@ -19,7 +19,8 @@ class StoreTermsAcceptanceMapperTest {
             UUID.randomUUID(),
             LegalDocumentType.TERMS_OF_USE,
             "2026.03",
-            Instant.parse("2026-03-20T10:15:00Z"));
+            Instant.parse("2026-03-20T10:15:00Z"),
+            "203.0.113.9");
 
     var response = StoreTermsAcceptanceMapper.toResponse(acceptance);
 
@@ -37,7 +38,8 @@ class StoreTermsAcceptanceMapperTest {
             UUID.randomUUID(),
             LegalDocumentType.TERMS_OF_USE,
             "2026.03",
-            Instant.parse("2026-03-20T10:15:00Z"));
+            Instant.parse("2026-03-20T10:15:00Z"),
+            "203.0.113.9");
 
     var response = StoreTermsAcceptanceMapper.toHistoryItem(acceptance);
 

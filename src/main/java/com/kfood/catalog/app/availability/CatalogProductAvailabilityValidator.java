@@ -1,6 +1,5 @@
 package com.kfood.catalog.app.availability;
 
-import com.kfood.catalog.infra.persistence.CatalogProduct;
 import com.kfood.shared.exceptions.BusinessException;
 import com.kfood.shared.exceptions.ErrorCode;
 import java.time.ZoneId;
@@ -17,7 +16,7 @@ public class CatalogProductAvailabilityValidator {
     this.catalogProductAvailabilityEvaluator = catalogProductAvailabilityEvaluator;
   }
 
-  public void ensureAvailableNow(CatalogProduct product, String storeTimezone) {
+  public void ensureAvailableNow(CatalogProductAvailabilityView product, String storeTimezone) {
     if (!catalogProductAvailabilityEvaluator.isAvailableNow(product, ZoneId.of(storeTimezone))) {
       throw new BusinessException(
           ErrorCode.CATALOG_ITEM_UNAVAILABLE,

@@ -13,6 +13,7 @@ import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -91,12 +92,13 @@ class PublicStoreControllerWebMvcTest {
                         "Bebidas",
                         List.of(
                             new PublicStoreMenuProductResponse(
-                                java.util.UUID.randomUUID(),
+                                UUID.randomUUID(),
                                 "Refrigerante",
                                 "Lata 350ml",
                                 new BigDecimal("7.50"),
                                 null,
-                                false))))));
+                                false,
+                                List.of()))))));
 
     mockMvc
         .perform(get("/v1/public/stores/loja-do-bairro/menu"))
@@ -104,7 +106,64 @@ class PublicStoreControllerWebMvcTest {
         .andExpect(jsonPath("$.categories[0].name").value("Bebidas"))
         .andExpect(jsonPath("$.categories[0].products[0].name").value("Refrigerante"))
         .andExpect(jsonPath("$.categories[0].products[0].basePrice").value(7.5))
-        .andExpect(jsonPath("$.categories[0].products[0].paused").value(false));
+        .andExpect(jsonPath("$.categories[0].products[0].paused").value(false))
+        .andExpect(jsonPath("$.categories[0].products[0].optionGroups").isArray())
+        .andExpect(jsonPath("$.categories[0].products[0].optionGroups").isEmpty());
+  }
+
+  @Test
+  void shouldReturnPublicMenuWithOptionGroupsAndOptions() throws Exception {
+    when(getPublicStoreMenuUseCase.execute("loja-do-bairro"))
+        .thenReturn(
+            new PublicStoreMenuResponse(
+                List.of(
+                    new PublicStoreMenuCategoryResponse(
+                        UUID.randomUUID(),
+                        "Pizzas",
+                        List.of(
+                            new PublicStoreMenuProductResponse(
+                                UUID.randomUUID(),
+                                "Pizza Calabresa",
+                                "Pizza com calabresa",
+                                new BigDecimal("39.90"),
+                                "https://cdn.kfood/pizza.png",
+                                false,
+                                List.of(
+                                    new PublicStoreMenuOptionGroupResponse(
+                                        UUID.randomUUID(),
+                                        "Bordas",
+                                        1,
+                                        2,
+                                        true,
+                                        List.of(
+                                            new PublicStoreMenuOptionItemResponse(
+                                                UUID.randomUUID(),
+                                                "Catupiry",
+                                                new BigDecimal("8.00"),
+                                                10),
+                                            new PublicStoreMenuOptionItemResponse(
+                                                UUID.randomUUID(),
+                                                "Cheddar",
+                                                new BigDecimal("7.50"),
+                                                20))))))))));
+
+    mockMvc
+        .perform(get("/v1/public/stores/loja-do-bairro/menu"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.categories[0].name").value("Pizzas"))
+        .andExpect(jsonPath("$.categories[0].products[0].name").value("Pizza Calabresa"))
+        .andExpect(jsonPath("$.categories[0].products[0].optionGroups[0].name").value("Bordas"))
+        .andExpect(jsonPath("$.categories[0].products[0].optionGroups[0].minSelect").value(1))
+        .andExpect(jsonPath("$.categories[0].products[0].optionGroups[0].maxSelect").value(2))
+        .andExpect(jsonPath("$.categories[0].products[0].optionGroups[0].required").value(true))
+        .andExpect(
+            jsonPath("$.categories[0].products[0].optionGroups[0].items[0].name").value("Catupiry"))
+        .andExpect(
+            jsonPath("$.categories[0].products[0].optionGroups[0].items[0].extraPrice").value(8.0))
+        .andExpect(
+            jsonPath("$.categories[0].products[0].optionGroups[0].items[1].name").value("Cheddar"))
+        .andExpect(jsonPath("$.categories[0].products[0].paymentMethod").doesNotExist())
+        .andExpect(jsonPath("$.categories[0].products[0].notes").doesNotExist());
   }
 
   @Test

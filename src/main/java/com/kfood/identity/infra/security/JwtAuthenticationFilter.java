@@ -10,6 +10,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import org.springframework.security.authentication.BadCredentialsException;
+import org.springframework.security.authentication.CredentialsExpiredException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
@@ -62,7 +63,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     } catch (ExpiredJwtException ex) {
       SecurityContextHolder.clearContext();
       authenticationEntryPoint.commence(
-          request, response, new BadCredentialsException("Expired token.", ex));
+          request, response, new CredentialsExpiredException("Expired token.", ex));
       return;
     } catch (JwtException | IllegalArgumentException ex) {
       SecurityContextHolder.clearContext();

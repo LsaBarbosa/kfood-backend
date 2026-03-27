@@ -30,6 +30,8 @@ app:
   security:
     jwt-secret: ${JWT_SECRET}
     jwt-expiration-seconds: ${JWT_EXPIRATION_SECONDS}
+  web:
+    trust-forwarded-headers: false
 
 management:
   endpoint:

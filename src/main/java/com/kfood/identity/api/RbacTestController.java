@@ -3,6 +3,7 @@ package com.kfood.identity.api;
 import com.kfood.identity.app.AuthenticatedUser;
 import com.kfood.identity.app.Roles;
 import java.util.Map;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,6 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @RestController
 @RequestMapping("/v1/rbac")
+@ConditionalOnProperty(name = "kfood.test-endpoints.enabled", havingValue = "true")
 public class RbacTestController {
 
   @PostMapping("/merchant/store")
