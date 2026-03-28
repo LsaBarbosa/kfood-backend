@@ -2,9 +2,9 @@ package com.kfood.order.app;
 
 import com.kfood.order.api.CancelOrderRequest;
 import com.kfood.order.api.CancelOrderResponse;
+import com.kfood.order.domain.OrderStatusTransitionException;
 import com.kfood.order.infra.persistence.OrderStatusHistory;
 import com.kfood.order.infra.persistence.OrderStatusHistoryRepository;
-import com.kfood.order.infra.persistence.OrderStatusTransitionException;
 import com.kfood.order.infra.persistence.SalesOrderRepository;
 import com.kfood.shared.exceptions.ApiFieldError;
 import com.kfood.shared.exceptions.BusinessException;

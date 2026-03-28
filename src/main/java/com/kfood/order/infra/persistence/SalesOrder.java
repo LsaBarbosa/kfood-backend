@@ -5,6 +5,7 @@ import com.kfood.customer.infra.persistence.CustomerAddress;
 import com.kfood.merchant.infra.persistence.Store;
 import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.domain.OrderStatus;
+import com.kfood.order.domain.OrderStatusTransitionException;
 import com.kfood.payment.domain.PaymentMethod;
 import com.kfood.payment.domain.PaymentStatusSnapshot;
 import com.kfood.shared.infra.persistence.AuditableEntity;

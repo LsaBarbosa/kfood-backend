@@ -1,6 +1,6 @@
 package com.kfood.payment.app;
 
-import com.kfood.payment.infra.persistence.PaymentStatusTransitionException;
+import com.kfood.payment.domain.PaymentStatusTransitionException;
 import com.kfood.payment.infra.persistence.PaymentRepository;
 import com.kfood.shared.exceptions.BusinessException;
 import com.kfood.shared.exceptions.ErrorCode;

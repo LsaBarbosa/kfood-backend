@@ -3,6 +3,7 @@ package com.kfood.payment.infra.persistence;
 import com.kfood.order.infra.persistence.SalesOrder;
 import com.kfood.payment.domain.PaymentMethod;
 import com.kfood.payment.domain.PaymentStatus;
+import com.kfood.payment.domain.PaymentStatusTransitionException;
 import com.kfood.shared.infra.persistence.AuditableEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

@@ -28,6 +28,39 @@ class ArchitectureTest {
   }
 
   @Test
+  void merchantDomainShouldNotDependOnApiOrInfra() {
+    noClasses()
+        .that()
+        .resideInAPackage("com.kfood.merchant.domain..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAnyPackage("..api..", "..infra..")
+        .check(importedClasses);
+  }
+
+  @Test
+  void orderDomainShouldNotDependOnApiOrInfra() {
+    noClasses()
+        .that()
+        .resideInAPackage("com.kfood.order.domain..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAnyPackage("..api..", "..infra..")
+        .check(importedClasses);
+  }
+
+  @Test
+  void paymentDomainShouldNotDependOnApiOrInfra() {
+    noClasses()
+        .that()
+        .resideInAPackage("com.kfood.payment.domain..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAnyPackage("..api..", "..infra..")
+        .check(importedClasses);
+  }
+
+  @Test
   void merchantUserApplicationShouldNotDependOnApi() {
     noClasses()
         .that()
@@ -46,6 +79,17 @@ class ArchitectureTest {
         .should()
         .dependOnClassesThat()
         .resideInAPackage("..infra..")
+        .check(importedClasses);
+  }
+
+  @Test
+  void paymentApplicationShouldNotDependOnApi() {
+    noClasses()
+        .that()
+        .resideInAPackage("com.kfood.payment.app..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage("..api..")
         .check(importedClasses);
   }
 

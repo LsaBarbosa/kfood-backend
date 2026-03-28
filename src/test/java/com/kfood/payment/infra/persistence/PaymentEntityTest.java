@@ -9,6 +9,7 @@ import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.infra.persistence.SalesOrder;
 import com.kfood.payment.domain.PaymentMethod;
 import com.kfood.payment.domain.PaymentStatus;
+import com.kfood.payment.domain.PaymentStatusTransitionException;
 import java.lang.reflect.Constructor;
 import java.math.BigDecimal;
 import java.time.Instant;
