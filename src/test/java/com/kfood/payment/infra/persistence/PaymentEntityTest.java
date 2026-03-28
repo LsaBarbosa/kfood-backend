@@ -117,10 +117,12 @@ class PaymentEntityTest {
   @Test
   void shouldAllowPendingToConfirmedTransition() {
     var payment = Payment.createPendingPix(UUID.randomUUID(), order(), new BigDecimal("57.50"));
+    var confirmedAt = Instant.parse("2026-03-27T16:00:00Z");
 
-    payment.changeStatus(PaymentStatus.CONFIRMED);
+    payment.changeStatus(PaymentStatus.CONFIRMED, confirmedAt);
 
     assertThat(payment.getStatus()).isEqualTo(PaymentStatus.CONFIRMED);
+    assertThat(payment.getConfirmedAt()).isEqualTo(confirmedAt);
   }
 
   @Test
@@ -137,6 +139,30 @@ class PaymentEntityTest {
     assertThat(failed.getStatus()).isEqualTo(PaymentStatus.FAILED);
     assertThat(canceled.getStatus()).isEqualTo(PaymentStatus.CANCELED);
     assertThat(expired.getStatus()).isEqualTo(PaymentStatus.EXPIRED);
+    assertThat(failed.getConfirmedAt()).isNull();
+    assertThat(canceled.getConfirmedAt()).isNull();
+    assertThat(expired.getConfirmedAt()).isNull();
+  }
+
+  @Test
+  void shouldNotOverwriteConfirmedAtWhenAlreadyFilled() {
+    var firstConfirmationAt = Instant.parse("2026-03-27T16:00:00Z");
+    var payment =
+        new Payment(
+            UUID.randomUUID(),
+            order(),
+            PaymentMethod.PIX,
+            "mock",
+            "tx-123",
+            PaymentStatus.CONFIRMED,
+            new BigDecimal("57.50"),
+            "payload",
+            firstConfirmationAt,
+            Instant.parse("2026-03-27T16:30:00Z"));
+
+    payment.changeStatus(PaymentStatus.CONFIRMED, Instant.parse("2026-03-27T17:00:00Z"));
+
+    assertThat(payment.getConfirmedAt()).isEqualTo(firstConfirmationAt);
   }
 
   @Test

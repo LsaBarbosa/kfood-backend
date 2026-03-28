@@ -16,6 +16,9 @@ import com.kfood.payment.infra.persistence.Payment;
 import com.kfood.payment.infra.persistence.PaymentRepository;
 import com.kfood.payment.infra.persistence.PaymentStatusTransitionException;
 import java.math.BigDecimal;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -23,8 +26,10 @@ import org.junit.jupiter.api.Test;
 class UpdatePaymentStatusUseCaseTest {
 
   private final PaymentRepository paymentRepository = mock(PaymentRepository.class);
+  private final Clock clock =
+      Clock.fixed(Instant.parse("2026-03-27T18:00:00Z"), ZoneOffset.UTC);
   private final UpdatePaymentStatusUseCase useCase =
-      new UpdatePaymentStatusUseCase(paymentRepository);
+      new UpdatePaymentStatusUseCase(paymentRepository, clock);
 
   @Test
   void shouldReflectPendingPaymentAsPendingOrderSnapshot() {
@@ -51,6 +56,7 @@ class UpdatePaymentStatusUseCaseTest {
     assertThat(result.paymentStatus()).isEqualTo(PaymentStatus.CONFIRMED);
     assertThat(result.orderPaymentStatusSnapshot()).isEqualTo(PaymentStatusSnapshot.PAID);
     assertThat(payment.getOrder().getPaymentStatusSnapshot()).isEqualTo(PaymentStatusSnapshot.PAID);
+    assertThat(payment.getConfirmedAt()).isEqualTo(Instant.parse("2026-03-27T18:00:00Z"));
   }
 
   @Test
@@ -63,6 +69,7 @@ class UpdatePaymentStatusUseCaseTest {
 
     assertThat(result.paymentStatus()).isEqualTo(PaymentStatus.FAILED);
     assertThat(result.orderPaymentStatusSnapshot()).isEqualTo(PaymentStatusSnapshot.FAILED);
+    assertThat(payment.getConfirmedAt()).isNull();
   }
 
   @Test

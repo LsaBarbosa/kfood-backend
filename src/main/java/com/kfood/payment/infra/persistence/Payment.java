@@ -160,10 +160,17 @@ public class Payment extends AuditableEntity {
   }
 
   public void changeStatus(PaymentStatus targetStatus) {
+    changeStatus(targetStatus, Instant.now());
+  }
+
+  public void changeStatus(PaymentStatus targetStatus, Instant currentTimestamp) {
     if (!canTransitionTo(targetStatus)) {
       throw new PaymentStatusTransitionException(status, targetStatus);
     }
     status = targetStatus;
+    if (targetStatus == PaymentStatus.CONFIRMED && confirmedAt == null) {
+      confirmedAt = Objects.requireNonNull(currentTimestamp, "currentTimestamp must not be null");
+    }
   }
 
   private static BigDecimal normalizeMoney(BigDecimal value) {
