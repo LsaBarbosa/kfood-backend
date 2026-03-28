@@ -32,9 +32,7 @@ class CreatePixChargeUseCaseTest {
 
     when(gatewayRegistry.resolve("mock")).thenReturn(gateway);
     when(gateway.createCharge(any(CreatePixChargeRequest.class)))
-        .thenReturn(
-            new CreatePixChargeResponse(
-                "mock", "charge-123", "pix:payload", expiresAt));
+        .thenReturn(new CreatePixChargeResponse("mock", "charge-123", "pix:payload", expiresAt));
 
     var result = useCase.execute(command);
 
@@ -88,8 +86,7 @@ class CreatePixChargeUseCaseTest {
     when(gatewayRegistry.resolve("mock")).thenReturn(gateway);
     when(gateway.createCharge(any(CreatePixChargeRequest.class))).thenThrow(exception);
 
-    assertThatThrownBy(() -> useCase.execute(command))
-        .isSameAs(exception);
+    assertThatThrownBy(() -> useCase.execute(command)).isSameAs(exception);
   }
 
   @Test

@@ -35,6 +35,7 @@ public class PixChargeGatewayResponseValidator {
   }
 
   private static PaymentGatewayException invalidResponse(String providerCode, String message) {
-    return new PaymentGatewayException(providerCode, PaymentGatewayErrorType.INVALID_REQUEST, message);
+    return new PaymentGatewayException(
+        providerCode, PaymentGatewayErrorType.INVALID_REQUEST, message);
   }
 }

@@ -130,9 +130,7 @@ class OrderPixPaymentControllerWebMvcTest {
     when(createOrderPixPaymentUseCase.execute(any(CreateOrderPixPaymentCommand.class)))
         .thenThrow(
             new PaymentGatewayException(
-                "mock",
-                PaymentGatewayErrorType.PROVIDER_UNAVAILABLE,
-                "Pix provider unavailable"));
+                "mock", PaymentGatewayErrorType.PROVIDER_UNAVAILABLE, "Pix provider unavailable"));
 
     mockMvc
         .perform(

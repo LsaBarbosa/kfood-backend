@@ -23,18 +23,21 @@ import org.junit.jupiter.api.Test;
 class UpdatePaymentStatusUseCaseTest {
 
   private final PaymentRepository paymentRepository = mock(PaymentRepository.class);
-  private final UpdatePaymentStatusUseCase useCase = new UpdatePaymentStatusUseCase(paymentRepository);
+  private final UpdatePaymentStatusUseCase useCase =
+      new UpdatePaymentStatusUseCase(paymentRepository);
 
   @Test
   void shouldReflectPendingPaymentAsPendingOrderSnapshot() {
     var payment = payment(PaymentStatus.PENDING);
     when(paymentRepository.findDetailedById(payment.getId())).thenReturn(Optional.of(payment));
 
-    var result = useCase.execute(new UpdatePaymentStatusCommand(payment.getId(), PaymentStatus.PENDING));
+    var result =
+        useCase.execute(new UpdatePaymentStatusCommand(payment.getId(), PaymentStatus.PENDING));
 
     assertThat(result.paymentStatus()).isEqualTo(PaymentStatus.PENDING);
     assertThat(result.orderPaymentStatusSnapshot()).isEqualTo(PaymentStatusSnapshot.PENDING);
-    assertThat(payment.getOrder().getPaymentStatusSnapshot()).isEqualTo(PaymentStatusSnapshot.PENDING);
+    assertThat(payment.getOrder().getPaymentStatusSnapshot())
+        .isEqualTo(PaymentStatusSnapshot.PENDING);
   }
 
   @Test
@@ -42,7 +45,8 @@ class UpdatePaymentStatusUseCaseTest {
     var payment = payment(PaymentStatus.PENDING);
     when(paymentRepository.findDetailedById(payment.getId())).thenReturn(Optional.of(payment));
 
-    var result = useCase.execute(new UpdatePaymentStatusCommand(payment.getId(), PaymentStatus.CONFIRMED));
+    var result =
+        useCase.execute(new UpdatePaymentStatusCommand(payment.getId(), PaymentStatus.CONFIRMED));
 
     assertThat(result.paymentStatus()).isEqualTo(PaymentStatus.CONFIRMED);
     assertThat(result.orderPaymentStatusSnapshot()).isEqualTo(PaymentStatusSnapshot.PAID);
@@ -54,7 +58,8 @@ class UpdatePaymentStatusUseCaseTest {
     var payment = payment(PaymentStatus.PENDING);
     when(paymentRepository.findDetailedById(payment.getId())).thenReturn(Optional.of(payment));
 
-    var result = useCase.execute(new UpdatePaymentStatusCommand(payment.getId(), PaymentStatus.FAILED));
+    var result =
+        useCase.execute(new UpdatePaymentStatusCommand(payment.getId(), PaymentStatus.FAILED));
 
     assertThat(result.paymentStatus()).isEqualTo(PaymentStatus.FAILED);
     assertThat(result.orderPaymentStatusSnapshot()).isEqualTo(PaymentStatusSnapshot.FAILED);
@@ -86,7 +91,8 @@ class UpdatePaymentStatusUseCaseTest {
 
     assertThatThrownBy(
             () ->
-                useCase.execute(new UpdatePaymentStatusCommand(payment.getId(), PaymentStatus.FAILED)))
+                useCase.execute(
+                    new UpdatePaymentStatusCommand(payment.getId(), PaymentStatus.FAILED)))
         .isInstanceOf(PaymentStatusTransitionException.class)
         .hasMessage("Invalid payment status transition from CONFIRMED to FAILED");
   }
@@ -96,7 +102,9 @@ class UpdatePaymentStatusUseCaseTest {
     var paymentId = UUID.randomUUID();
     when(paymentRepository.findDetailedById(paymentId)).thenReturn(Optional.empty());
 
-    assertThatThrownBy(() -> useCase.execute(new UpdatePaymentStatusCommand(paymentId, PaymentStatus.CONFIRMED)))
+    assertThatThrownBy(
+            () ->
+                useCase.execute(new UpdatePaymentStatusCommand(paymentId, PaymentStatus.CONFIRMED)))
         .isInstanceOf(PaymentNotFoundException.class);
   }
 

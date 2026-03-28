@@ -88,7 +88,7 @@ class OrderDetailControllerWebMvcTest {
         .perform(
             get("/v1/orders/{orderId}", orderId)
                 .header("Authorization", "Bearer " + tokenOf(UserRoleName.ATTENDANT)))
-                .andExpect(status().isOk())
+        .andExpect(status().isOk())
         .andExpect(jsonPath("$.orderNumber").value("PED-20260322-000123"))
         .andExpect(jsonPath("$.status").value("NEW"))
         .andExpect(jsonPath("$.customer.name").value("Lucas Santana"))

@@ -4,10 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.kfood.payment.infra.gateway.MockPixChargeGateway;
-import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
-import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class PixChargeGatewayRegistryTest {
@@ -32,7 +30,8 @@ class PixChargeGatewayRegistryTest {
             throwable -> {
               var ex = (UnsupportedPaymentProviderException) throwable;
               assertThat(ex.getProviderCode()).isEqualTo("pix-sandbox");
-              assertThat(ex.getErrorType()).isEqualTo(PaymentGatewayErrorType.PROVIDER_NOT_SUPPORTED);
+              assertThat(ex.getErrorType())
+                  .isEqualTo(PaymentGatewayErrorType.PROVIDER_NOT_SUPPORTED);
             });
   }
 
@@ -56,7 +55,8 @@ class PixChargeGatewayRegistryTest {
         };
 
     assertThatThrownBy(
-            () -> new PixChargeGatewayRegistry(List.of(new MockPixChargeGateway(), duplicateGateway)))
+            () ->
+                new PixChargeGatewayRegistry(List.of(new MockPixChargeGateway(), duplicateGateway)))
         .isInstanceOf(IllegalStateException.class)
         .hasMessage("Duplicate payment provider registered: mock");
   }

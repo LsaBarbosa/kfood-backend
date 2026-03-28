@@ -17,7 +17,6 @@ import com.kfood.payment.domain.PaymentStatus;
 import com.kfood.payment.infra.persistence.Payment;
 import com.kfood.payment.infra.persistence.PaymentRepository;
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -34,10 +33,12 @@ class CreatePaymentUseCaseTest {
     var order = order();
     var command =
         new CreatePaymentCommand(order.getId(), PaymentMethod.PIX, new BigDecimal("57.50"));
-    var savedPayment = Payment.createPending(UUID.randomUUID(), order, PaymentMethod.PIX, new BigDecimal("57.50"));
+    var savedPayment =
+        Payment.createPending(UUID.randomUUID(), order, PaymentMethod.PIX, new BigDecimal("57.50"));
 
     when(salesOrderRepository.findById(order.getId())).thenReturn(Optional.of(order));
-    when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    when(paymentRepository.save(any(Payment.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
 
     var result = useCase.execute(command);
 
@@ -62,8 +63,7 @@ class CreatePaymentUseCaseTest {
   @Test
   void shouldPersistInitialPendingStatusAmountAndPaymentMethod() {
     var order = order();
-    var command =
-        new CreatePaymentCommand(order.getId(), PaymentMethod.CASH, new BigDecimal("10"));
+    var command = new CreatePaymentCommand(order.getId(), PaymentMethod.CASH, new BigDecimal("10"));
 
     when(salesOrderRepository.findById(order.getId())).thenReturn(Optional.of(order));
     when(paymentRepository.save(any(Payment.class)))

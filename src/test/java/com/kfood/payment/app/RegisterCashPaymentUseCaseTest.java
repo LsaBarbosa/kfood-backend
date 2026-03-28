@@ -34,7 +34,8 @@ class RegisterCashPaymentUseCaseTest {
     var order = order(true);
 
     when(salesOrderRepository.findById(order.getId())).thenReturn(Optional.of(order));
-    when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    when(paymentRepository.save(any(Payment.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
 
     var result = useCase.execute(new RegisterCashPaymentCommand(order.getId()));
 
@@ -75,7 +76,8 @@ class RegisterCashPaymentUseCaseTest {
     var order = order(true);
 
     when(salesOrderRepository.findById(order.getId())).thenReturn(Optional.of(order));
-    when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    when(paymentRepository.save(any(Payment.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
 
     var result = useCase.execute(new RegisterCashPaymentCommand(order.getId()));
 

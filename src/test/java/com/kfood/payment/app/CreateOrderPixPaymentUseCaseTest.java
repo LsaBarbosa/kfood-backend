@@ -55,14 +55,12 @@ class CreateOrderPixPaymentUseCaseTest {
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(order.getStore().getId());
     when(salesOrderRepository.findByIdAndStoreId(order.getId(), order.getStore().getId()))
         .thenReturn(Optional.of(order));
-    when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    when(paymentRepository.save(any(Payment.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
     when(createPixChargeUseCase.execute(any(CreatePixChargeCommand.class)))
         .thenReturn(
             new PixChargeOutput(
-                "mock",
-                "pix-ref-123",
-                "000201mock",
-                OffsetDateTime.parse("2099-01-01T00:30:00Z")));
+                "mock", "pix-ref-123", "000201mock", OffsetDateTime.parse("2099-01-01T00:30:00Z")));
 
     var result = useCase.execute(command);
 
@@ -95,14 +93,12 @@ class CreateOrderPixPaymentUseCaseTest {
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(order.getStore().getId());
     when(salesOrderRepository.findByIdAndStoreId(order.getId(), order.getStore().getId()))
         .thenReturn(Optional.of(order));
-    when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    when(paymentRepository.save(any(Payment.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
     when(createPixChargeUseCase.execute(any(CreatePixChargeCommand.class)))
         .thenReturn(
             new PixChargeOutput(
-                "mock",
-                " ",
-                "000201mock",
-                OffsetDateTime.parse("2099-01-01T00:30:00Z")));
+                "mock", " ", "000201mock", OffsetDateTime.parse("2099-01-01T00:30:00Z")));
 
     assertThatThrownBy(
             () ->
@@ -128,7 +124,8 @@ class CreateOrderPixPaymentUseCaseTest {
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(order.getStore().getId());
     when(salesOrderRepository.findByIdAndStoreId(order.getId(), order.getStore().getId()))
         .thenReturn(Optional.of(order));
-    when(paymentRepository.save(any(Payment.class))).thenAnswer(invocation -> invocation.getArgument(0));
+    when(paymentRepository.save(any(Payment.class)))
+        .thenAnswer(invocation -> invocation.getArgument(0));
     when(createPixChargeUseCase.execute(any(CreatePixChargeCommand.class))).thenThrow(exception);
 
     assertThatThrownBy(

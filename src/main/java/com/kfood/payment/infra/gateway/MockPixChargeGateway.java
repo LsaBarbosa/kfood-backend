@@ -10,7 +10,8 @@ import org.springframework.stereotype.Component;
 public class MockPixChargeGateway implements PixChargeGateway {
 
   public static final String PROVIDER_CODE = "mock";
-  private static final OffsetDateTime DEFAULT_EXPIRATION = OffsetDateTime.parse("2030-01-01T00:30:00Z");
+  private static final OffsetDateTime DEFAULT_EXPIRATION =
+      OffsetDateTime.parse("2030-01-01T00:30:00Z");
 
   @Override
   public String providerCode() {

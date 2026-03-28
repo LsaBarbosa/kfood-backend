@@ -24,7 +24,8 @@ public class PixChargeGatewayRegistry {
     return gateway;
   }
 
-  private static Map<String, PixChargeGateway> indexByProviderCode(List<PixChargeGateway> gateways) {
+  private static Map<String, PixChargeGateway> indexByProviderCode(
+      List<PixChargeGateway> gateways) {
     Map<String, PixChargeGateway> indexed = new LinkedHashMap<>();
     for (var gateway : gateways) {
       var providerCode = normalizeProviderCode(gateway.providerCode());

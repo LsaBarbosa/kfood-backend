@@ -132,7 +132,10 @@ public class Payment extends AuditableEntity {
   }
 
   public void attachPixChargeData(
-      String providerName, String providerReference, String qrCodePayload, OffsetDateTime expiresAt) {
+      String providerName,
+      String providerReference,
+      String qrCodePayload,
+      OffsetDateTime expiresAt) {
     this.providerName = normalizeNullable(providerName);
     this.providerReference = normalizeNullable(providerReference);
     this.qrCodePayload = normalizeNullable(qrCodePayload);
@@ -140,7 +143,8 @@ public class Payment extends AuditableEntity {
   }
 
   public boolean canTransitionTo(PaymentStatus targetStatus) {
-    var validatedTargetStatus = Objects.requireNonNull(targetStatus, "targetStatus must not be null");
+    var validatedTargetStatus =
+        Objects.requireNonNull(targetStatus, "targetStatus must not be null");
     if (status == validatedTargetStatus) {
       return true;
     }

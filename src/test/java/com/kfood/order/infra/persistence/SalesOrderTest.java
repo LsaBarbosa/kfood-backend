@@ -370,7 +370,9 @@ class SalesOrderTest {
     order.markPaymentStatusSnapshot(com.kfood.payment.domain.PaymentStatusSnapshot.PAID);
 
     assertThatThrownBy(
-            () -> order.markPaymentStatusSnapshot(com.kfood.payment.domain.PaymentStatusSnapshot.PENDING))
+            () ->
+                order.markPaymentStatusSnapshot(
+                    com.kfood.payment.domain.PaymentStatusSnapshot.PENDING))
         .isInstanceOf(IllegalStateException.class)
         .hasMessage("paymentStatusSnapshot cannot regress from PAID");
   }
