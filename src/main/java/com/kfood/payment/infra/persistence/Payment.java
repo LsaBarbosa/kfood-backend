@@ -139,6 +139,29 @@ public class Payment extends AuditableEntity {
     this.expiresAt = Objects.requireNonNull(expiresAt, "expiresAt is required").toInstant();
   }
 
+  public boolean canTransitionTo(PaymentStatus targetStatus) {
+    var validatedTargetStatus = Objects.requireNonNull(targetStatus, "targetStatus must not be null");
+    if (status == validatedTargetStatus) {
+      return true;
+    }
+
+    return switch (status) {
+      case PENDING ->
+          validatedTargetStatus == PaymentStatus.CONFIRMED
+              || validatedTargetStatus == PaymentStatus.FAILED
+              || validatedTargetStatus == PaymentStatus.CANCELED
+              || validatedTargetStatus == PaymentStatus.EXPIRED;
+      case CONFIRMED, FAILED, CANCELED, EXPIRED -> false;
+    };
+  }
+
+  public void changeStatus(PaymentStatus targetStatus) {
+    if (!canTransitionTo(targetStatus)) {
+      throw new PaymentStatusTransitionException(status, targetStatus);
+    }
+    status = targetStatus;
+  }
+
   private static BigDecimal normalizeMoney(BigDecimal value) {
     return Objects.requireNonNull(value, "amount is required").setScale(2, RoundingMode.HALF_UP);
   }

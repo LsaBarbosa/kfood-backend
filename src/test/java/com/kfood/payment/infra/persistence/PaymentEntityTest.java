@@ -1,6 +1,7 @@
 package com.kfood.payment.infra.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.kfood.customer.infra.persistence.Customer;
 import com.kfood.merchant.infra.persistence.Store;
@@ -111,6 +112,41 @@ class PaymentEntityTest {
     assertThat(payment.getProviderReference()).isEqualTo("tx-123");
     assertThat(payment.getQrCodePayload()).isEqualTo("copia-e-cola");
     assertThat(payment.getExpiresAt()).isEqualTo(expiresAt.toInstant());
+  }
+
+  @Test
+  void shouldAllowPendingToConfirmedTransition() {
+    var payment = Payment.createPendingPix(UUID.randomUUID(), order(), new BigDecimal("57.50"));
+
+    payment.changeStatus(PaymentStatus.CONFIRMED);
+
+    assertThat(payment.getStatus()).isEqualTo(PaymentStatus.CONFIRMED);
+  }
+
+  @Test
+  void shouldAllowPendingToFailedCanceledAndExpiredTransitions() {
+    var failed = Payment.createPendingPix(UUID.randomUUID(), order(), new BigDecimal("57.50"));
+    failed.changeStatus(PaymentStatus.FAILED);
+
+    var canceled = Payment.createPendingPix(UUID.randomUUID(), order(), new BigDecimal("57.50"));
+    canceled.changeStatus(PaymentStatus.CANCELED);
+
+    var expired = Payment.createPendingPix(UUID.randomUUID(), order(), new BigDecimal("57.50"));
+    expired.changeStatus(PaymentStatus.EXPIRED);
+
+    assertThat(failed.getStatus()).isEqualTo(PaymentStatus.FAILED);
+    assertThat(canceled.getStatus()).isEqualTo(PaymentStatus.CANCELED);
+    assertThat(expired.getStatus()).isEqualTo(PaymentStatus.EXPIRED);
+  }
+
+  @Test
+  void shouldRejectInvalidPaymentStatusRegression() {
+    var payment = Payment.createPendingPix(UUID.randomUUID(), order(), new BigDecimal("57.50"));
+    payment.changeStatus(PaymentStatus.CONFIRMED);
+
+    assertThatThrownBy(() -> payment.changeStatus(PaymentStatus.FAILED))
+        .isInstanceOf(PaymentStatusTransitionException.class)
+        .hasMessage("Invalid payment status transition from CONFIRMED to FAILED");
   }
 
   @Test
