@@ -75,6 +75,7 @@ class OrderControllerWebMvcTest {
         .andExpect(jsonPath("$.items[0].orderNumber").value("PED-20260322-000123"))
         .andExpect(jsonPath("$.items[0].status").value("NEW"))
         .andExpect(jsonPath("$.items[0].paymentStatus").value("PENDING"))
+        .andExpect(jsonPath("$.items[0].paymentStatusSnapshot").value("PENDING"))
         .andExpect(jsonPath("$.items[0].customerName").value("Lucas Santana"))
         .andExpect(jsonPath("$.totalElements").value(1))
         .andExpect(jsonPath("$.sort[0]").value("createdAt,desc"));

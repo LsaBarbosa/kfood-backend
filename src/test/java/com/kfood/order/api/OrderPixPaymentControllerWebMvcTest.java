@@ -79,7 +79,10 @@ class OrderPixPaymentControllerWebMvcTest {
         .andExpect(jsonPath("$.paymentId").value(paymentId.toString()))
         .andExpect(jsonPath("$.orderId").value(orderId.toString()))
         .andExpect(jsonPath("$.paymentMethod").value("PIX"))
+        .andExpect(jsonPath("$.paymentMethodSnapshot").value("PIX"))
         .andExpect(jsonPath("$.status").value("PENDING"))
+        .andExpect(jsonPath("$.technicalPaymentStatus").value("PENDING"))
+        .andExpect(jsonPath("$.paymentStatusSnapshot").value("PENDING"))
         .andExpect(jsonPath("$.providerReference").value("pix-ref-123"))
         .andExpect(jsonPath("$.qrCodePayload").value("000201mock"))
         .andExpect(jsonPath("$.expiresAt").value("2099-01-01T00:30:00Z"));

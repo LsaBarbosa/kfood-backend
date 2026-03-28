@@ -102,6 +102,7 @@ class PublicOrderControllerWebMvcTest {
         .andExpect(jsonPath("$.orderNumber").value("PED-20260326-000123"))
         .andExpect(jsonPath("$.status").value("PREPARING"))
         .andExpect(jsonPath("$.paymentStatus").value("PENDING"))
+        .andExpect(jsonPath("$.paymentStatusSnapshot").value("PENDING"))
         .andExpect(jsonPath("$.fulfillmentType").value("DELIVERY"))
         .andExpect(jsonPath("$.subtotalAmount").value(50.00))
         .andExpect(jsonPath("$.deliveryFeeAmount").value(6.50))

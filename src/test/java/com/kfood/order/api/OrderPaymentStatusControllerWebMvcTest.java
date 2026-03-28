@@ -66,6 +66,7 @@ class OrderPaymentStatusControllerWebMvcTest {
         .andExpect(jsonPath("$.paymentId").value(paymentId.toString()))
         .andExpect(jsonPath("$.orderId").value(orderId.toString()))
         .andExpect(jsonPath("$.paymentStatus").value("CONFIRMED"))
+        .andExpect(jsonPath("$.technicalPaymentStatus").value("CONFIRMED"))
         .andExpect(jsonPath("$.paymentStatusSnapshot").value("PAID"));
   }
 
@@ -87,6 +88,7 @@ class OrderPaymentStatusControllerWebMvcTest {
                 .content("{\"newStatus\":\"FAILED\"}"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.paymentStatus").value("FAILED"))
+        .andExpect(jsonPath("$.technicalPaymentStatus").value("FAILED"))
         .andExpect(jsonPath("$.paymentStatusSnapshot").value("FAILED"));
   }
 
