@@ -4,6 +4,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.kfood.payment.app.gateway.PaymentGatewayErrorType;
+import com.kfood.payment.app.gateway.PaymentGatewayException;
+import com.kfood.payment.app.gateway.UnsupportedPaymentProviderException;
 import com.kfood.shared.tenancy.TenantScopeAccessDeniedException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintViolation;
@@ -180,6 +183,71 @@ class GlobalExceptionHandlerCoverageTest {
     assertThat(response.getBody().code()).isEqualTo("UNEXPECTED_ERROR");
     assertThat(response.getBody().message()).isEqualTo("Request could not be processed.");
     assertThat(response.getBody().details()).isEqualTo(List.of());
+  }
+
+  @Test
+  void shouldMapPaymentProviderUnavailableToStandardizedBadGatewayPayload() {
+    HttpServletRequest request = request("/payments/pix");
+
+    ResponseEntity<ApiErrorResponse> response =
+        handler.handleBusinessException(
+            new PaymentGatewayException(
+                "mock",
+                PaymentGatewayErrorType.PROVIDER_UNAVAILABLE,
+                "Pix provider unavailable."),
+            request);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody().code()).isEqualTo("PAYMENT_PROVIDER_UNAVAILABLE");
+    assertThat(response.getBody().message()).isEqualTo("Pix provider unavailable.");
+  }
+
+  @Test
+  void shouldMapPaymentProviderInvalidResponseToStandardizedBadGatewayPayload() {
+    HttpServletRequest request = request("/payments/pix");
+
+    ResponseEntity<ApiErrorResponse> response =
+        handler.handleBusinessException(
+            new PaymentGatewayException(
+                "mock",
+                PaymentGatewayErrorType.INVALID_REQUEST,
+                "Pix provider returned invalid response."),
+            request);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody().code()).isEqualTo("PAYMENT_PROVIDER_INVALID_RESPONSE");
+    assertThat(response.getBody().message()).isEqualTo("Pix provider returned invalid response.");
+  }
+
+  @Test
+  void shouldMapUnsupportedPaymentProviderToBadRequestPayload() {
+    HttpServletRequest request = request("/payments/pix");
+
+    ResponseEntity<ApiErrorResponse> response =
+        handler.handleBusinessException(new UnsupportedPaymentProviderException("legacy"), request);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody().code()).isEqualTo("PAYMENT_PROVIDER_NOT_SUPPORTED");
+    assertThat(response.getBody().message()).isEqualTo("Payment provider is not supported: legacy");
+  }
+
+  @Test
+  void shouldMapPaymentProviderTimeoutToGatewayTimeoutPayload() {
+    HttpServletRequest request = request("/payments/pix");
+
+    ResponseEntity<ApiErrorResponse> response =
+        handler.handleBusinessException(
+            new PaymentGatewayException(
+                "mock", PaymentGatewayErrorType.TIMEOUT, "Pix provider timed out."),
+            request);
+
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.GATEWAY_TIMEOUT);
+    assertThat(response.getBody()).isNotNull();
+    assertThat(response.getBody().code()).isEqualTo("PAYMENT_PROVIDER_TIMEOUT");
+    assertThat(response.getBody().message()).isEqualTo("Pix provider timed out.");
   }
 
   @Test

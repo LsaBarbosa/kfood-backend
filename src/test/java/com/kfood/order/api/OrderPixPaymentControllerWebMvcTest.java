@@ -150,6 +150,88 @@ class OrderPixPaymentControllerWebMvcTest {
         .andExpect(jsonPath("$.path").value("/v1/orders/" + orderId + "/payments/pix"));
   }
 
+  @Test
+  void shouldReturnStandardizedErrorWhenProviderResponseIsInvalid() throws Exception {
+    var orderId = UUID.randomUUID();
+    when(createOrderPixPaymentUseCase.execute(any(CreateOrderPixPaymentCommand.class)))
+        .thenThrow(
+            new PaymentGatewayException(
+                "mock",
+                PaymentGatewayErrorType.INVALID_REQUEST,
+                "Pix provider returned invalid response"));
+
+    mockMvc
+        .perform(
+            post("/v1/orders/{orderId}/payments/pix", orderId)
+                .header("Authorization", "Bearer " + tokenOf(UserRoleName.ATTENDANT))
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "amount": 57.50,
+                      "provider": "mock"
+                    }
+                    """))
+        .andExpect(status().isBadGateway())
+        .andExpect(jsonPath("$.code").value("PAYMENT_PROVIDER_INVALID_RESPONSE"))
+        .andExpect(jsonPath("$.message").value("Pix provider returned invalid response"))
+        .andExpect(jsonPath("$.path").value("/v1/orders/" + orderId + "/payments/pix"));
+  }
+
+  @Test
+  void shouldReturnStandardizedErrorWhenProviderIsUnsupported() throws Exception {
+    var orderId = UUID.randomUUID();
+    when(createOrderPixPaymentUseCase.execute(any(CreateOrderPixPaymentCommand.class)))
+        .thenThrow(
+            new PaymentGatewayException(
+                "legacy",
+                PaymentGatewayErrorType.PROVIDER_NOT_SUPPORTED,
+                "Payment provider is not supported: legacy"));
+
+    mockMvc
+        .perform(
+            post("/v1/orders/{orderId}/payments/pix", orderId)
+                .header("Authorization", "Bearer " + tokenOf(UserRoleName.ATTENDANT))
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "amount": 57.50,
+                      "provider": "legacy"
+                    }
+                    """))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("PAYMENT_PROVIDER_NOT_SUPPORTED"))
+        .andExpect(jsonPath("$.message").value("Payment provider is not supported: legacy"))
+        .andExpect(jsonPath("$.path").value("/v1/orders/" + orderId + "/payments/pix"));
+  }
+
+  @Test
+  void shouldReturnStandardizedErrorWhenProviderTimesOut() throws Exception {
+    var orderId = UUID.randomUUID();
+    when(createOrderPixPaymentUseCase.execute(any(CreateOrderPixPaymentCommand.class)))
+        .thenThrow(
+            new PaymentGatewayException(
+                "mock", PaymentGatewayErrorType.TIMEOUT, "Pix provider timed out"));
+
+    mockMvc
+        .perform(
+            post("/v1/orders/{orderId}/payments/pix", orderId)
+                .header("Authorization", "Bearer " + tokenOf(UserRoleName.ATTENDANT))
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "amount": 57.50,
+                      "provider": "mock"
+                    }
+                    """))
+        .andExpect(status().isGatewayTimeout())
+        .andExpect(jsonPath("$.code").value("PAYMENT_PROVIDER_TIMEOUT"))
+        .andExpect(jsonPath("$.message").value("Pix provider timed out"))
+        .andExpect(jsonPath("$.path").value("/v1/orders/" + orderId + "/payments/pix"));
+  }
+
   private String tokenOf(UserRoleName role) {
     return tokenOf(role, UUID.randomUUID());
   }
