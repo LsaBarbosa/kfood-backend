@@ -11,11 +11,11 @@ import com.kfood.merchant.infra.persistence.Store;
 import com.kfood.order.app.OrderNotFoundException;
 import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.infra.persistence.SalesOrder;
-import com.kfood.order.infra.persistence.SalesOrderRepository;
+import com.kfood.payment.app.port.PaymentOrderLookupPort;
+import com.kfood.payment.app.port.PaymentPersistencePort;
 import com.kfood.payment.domain.PaymentMethod;
 import com.kfood.payment.domain.PaymentStatus;
 import com.kfood.payment.infra.persistence.Payment;
-import com.kfood.payment.infra.persistence.PaymentRepository;
 import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.UUID;
@@ -23,10 +23,10 @@ import org.junit.jupiter.api.Test;
 
 class CreatePaymentUseCaseTest {
 
-  private final SalesOrderRepository salesOrderRepository = mock(SalesOrderRepository.class);
-  private final PaymentRepository paymentRepository = mock(PaymentRepository.class);
+  private final PaymentOrderLookupPort paymentOrderLookupPort = mock(PaymentOrderLookupPort.class);
+  private final PaymentPersistencePort paymentPersistencePort = mock(PaymentPersistencePort.class);
   private final CreatePaymentUseCase useCase =
-      new CreatePaymentUseCase(salesOrderRepository, paymentRepository);
+      new CreatePaymentUseCase(paymentOrderLookupPort, paymentPersistencePort);
 
   @Test
   void shouldCreatePendingPaymentForExistingOrder() {
@@ -36,8 +36,8 @@ class CreatePaymentUseCaseTest {
     var savedPayment =
         Payment.createPending(UUID.randomUUID(), order, PaymentMethod.PIX, new BigDecimal("57.50"));
 
-    when(salesOrderRepository.findById(order.getId())).thenReturn(Optional.of(order));
-    when(paymentRepository.save(any(Payment.class)))
+    when(paymentOrderLookupPort.findOrderById(order.getId())).thenReturn(Optional.of(order));
+    when(paymentPersistencePort.savePayment(any(Payment.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 
     var result = useCase.execute(command);
@@ -55,7 +55,7 @@ class CreatePaymentUseCaseTest {
     var orderId = UUID.randomUUID();
     var command = new CreatePaymentCommand(orderId, PaymentMethod.CASH, new BigDecimal("10.00"));
 
-    when(salesOrderRepository.findById(orderId)).thenReturn(Optional.empty());
+    when(paymentOrderLookupPort.findOrderById(orderId)).thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> useCase.execute(command)).isInstanceOf(OrderNotFoundException.class);
   }
@@ -65,8 +65,8 @@ class CreatePaymentUseCaseTest {
     var order = order();
     var command = new CreatePaymentCommand(order.getId(), PaymentMethod.CASH, new BigDecimal("10"));
 
-    when(salesOrderRepository.findById(order.getId())).thenReturn(Optional.of(order));
-    when(paymentRepository.save(any(Payment.class)))
+    when(paymentOrderLookupPort.findOrderById(order.getId())).thenReturn(Optional.of(order));
+    when(paymentPersistencePort.savePayment(any(Payment.class)))
         .thenAnswer(
             invocation -> {
               Payment payment = invocation.getArgument(0);

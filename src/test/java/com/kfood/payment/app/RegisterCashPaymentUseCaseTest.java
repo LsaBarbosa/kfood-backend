@@ -11,12 +11,12 @@ import com.kfood.merchant.infra.persistence.Store;
 import com.kfood.order.app.OrderNotFoundException;
 import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.infra.persistence.SalesOrder;
-import com.kfood.order.infra.persistence.SalesOrderRepository;
+import com.kfood.payment.app.port.PaymentOrderLookupPort;
+import com.kfood.payment.app.port.PaymentPersistencePort;
 import com.kfood.payment.domain.PaymentMethod;
 import com.kfood.payment.domain.PaymentStatus;
 import com.kfood.payment.domain.PaymentStatusSnapshot;
 import com.kfood.payment.infra.persistence.Payment;
-import com.kfood.payment.infra.persistence.PaymentRepository;
 import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.UUID;
@@ -24,17 +24,17 @@ import org.junit.jupiter.api.Test;
 
 class RegisterCashPaymentUseCaseTest {
 
-  private final SalesOrderRepository salesOrderRepository = mock(SalesOrderRepository.class);
-  private final PaymentRepository paymentRepository = mock(PaymentRepository.class);
+  private final PaymentOrderLookupPort paymentOrderLookupPort = mock(PaymentOrderLookupPort.class);
+  private final PaymentPersistencePort paymentPersistencePort = mock(PaymentPersistencePort.class);
   private final RegisterCashPaymentUseCase useCase =
-      new RegisterCashPaymentUseCase(salesOrderRepository, paymentRepository);
+      new RegisterCashPaymentUseCase(paymentOrderLookupPort, paymentPersistencePort);
 
   @Test
   void shouldRegisterCashPaymentWhenStoreAllowsIt() {
     var order = order(true);
 
-    when(salesOrderRepository.findById(order.getId())).thenReturn(Optional.of(order));
-    when(paymentRepository.save(any(Payment.class)))
+    when(paymentOrderLookupPort.findOrderById(order.getId())).thenReturn(Optional.of(order));
+    when(paymentPersistencePort.savePayment(any(Payment.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 
     var result = useCase.execute(new RegisterCashPaymentCommand(order.getId()));
@@ -52,7 +52,7 @@ class RegisterCashPaymentUseCaseTest {
   void shouldFailWhenStoreDoesNotAcceptCash() {
     var order = order(false);
 
-    when(salesOrderRepository.findById(order.getId())).thenReturn(Optional.of(order));
+    when(paymentOrderLookupPort.findOrderById(order.getId())).thenReturn(Optional.of(order));
 
     assertThatThrownBy(() -> useCase.execute(new RegisterCashPaymentCommand(order.getId())))
         .isInstanceOf(CashPaymentNotEnabledException.class);
@@ -65,7 +65,7 @@ class RegisterCashPaymentUseCaseTest {
   void shouldFailWhenOrderDoesNotExist() {
     var orderId = UUID.randomUUID();
 
-    when(salesOrderRepository.findById(orderId)).thenReturn(Optional.empty());
+    when(paymentOrderLookupPort.findOrderById(orderId)).thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> useCase.execute(new RegisterCashPaymentCommand(orderId)))
         .isInstanceOf(OrderNotFoundException.class);
@@ -75,8 +75,8 @@ class RegisterCashPaymentUseCaseTest {
   void shouldCreatePendingPaymentLinkedToOrderWithRealTotalAmount() {
     var order = order(true);
 
-    when(salesOrderRepository.findById(order.getId())).thenReturn(Optional.of(order));
-    when(paymentRepository.save(any(Payment.class)))
+    when(paymentOrderLookupPort.findOrderById(order.getId())).thenReturn(Optional.of(order));
+    when(paymentPersistencePort.savePayment(any(Payment.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 
     var result = useCase.execute(new RegisterCashPaymentCommand(order.getId()));

@@ -1,13 +1,13 @@
 package com.kfood.payment.app;
 
 import com.kfood.order.app.OrderNotFoundException;
-import com.kfood.order.infra.persistence.SalesOrderRepository;
+import com.kfood.payment.app.port.PaymentOrderLookupPort;
+import com.kfood.payment.app.port.PaymentPersistencePort;
 import com.kfood.payment.app.gateway.CreatePixChargeResponse;
 import com.kfood.payment.app.gateway.PixChargeGatewayResponseValidator;
 import com.kfood.payment.domain.PaymentMethod;
 import com.kfood.payment.domain.PaymentStatus;
 import com.kfood.payment.infra.persistence.Payment;
-import com.kfood.payment.infra.persistence.PaymentRepository;
 import com.kfood.shared.tenancy.CurrentTenantProvider;
 import java.util.UUID;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -16,28 +16,28 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @ConditionalOnBean({
-  SalesOrderRepository.class,
-  PaymentRepository.class,
+  PaymentOrderLookupPort.class,
+  PaymentPersistencePort.class,
   CurrentTenantProvider.class,
   CreatePixChargeUseCase.class,
   PixChargeGatewayResponseValidator.class
 })
 public class CreateOrderPixPaymentUseCase {
 
-  private final SalesOrderRepository salesOrderRepository;
-  private final PaymentRepository paymentRepository;
+  private final PaymentOrderLookupPort paymentOrderLookupPort;
+  private final PaymentPersistencePort paymentPersistencePort;
   private final CurrentTenantProvider currentTenantProvider;
   private final CreatePixChargeUseCase createPixChargeUseCase;
   private final PixChargeGatewayResponseValidator pixChargeGatewayResponseValidator;
 
   public CreateOrderPixPaymentUseCase(
-      SalesOrderRepository salesOrderRepository,
-      PaymentRepository paymentRepository,
+      PaymentOrderLookupPort paymentOrderLookupPort,
+      PaymentPersistencePort paymentPersistencePort,
       CurrentTenantProvider currentTenantProvider,
       CreatePixChargeUseCase createPixChargeUseCase,
       PixChargeGatewayResponseValidator pixChargeGatewayResponseValidator) {
-    this.salesOrderRepository = salesOrderRepository;
-    this.paymentRepository = paymentRepository;
+    this.paymentOrderLookupPort = paymentOrderLookupPort;
+    this.paymentPersistencePort = paymentPersistencePort;
     this.currentTenantProvider = currentTenantProvider;
     this.createPixChargeUseCase = createPixChargeUseCase;
     this.pixChargeGatewayResponseValidator = pixChargeGatewayResponseValidator;
@@ -47,15 +47,15 @@ public class CreateOrderPixPaymentUseCase {
   public OrderPixPaymentOutput execute(CreateOrderPixPaymentCommand command) {
     var storeId = currentTenantProvider.getRequiredStoreId();
     var order =
-        salesOrderRepository
-            .findByIdAndStoreId(command.orderId(), storeId)
+        paymentOrderLookupPort
+            .findOrderByIdAndStoreId(command.orderId(), storeId)
             .orElseThrow(() -> new OrderNotFoundException(command.orderId()));
 
     order.markPaymentMethodSnapshot(PaymentMethod.PIX);
     order.markPaymentStatusSnapshot(PaymentStatusSnapshotMapper.from(PaymentStatus.PENDING));
 
     var payment =
-        paymentRepository.save(
+        paymentPersistencePort.savePayment(
             Payment.createPendingPix(UUID.randomUUID(), order, command.amount()));
 
     var pixCharge =

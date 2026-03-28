@@ -94,6 +94,20 @@ class ArchitectureTest {
   }
 
   @Test
+  void paymentApplicationShouldNotDependOnConcreteInfraRepositories() {
+    noClasses()
+        .that()
+        .resideInAPackage("com.kfood.payment.app..")
+        .should()
+        .dependOnClassesThat()
+        .haveFullyQualifiedName("com.kfood.payment.infra.persistence.PaymentRepository")
+        .orShould()
+        .dependOnClassesThat()
+        .haveFullyQualifiedName("com.kfood.order.infra.persistence.SalesOrderRepository")
+        .check(importedClasses);
+  }
+
+  @Test
   void paymentGatewayApplicationShouldNotDependOnApiOrInfra() {
     noClasses()
         .that()

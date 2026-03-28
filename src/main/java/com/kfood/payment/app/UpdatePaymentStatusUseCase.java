@@ -1,7 +1,7 @@
 package com.kfood.payment.app;
 
 import com.kfood.payment.domain.PaymentStatusTransitionException;
-import com.kfood.payment.infra.persistence.PaymentRepository;
+import com.kfood.payment.app.port.PaymentPersistencePort;
 import com.kfood.shared.exceptions.BusinessException;
 import com.kfood.shared.exceptions.ErrorCode;
 import com.kfood.shared.tenancy.CurrentTenantProvider;
@@ -13,16 +13,18 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@ConditionalOnBean({PaymentRepository.class, CurrentTenantProvider.class, Clock.class})
+@ConditionalOnBean({PaymentPersistencePort.class, CurrentTenantProvider.class, Clock.class})
 public class UpdatePaymentStatusUseCase {
 
-  private final PaymentRepository paymentRepository;
+  private final PaymentPersistencePort paymentPersistencePort;
   private final CurrentTenantProvider currentTenantProvider;
   private final Clock clock;
 
   public UpdatePaymentStatusUseCase(
-      PaymentRepository paymentRepository, CurrentTenantProvider currentTenantProvider, Clock clock) {
-    this.paymentRepository = paymentRepository;
+      PaymentPersistencePort paymentPersistencePort,
+      CurrentTenantProvider currentTenantProvider,
+      Clock clock) {
+    this.paymentPersistencePort = paymentPersistencePort;
     this.currentTenantProvider = currentTenantProvider;
     this.clock = clock;
   }
@@ -31,8 +33,8 @@ public class UpdatePaymentStatusUseCase {
   public UpdatePaymentStatusOutput execute(UpdatePaymentStatusCommand command) {
     var storeId = currentTenantProvider.getRequiredStoreId();
     var payment =
-        paymentRepository
-            .findDetailedByIdAndOrder_Store_Id(command.paymentId(), storeId)
+        paymentPersistencePort
+            .findPaymentWithOrderByIdAndStoreId(command.paymentId(), storeId)
             .orElseThrow(() -> new PaymentNotFoundException(command.paymentId()));
 
     try {

@@ -9,11 +9,11 @@ import com.kfood.customer.infra.persistence.Customer;
 import com.kfood.merchant.infra.persistence.Store;
 import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.infra.persistence.SalesOrder;
+import com.kfood.payment.app.port.PaymentPersistencePort;
 import com.kfood.payment.domain.PaymentMethod;
 import com.kfood.payment.domain.PaymentStatus;
 import com.kfood.payment.domain.PaymentStatusSnapshot;
 import com.kfood.payment.infra.persistence.Payment;
-import com.kfood.payment.infra.persistence.PaymentRepository;
 import com.kfood.shared.exceptions.BusinessException;
 import com.kfood.shared.exceptions.ErrorCode;
 import com.kfood.shared.tenancy.CurrentTenantProvider;
@@ -27,18 +27,18 @@ import org.junit.jupiter.api.Test;
 
 class UpdatePaymentStatusUseCaseTest {
 
-  private final PaymentRepository paymentRepository = mock(PaymentRepository.class);
+  private final PaymentPersistencePort paymentPersistencePort = mock(PaymentPersistencePort.class);
   private final CurrentTenantProvider currentTenantProvider = mock(CurrentTenantProvider.class);
   private final Clock clock =
       Clock.fixed(Instant.parse("2026-03-27T18:00:00Z"), ZoneOffset.UTC);
   private final UpdatePaymentStatusUseCase useCase =
-      new UpdatePaymentStatusUseCase(paymentRepository, currentTenantProvider, clock);
+      new UpdatePaymentStatusUseCase(paymentPersistencePort, currentTenantProvider, clock);
 
   @Test
   void shouldReflectPendingPaymentAsPendingOrderSnapshot() {
     var payment = payment(PaymentStatus.PENDING);
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(payment.getOrder().getStore().getId());
-    when(paymentRepository.findDetailedByIdAndOrder_Store_Id(
+    when(paymentPersistencePort.findPaymentWithOrderByIdAndStoreId(
             payment.getId(), payment.getOrder().getStore().getId()))
         .thenReturn(Optional.of(payment));
 
@@ -55,7 +55,7 @@ class UpdatePaymentStatusUseCaseTest {
   void shouldReflectConfirmedPaymentAsPaidOrderSnapshot() {
     var payment = payment(PaymentStatus.PENDING);
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(payment.getOrder().getStore().getId());
-    when(paymentRepository.findDetailedByIdAndOrder_Store_Id(
+    when(paymentPersistencePort.findPaymentWithOrderByIdAndStoreId(
             payment.getId(), payment.getOrder().getStore().getId()))
         .thenReturn(Optional.of(payment));
 
@@ -72,7 +72,7 @@ class UpdatePaymentStatusUseCaseTest {
   void shouldReflectFailedPaymentAsFailedOrderSnapshot() {
     var payment = payment(PaymentStatus.PENDING);
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(payment.getOrder().getStore().getId());
-    when(paymentRepository.findDetailedByIdAndOrder_Store_Id(
+    when(paymentPersistencePort.findPaymentWithOrderByIdAndStoreId(
             payment.getId(), payment.getOrder().getStore().getId()))
         .thenReturn(Optional.of(payment));
 
@@ -90,14 +90,14 @@ class UpdatePaymentStatusUseCaseTest {
     var expired = payment(PaymentStatus.PENDING);
     when(currentTenantProvider.getRequiredStoreId())
         .thenReturn(canceled.getOrder().getStore().getId(), expired.getOrder().getStore().getId());
-    when(paymentRepository.findDetailedByIdAndOrder_Store_Id(
+    when(paymentPersistencePort.findPaymentWithOrderByIdAndStoreId(
             canceled.getId(), canceled.getOrder().getStore().getId()))
         .thenReturn(Optional.of(canceled));
 
     var canceledResult =
         useCase.execute(new UpdatePaymentStatusCommand(canceled.getId(), PaymentStatus.CANCELED));
 
-    when(paymentRepository.findDetailedByIdAndOrder_Store_Id(
+    when(paymentPersistencePort.findPaymentWithOrderByIdAndStoreId(
             expired.getId(), expired.getOrder().getStore().getId()))
         .thenReturn(Optional.of(expired));
 
@@ -113,7 +113,7 @@ class UpdatePaymentStatusUseCaseTest {
     var payment = payment(PaymentStatus.PENDING);
     payment.changeStatus(PaymentStatus.CONFIRMED);
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(payment.getOrder().getStore().getId());
-    when(paymentRepository.findDetailedByIdAndOrder_Store_Id(
+    when(paymentPersistencePort.findPaymentWithOrderByIdAndStoreId(
             payment.getId(), payment.getOrder().getStore().getId()))
         .thenReturn(Optional.of(payment));
 
@@ -135,7 +135,7 @@ class UpdatePaymentStatusUseCaseTest {
     var paymentId = UUID.randomUUID();
     var storeId = UUID.randomUUID();
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
-    when(paymentRepository.findDetailedByIdAndOrder_Store_Id(paymentId, storeId))
+    when(paymentPersistencePort.findPaymentWithOrderByIdAndStoreId(paymentId, storeId))
         .thenReturn(Optional.empty());
 
     assertThatThrownBy(

@@ -12,7 +12,8 @@ import com.kfood.merchant.infra.persistence.Store;
 import com.kfood.order.app.OrderNotFoundException;
 import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.infra.persistence.SalesOrder;
-import com.kfood.order.infra.persistence.SalesOrderRepository;
+import com.kfood.payment.app.port.PaymentOrderLookupPort;
+import com.kfood.payment.app.port.PaymentPersistencePort;
 import com.kfood.payment.app.gateway.PaymentGatewayErrorType;
 import com.kfood.payment.app.gateway.PaymentGatewayException;
 import com.kfood.payment.app.gateway.PixChargeGatewayResponseValidator;
@@ -20,7 +21,6 @@ import com.kfood.payment.domain.PaymentMethod;
 import com.kfood.payment.domain.PaymentStatus;
 import com.kfood.payment.domain.PaymentStatusSnapshot;
 import com.kfood.payment.infra.persistence.Payment;
-import com.kfood.payment.infra.persistence.PaymentRepository;
 import com.kfood.shared.tenancy.CurrentTenantProvider;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -31,16 +31,16 @@ import org.mockito.ArgumentCaptor;
 
 class CreateOrderPixPaymentUseCaseTest {
 
-  private final SalesOrderRepository salesOrderRepository = mock(SalesOrderRepository.class);
-  private final PaymentRepository paymentRepository = mock(PaymentRepository.class);
+  private final PaymentOrderLookupPort paymentOrderLookupPort = mock(PaymentOrderLookupPort.class);
+  private final PaymentPersistencePort paymentPersistencePort = mock(PaymentPersistencePort.class);
   private final CurrentTenantProvider currentTenantProvider = mock(CurrentTenantProvider.class);
   private final CreatePixChargeUseCase createPixChargeUseCase = mock(CreatePixChargeUseCase.class);
   private final PixChargeGatewayResponseValidator pixChargeGatewayResponseValidator =
       new PixChargeGatewayResponseValidator();
   private final CreateOrderPixPaymentUseCase useCase =
       new CreateOrderPixPaymentUseCase(
-          salesOrderRepository,
-          paymentRepository,
+          paymentOrderLookupPort,
+          paymentPersistencePort,
           currentTenantProvider,
           createPixChargeUseCase,
           pixChargeGatewayResponseValidator);
@@ -53,9 +53,9 @@ class CreateOrderPixPaymentUseCaseTest {
             order.getId(), new BigDecimal("57.50"), "mock", "idem-123");
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(order.getStore().getId());
-    when(salesOrderRepository.findByIdAndStoreId(order.getId(), order.getStore().getId()))
+    when(paymentOrderLookupPort.findOrderByIdAndStoreId(order.getId(), order.getStore().getId()))
         .thenReturn(Optional.of(order));
-    when(paymentRepository.save(any(Payment.class)))
+    when(paymentPersistencePort.savePayment(any(Payment.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
     when(createPixChargeUseCase.execute(any(CreatePixChargeCommand.class)))
         .thenReturn(
@@ -91,9 +91,9 @@ class CreateOrderPixPaymentUseCaseTest {
     var order = order();
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(order.getStore().getId());
-    when(salesOrderRepository.findByIdAndStoreId(order.getId(), order.getStore().getId()))
+    when(paymentOrderLookupPort.findOrderByIdAndStoreId(order.getId(), order.getStore().getId()))
         .thenReturn(Optional.of(order));
-    when(paymentRepository.save(any(Payment.class)))
+    when(paymentPersistencePort.savePayment(any(Payment.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
     when(createPixChargeUseCase.execute(any(CreatePixChargeCommand.class)))
         .thenReturn(
@@ -122,9 +122,9 @@ class CreateOrderPixPaymentUseCaseTest {
             "mock", PaymentGatewayErrorType.TIMEOUT, "Pix provider timed out");
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(order.getStore().getId());
-    when(salesOrderRepository.findByIdAndStoreId(order.getId(), order.getStore().getId()))
+    when(paymentOrderLookupPort.findOrderByIdAndStoreId(order.getId(), order.getStore().getId()))
         .thenReturn(Optional.of(order));
-    when(paymentRepository.save(any(Payment.class)))
+    when(paymentPersistencePort.savePayment(any(Payment.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
     when(createPixChargeUseCase.execute(any(CreatePixChargeCommand.class))).thenThrow(exception);
 
@@ -142,7 +142,8 @@ class CreateOrderPixPaymentUseCaseTest {
     var orderId = UUID.randomUUID();
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
-    when(salesOrderRepository.findByIdAndStoreId(orderId, storeId)).thenReturn(Optional.empty());
+    when(paymentOrderLookupPort.findOrderByIdAndStoreId(orderId, storeId))
+        .thenReturn(Optional.empty());
 
     assertThatThrownBy(
             () ->
