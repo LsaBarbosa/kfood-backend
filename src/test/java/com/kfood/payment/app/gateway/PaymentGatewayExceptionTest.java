@@ -45,12 +45,12 @@ class PaymentGatewayExceptionTest {
   }
 
   @Test
-  void shouldMapUnavailableProviderToBadGatewayContract() {
+  void shouldMapUnavailableProviderToServiceUnavailableContract() {
     var exception =
         new PaymentGatewayException(
             "mock", PaymentGatewayErrorType.PROVIDER_UNAVAILABLE, "Provider unavailable");
 
     assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.PAYMENT_PROVIDER_UNAVAILABLE);
-    assertThat(exception.getStatus()).isEqualTo(HttpStatus.BAD_GATEWAY);
+    assertThat(exception.getStatus()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
   }
 }

@@ -147,7 +147,7 @@ class OrderPixPaymentControllerWebMvcTest {
                       "provider": "mock"
                     }
                     """))
-        .andExpect(status().isBadGateway())
+        .andExpect(status().isServiceUnavailable())
         .andExpect(jsonPath("$.code").value("PAYMENT_PROVIDER_UNAVAILABLE"))
         .andExpect(jsonPath("$.message").value("Pix provider unavailable"))
         .andExpect(jsonPath("$.path").value("/v1/orders/" + orderId + "/payments/pix"));

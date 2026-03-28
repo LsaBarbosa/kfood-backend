@@ -186,7 +186,7 @@ class GlobalExceptionHandlerCoverageTest {
   }
 
   @Test
-  void shouldMapPaymentProviderUnavailableToStandardizedBadGatewayPayload() {
+  void shouldMapPaymentProviderUnavailableToStandardizedServiceUnavailablePayload() {
     HttpServletRequest request = request("/payments/pix");
 
     ResponseEntity<ApiErrorResponse> response =
@@ -197,7 +197,7 @@ class GlobalExceptionHandlerCoverageTest {
                 "Pix provider unavailable."),
             request);
 
-    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_GATEWAY);
+    assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);
     assertThat(response.getBody()).isNotNull();
     assertThat(response.getBody().code()).isEqualTo("PAYMENT_PROVIDER_UNAVAILABLE");
     assertThat(response.getBody().message()).isEqualTo("Pix provider unavailable.");

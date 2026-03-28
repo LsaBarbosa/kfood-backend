@@ -41,7 +41,8 @@ public class PaymentGatewayException extends BusinessException {
 
   private static HttpStatus mapStatus(PaymentGatewayErrorType errorType) {
     return switch (errorType) {
-      case INVALID_REQUEST, PROVIDER_UNAVAILABLE, UNEXPECTED_ERROR -> HttpStatus.BAD_GATEWAY;
+      case INVALID_REQUEST, UNEXPECTED_ERROR -> HttpStatus.BAD_GATEWAY;
+      case PROVIDER_UNAVAILABLE -> HttpStatus.SERVICE_UNAVAILABLE;
       case PROVIDER_NOT_SUPPORTED -> HttpStatus.BAD_REQUEST;
       case TIMEOUT -> HttpStatus.GATEWAY_TIMEOUT;
     };
