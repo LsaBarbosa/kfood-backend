@@ -348,10 +348,31 @@ class SalesOrderTest {
   void shouldUpdatePaymentStatusSnapshot() {
     var order = createPickupOrder();
 
-    order.markPaymentStatusSnapshot(com.kfood.payment.domain.PaymentStatusSnapshot.CONFIRMED);
+    order.markPaymentStatusSnapshot(com.kfood.payment.domain.PaymentStatusSnapshot.PAID);
 
     assertThat(order.getPaymentStatusSnapshot())
-        .isEqualTo(com.kfood.payment.domain.PaymentStatusSnapshot.CONFIRMED);
+        .isEqualTo(com.kfood.payment.domain.PaymentStatusSnapshot.PAID);
+  }
+
+  @Test
+  void shouldAllowTransitionFromPendingToFailed() {
+    var order = createPickupOrder();
+
+    order.markPaymentStatusSnapshot(com.kfood.payment.domain.PaymentStatusSnapshot.FAILED);
+
+    assertThat(order.getPaymentStatusSnapshot())
+        .isEqualTo(com.kfood.payment.domain.PaymentStatusSnapshot.FAILED);
+  }
+
+  @Test
+  void shouldRejectRegressionFromPaidToPending() {
+    var order = createPickupOrder();
+    order.markPaymentStatusSnapshot(com.kfood.payment.domain.PaymentStatusSnapshot.PAID);
+
+    assertThatThrownBy(
+            () -> order.markPaymentStatusSnapshot(com.kfood.payment.domain.PaymentStatusSnapshot.PENDING))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessage("paymentStatusSnapshot cannot regress from PAID");
   }
 
   @Test

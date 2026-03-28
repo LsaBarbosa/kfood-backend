@@ -288,8 +288,13 @@ public class SalesOrder extends AuditableEntity {
   }
 
   public void markPaymentStatusSnapshot(PaymentStatusSnapshot paymentStatusSnapshot) {
-    this.paymentStatusSnapshot =
+    var validatedPaymentStatusSnapshot =
         Objects.requireNonNull(paymentStatusSnapshot, "paymentStatusSnapshot must not be null");
+    if (this.paymentStatusSnapshot == PaymentStatusSnapshot.PAID
+        && validatedPaymentStatusSnapshot != PaymentStatusSnapshot.PAID) {
+      throw new IllegalStateException("paymentStatusSnapshot cannot regress from PAID");
+    }
+    this.paymentStatusSnapshot = validatedPaymentStatusSnapshot;
   }
 
   public void defineDeliveryAddressSnapshot(CustomerAddress address) {
