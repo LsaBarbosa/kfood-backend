@@ -54,7 +54,7 @@ public class GetOrderDetailUseCase {
             order.getCustomer().getEmail()),
         toAddress(order),
         new OrderDetailResponse.PaymentDetail(
-            order.getPaymentMethod(), order.getPaymentStatusSnapshot()),
+            order.getPaymentMethodSnapshot(), order.getPaymentStatusSnapshot()),
         order.getItems().stream().map(this::toItem).toList());
   }
 

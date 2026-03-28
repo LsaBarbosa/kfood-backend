@@ -5,6 +5,7 @@ import com.kfood.order.infra.persistence.SalesOrderRepository;
 import com.kfood.payment.app.gateway.CreatePixChargeResponse;
 import com.kfood.payment.app.gateway.PixChargeGatewayResponseValidator;
 import com.kfood.payment.domain.PaymentMethod;
+import com.kfood.payment.domain.PaymentStatus;
 import com.kfood.payment.infra.persistence.Payment;
 import com.kfood.payment.infra.persistence.PaymentRepository;
 import com.kfood.shared.tenancy.CurrentTenantProvider;
@@ -51,6 +52,7 @@ public class CreateOrderPixPaymentUseCase {
             .orElseThrow(() -> new OrderNotFoundException(command.orderId()));
 
     order.markPaymentMethodSnapshot(PaymentMethod.PIX);
+    order.markPaymentStatusSnapshot(PaymentStatusSnapshotMapper.from(PaymentStatus.PENDING));
 
     var payment =
         paymentRepository.save(

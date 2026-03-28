@@ -46,8 +46,8 @@ class GetOrderDetailUseCaseTest {
     assertThat(response.id()).isEqualTo(order.getId());
     assertThat(response.orderNumber()).isEqualTo("PED-20260322-000123");
     assertThat(response.status()).isEqualTo(OrderStatus.NEW);
-    assertThat(response.payment().method()).isEqualTo(PaymentMethod.PIX);
-    assertThat(response.payment().status()).isEqualTo(PaymentStatusSnapshot.PENDING);
+    assertThat(response.payment().paymentMethodSnapshot()).isEqualTo(PaymentMethod.PIX);
+    assertThat(response.payment().paymentStatusSnapshot()).isEqualTo(PaymentStatusSnapshot.PENDING);
     assertThat(response.customer().name()).isEqualTo("Lucas Santana");
     assertThat(response.address()).isNotNull();
     assertThat(response.address().street()).isEqualTo("Rua das Flores");

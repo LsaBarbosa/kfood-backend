@@ -14,6 +14,7 @@ import com.kfood.order.infra.persistence.SalesOrder;
 import com.kfood.order.infra.persistence.SalesOrderRepository;
 import com.kfood.payment.domain.PaymentMethod;
 import com.kfood.payment.domain.PaymentStatus;
+import com.kfood.payment.domain.PaymentStatusSnapshot;
 import com.kfood.payment.infra.persistence.Payment;
 import com.kfood.payment.infra.persistence.PaymentRepository;
 import java.math.BigDecimal;
@@ -39,6 +40,7 @@ class RegisterCashPaymentUseCaseTest {
 
     assertThat(order.getPaymentMethodSnapshot()).isEqualTo(PaymentMethod.CASH);
     assertThat(order.getPaymentMethod()).isEqualTo(PaymentMethod.CASH);
+    assertThat(order.getPaymentStatusSnapshot()).isEqualTo(PaymentStatusSnapshot.PENDING);
     assertThat(result.orderId()).isEqualTo(order.getId());
     assertThat(result.paymentMethod()).isEqualTo(PaymentMethod.CASH);
     assertThat(result.status()).isEqualTo(PaymentStatus.PENDING);
@@ -55,6 +57,7 @@ class RegisterCashPaymentUseCaseTest {
         .isInstanceOf(CashPaymentNotEnabledException.class);
 
     assertThat(order.getPaymentMethodSnapshot()).isEqualTo(PaymentMethod.PIX);
+    assertThat(order.getPaymentStatusSnapshot()).isEqualTo(PaymentStatusSnapshot.PENDING);
   }
 
   @Test

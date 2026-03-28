@@ -88,13 +88,13 @@ class OrderDetailControllerWebMvcTest {
         .perform(
             get("/v1/orders/{orderId}", orderId)
                 .header("Authorization", "Bearer " + tokenOf(UserRoleName.ATTENDANT)))
-        .andExpect(status().isOk())
+                .andExpect(status().isOk())
         .andExpect(jsonPath("$.orderNumber").value("PED-20260322-000123"))
         .andExpect(jsonPath("$.status").value("NEW"))
         .andExpect(jsonPath("$.customer.name").value("Lucas Santana"))
         .andExpect(jsonPath("$.address.street").value("Rua das Flores"))
-        .andExpect(jsonPath("$.payment.method").value("PIX"))
-        .andExpect(jsonPath("$.payment.status").value("PENDING"))
+        .andExpect(jsonPath("$.payment.paymentMethodSnapshot").value("PIX"))
+        .andExpect(jsonPath("$.payment.paymentStatusSnapshot").value("PENDING"))
         .andExpect(jsonPath("$.items[0].productNameSnapshot").value("Pizza Calabresa"))
         .andExpect(jsonPath("$.items[0].options[0].optionNameSnapshot").value("Borda Catupiry"));
   }

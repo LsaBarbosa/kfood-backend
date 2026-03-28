@@ -3,6 +3,7 @@ package com.kfood.payment.app;
 import com.kfood.order.app.OrderNotFoundException;
 import com.kfood.order.infra.persistence.SalesOrderRepository;
 import com.kfood.payment.domain.PaymentMethod;
+import com.kfood.payment.domain.PaymentStatus;
 import com.kfood.payment.infra.persistence.Payment;
 import com.kfood.payment.infra.persistence.PaymentRepository;
 import java.util.UUID;
@@ -35,6 +36,7 @@ public class RegisterCashPaymentUseCase {
     }
 
     order.markPaymentMethodSnapshot(PaymentMethod.CASH);
+    order.markPaymentStatusSnapshot(PaymentStatusSnapshotMapper.from(PaymentStatus.PENDING));
 
     var saved =
         paymentRepository.save(

@@ -39,7 +39,8 @@ public record OrderDetailResponse(
       String state,
       String complement) {}
 
-  public record PaymentDetail(PaymentMethod method, PaymentStatusSnapshot status) {}
+  public record PaymentDetail(
+      PaymentMethod paymentMethodSnapshot, PaymentStatusSnapshot paymentStatusSnapshot) {}
 
   public record ItemDetail(
       UUID id,

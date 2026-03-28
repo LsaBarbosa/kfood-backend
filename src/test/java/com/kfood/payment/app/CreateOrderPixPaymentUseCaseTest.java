@@ -18,6 +18,7 @@ import com.kfood.payment.app.gateway.PaymentGatewayException;
 import com.kfood.payment.app.gateway.PixChargeGatewayResponseValidator;
 import com.kfood.payment.domain.PaymentMethod;
 import com.kfood.payment.domain.PaymentStatus;
+import com.kfood.payment.domain.PaymentStatusSnapshot;
 import com.kfood.payment.infra.persistence.Payment;
 import com.kfood.payment.infra.persistence.PaymentRepository;
 import com.kfood.shared.tenancy.CurrentTenantProvider;
@@ -71,6 +72,7 @@ class CreateOrderPixPaymentUseCaseTest {
     var gatewayCommand = gatewayCommandCaptor.getValue();
 
     assertThat(order.getPaymentMethodSnapshot()).isEqualTo(PaymentMethod.PIX);
+    assertThat(order.getPaymentStatusSnapshot()).isEqualTo(PaymentStatusSnapshot.PENDING);
     assertThat(gatewayCommand.providerCode()).isEqualTo("mock");
     assertThat(gatewayCommand.orderId()).isEqualTo(order.getId());
     assertThat(gatewayCommand.amount()).isEqualByComparingTo("57.50");
@@ -112,6 +114,8 @@ class CreateOrderPixPaymentUseCaseTest {
             throwable ->
                 assertThat(((PaymentGatewayException) throwable).getErrorType())
                     .isEqualTo(PaymentGatewayErrorType.INVALID_REQUEST));
+
+    assertThat(order.getPaymentStatusSnapshot()).isEqualTo(PaymentStatusSnapshot.PENDING);
   }
 
   @Test
