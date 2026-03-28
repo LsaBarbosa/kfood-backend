@@ -14,7 +14,9 @@ import com.kfood.payment.domain.PaymentStatus;
 import com.kfood.payment.domain.PaymentStatusSnapshot;
 import com.kfood.payment.infra.persistence.Payment;
 import com.kfood.payment.infra.persistence.PaymentRepository;
-import com.kfood.payment.infra.persistence.PaymentStatusTransitionException;
+import com.kfood.shared.exceptions.BusinessException;
+import com.kfood.shared.exceptions.ErrorCode;
+import com.kfood.shared.tenancy.CurrentTenantProvider;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -26,15 +28,19 @@ import org.junit.jupiter.api.Test;
 class UpdatePaymentStatusUseCaseTest {
 
   private final PaymentRepository paymentRepository = mock(PaymentRepository.class);
+  private final CurrentTenantProvider currentTenantProvider = mock(CurrentTenantProvider.class);
   private final Clock clock =
       Clock.fixed(Instant.parse("2026-03-27T18:00:00Z"), ZoneOffset.UTC);
   private final UpdatePaymentStatusUseCase useCase =
-      new UpdatePaymentStatusUseCase(paymentRepository, clock);
+      new UpdatePaymentStatusUseCase(paymentRepository, currentTenantProvider, clock);
 
   @Test
   void shouldReflectPendingPaymentAsPendingOrderSnapshot() {
     var payment = payment(PaymentStatus.PENDING);
-    when(paymentRepository.findDetailedById(payment.getId())).thenReturn(Optional.of(payment));
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(payment.getOrder().getStore().getId());
+    when(paymentRepository.findDetailedByIdAndOrder_Store_Id(
+            payment.getId(), payment.getOrder().getStore().getId()))
+        .thenReturn(Optional.of(payment));
 
     var result =
         useCase.execute(new UpdatePaymentStatusCommand(payment.getId(), PaymentStatus.PENDING));
@@ -48,7 +54,10 @@ class UpdatePaymentStatusUseCaseTest {
   @Test
   void shouldReflectConfirmedPaymentAsPaidOrderSnapshot() {
     var payment = payment(PaymentStatus.PENDING);
-    when(paymentRepository.findDetailedById(payment.getId())).thenReturn(Optional.of(payment));
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(payment.getOrder().getStore().getId());
+    when(paymentRepository.findDetailedByIdAndOrder_Store_Id(
+            payment.getId(), payment.getOrder().getStore().getId()))
+        .thenReturn(Optional.of(payment));
 
     var result =
         useCase.execute(new UpdatePaymentStatusCommand(payment.getId(), PaymentStatus.CONFIRMED));
@@ -62,7 +71,10 @@ class UpdatePaymentStatusUseCaseTest {
   @Test
   void shouldReflectFailedPaymentAsFailedOrderSnapshot() {
     var payment = payment(PaymentStatus.PENDING);
-    when(paymentRepository.findDetailedById(payment.getId())).thenReturn(Optional.of(payment));
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(payment.getOrder().getStore().getId());
+    when(paymentRepository.findDetailedByIdAndOrder_Store_Id(
+            payment.getId(), payment.getOrder().getStore().getId()))
+        .thenReturn(Optional.of(payment));
 
     var result =
         useCase.execute(new UpdatePaymentStatusCommand(payment.getId(), PaymentStatus.FAILED));
@@ -75,13 +87,19 @@ class UpdatePaymentStatusUseCaseTest {
   @Test
   void shouldReflectCanceledAndExpiredPaymentAsFailedOrderSnapshot() {
     var canceled = payment(PaymentStatus.PENDING);
-    when(paymentRepository.findDetailedById(canceled.getId())).thenReturn(Optional.of(canceled));
+    var expired = payment(PaymentStatus.PENDING);
+    when(currentTenantProvider.getRequiredStoreId())
+        .thenReturn(canceled.getOrder().getStore().getId(), expired.getOrder().getStore().getId());
+    when(paymentRepository.findDetailedByIdAndOrder_Store_Id(
+            canceled.getId(), canceled.getOrder().getStore().getId()))
+        .thenReturn(Optional.of(canceled));
 
     var canceledResult =
         useCase.execute(new UpdatePaymentStatusCommand(canceled.getId(), PaymentStatus.CANCELED));
 
-    var expired = payment(PaymentStatus.PENDING);
-    when(paymentRepository.findDetailedById(expired.getId())).thenReturn(Optional.of(expired));
+    when(paymentRepository.findDetailedByIdAndOrder_Store_Id(
+            expired.getId(), expired.getOrder().getStore().getId()))
+        .thenReturn(Optional.of(expired));
 
     var expiredResult =
         useCase.execute(new UpdatePaymentStatusCommand(expired.getId(), PaymentStatus.EXPIRED));
@@ -94,20 +112,31 @@ class UpdatePaymentStatusUseCaseTest {
   void shouldRejectInvalidPaymentStatusTransition() {
     var payment = payment(PaymentStatus.PENDING);
     payment.changeStatus(PaymentStatus.CONFIRMED);
-    when(paymentRepository.findDetailedById(payment.getId())).thenReturn(Optional.of(payment));
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(payment.getOrder().getStore().getId());
+    when(paymentRepository.findDetailedByIdAndOrder_Store_Id(
+            payment.getId(), payment.getOrder().getStore().getId()))
+        .thenReturn(Optional.of(payment));
 
     assertThatThrownBy(
             () ->
                 useCase.execute(
                     new UpdatePaymentStatusCommand(payment.getId(), PaymentStatus.FAILED)))
-        .isInstanceOf(PaymentStatusTransitionException.class)
-        .hasMessage("Invalid payment status transition from CONFIRMED to FAILED");
+        .isInstanceOf(BusinessException.class)
+        .satisfies(
+            throwable -> {
+              var ex = (BusinessException) throwable;
+              assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.PAYMENT_STATUS_TRANSITION_INVALID);
+              assertThat(ex).hasMessage("Invalid payment status transition from CONFIRMED to FAILED");
+            });
   }
 
   @Test
   void shouldFailWhenPaymentDoesNotExist() {
     var paymentId = UUID.randomUUID();
-    when(paymentRepository.findDetailedById(paymentId)).thenReturn(Optional.empty());
+    var storeId = UUID.randomUUID();
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
+    when(paymentRepository.findDetailedByIdAndOrder_Store_Id(paymentId, storeId))
+        .thenReturn(Optional.empty());
 
     assertThatThrownBy(
             () ->

@@ -10,6 +10,8 @@ import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.domain.OrderStatus;
 import com.kfood.payment.app.CreateOrderPixPaymentCommand;
 import com.kfood.payment.app.CreateOrderPixPaymentUseCase;
+import com.kfood.payment.app.UpdatePaymentStatusCommand;
+import com.kfood.payment.app.UpdatePaymentStatusUseCase;
 import jakarta.validation.Valid;
 import java.time.LocalDate;
 import java.util.UUID;
@@ -40,18 +42,21 @@ public class OrderController {
   private final ObjectProvider<UpdateOrderStatusUseCase> updateOrderStatusUseCaseProvider;
   private final ObjectProvider<CancelOrderUseCase> cancelOrderUseCaseProvider;
   private final ObjectProvider<CreateOrderPixPaymentUseCase> createOrderPixPaymentUseCaseProvider;
+  private final ObjectProvider<UpdatePaymentStatusUseCase> updatePaymentStatusUseCaseProvider;
 
   public OrderController(
       ObjectProvider<ListOrdersUseCase> listOrdersUseCaseProvider,
       ObjectProvider<GetOrderDetailUseCase> getOrderDetailUseCaseProvider,
       ObjectProvider<UpdateOrderStatusUseCase> updateOrderStatusUseCaseProvider,
       ObjectProvider<CancelOrderUseCase> cancelOrderUseCaseProvider,
-      ObjectProvider<CreateOrderPixPaymentUseCase> createOrderPixPaymentUseCaseProvider) {
+      ObjectProvider<CreateOrderPixPaymentUseCase> createOrderPixPaymentUseCaseProvider,
+      ObjectProvider<UpdatePaymentStatusUseCase> updatePaymentStatusUseCaseProvider) {
     this.listOrdersUseCaseProvider = listOrdersUseCaseProvider;
     this.getOrderDetailUseCaseProvider = getOrderDetailUseCaseProvider;
     this.updateOrderStatusUseCaseProvider = updateOrderStatusUseCaseProvider;
     this.cancelOrderUseCaseProvider = cancelOrderUseCaseProvider;
     this.createOrderPixPaymentUseCaseProvider = createOrderPixPaymentUseCaseProvider;
+    this.updatePaymentStatusUseCaseProvider = updatePaymentStatusUseCaseProvider;
   }
 
   @GetMapping
@@ -81,6 +86,21 @@ public class OrderController {
   public UpdateOrderStatusResponse updateStatus(
       @PathVariable UUID orderId, @Valid @RequestBody UpdateOrderStatusRequest request) {
     return updateOrderStatusUseCaseProvider.getObject().execute(orderId, request);
+  }
+
+  @PatchMapping("/payments/{paymentId}/status")
+  @PreAuthorize(Roles.OWNER_OR_MANAGER)
+  public UpdateOrderPaymentStatusResponse updatePaymentStatus(
+      @PathVariable UUID paymentId, @Valid @RequestBody UpdateOrderPaymentStatusRequest request) {
+    var result =
+        updatePaymentStatusUseCaseProvider
+            .getObject()
+            .execute(new UpdatePaymentStatusCommand(paymentId, request.newStatus()));
+    return new UpdateOrderPaymentStatusResponse(
+        result.paymentId(),
+        result.orderId(),
+        result.paymentStatus(),
+        result.orderPaymentStatusSnapshot());
   }
 
   @PostMapping("/{orderId}/cancel")
