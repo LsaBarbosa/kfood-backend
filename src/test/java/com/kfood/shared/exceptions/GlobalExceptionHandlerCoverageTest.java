@@ -192,9 +192,7 @@ class GlobalExceptionHandlerCoverageTest {
     ResponseEntity<ApiErrorResponse> response =
         handler.handleBusinessException(
             new PaymentGatewayException(
-                "mock",
-                PaymentGatewayErrorType.PROVIDER_UNAVAILABLE,
-                "Pix provider unavailable."),
+                "mock", PaymentGatewayErrorType.PROVIDER_UNAVAILABLE, "Pix provider unavailable."),
             request);
 
     assertThat(response.getStatusCode()).isEqualTo(HttpStatus.SERVICE_UNAVAILABLE);

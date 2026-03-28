@@ -51,7 +51,8 @@ class OrderPaymentStatusControllerWebMvcTest {
     var paymentId = UUID.randomUUID();
     var orderId = UUID.randomUUID();
 
-    when(updatePaymentStatusUseCase.execute(eq(new UpdatePaymentStatusCommand(paymentId, PaymentStatus.CONFIRMED))))
+    when(updatePaymentStatusUseCase.execute(
+            eq(new UpdatePaymentStatusCommand(paymentId, PaymentStatus.CONFIRMED))))
         .thenReturn(
             new UpdatePaymentStatusOutput(
                 paymentId, orderId, PaymentStatus.CONFIRMED, PaymentStatusSnapshot.PAID));
@@ -75,7 +76,8 @@ class OrderPaymentStatusControllerWebMvcTest {
     var paymentId = UUID.randomUUID();
     var orderId = UUID.randomUUID();
 
-    when(updatePaymentStatusUseCase.execute(eq(new UpdatePaymentStatusCommand(paymentId, PaymentStatus.FAILED))))
+    when(updatePaymentStatusUseCase.execute(
+            eq(new UpdatePaymentStatusCommand(paymentId, PaymentStatus.FAILED))))
         .thenReturn(
             new UpdatePaymentStatusOutput(
                 paymentId, orderId, PaymentStatus.FAILED, PaymentStatusSnapshot.FAILED));
@@ -111,7 +113,8 @@ class OrderPaymentStatusControllerWebMvcTest {
         .andExpect(status().isConflict())
         .andExpect(jsonPath("$.code").value("PAYMENT_STATUS_TRANSITION_INVALID"))
         .andExpect(
-            jsonPath("$.message").value("Invalid payment status transition from CONFIRMED to FAILED"));
+            jsonPath("$.message")
+                .value("Invalid payment status transition from CONFIRMED to FAILED"));
   }
 
   @Test

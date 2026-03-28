@@ -17,7 +17,8 @@ public class CreatePaymentUseCase {
   private final PaymentPersistencePort paymentPersistencePort;
 
   public CreatePaymentUseCase(
-      PaymentOrderLookupPort paymentOrderLookupPort, PaymentPersistencePort paymentPersistencePort) {
+      PaymentOrderLookupPort paymentOrderLookupPort,
+      PaymentPersistencePort paymentPersistencePort) {
     this.paymentOrderLookupPort = paymentOrderLookupPort;
     this.paymentPersistencePort = paymentPersistencePort;
   }

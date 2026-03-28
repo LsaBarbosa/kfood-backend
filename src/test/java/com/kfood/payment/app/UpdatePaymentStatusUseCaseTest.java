@@ -29,15 +29,15 @@ class UpdatePaymentStatusUseCaseTest {
 
   private final PaymentPersistencePort paymentPersistencePort = mock(PaymentPersistencePort.class);
   private final CurrentTenantProvider currentTenantProvider = mock(CurrentTenantProvider.class);
-  private final Clock clock =
-      Clock.fixed(Instant.parse("2026-03-27T18:00:00Z"), ZoneOffset.UTC);
+  private final Clock clock = Clock.fixed(Instant.parse("2026-03-27T18:00:00Z"), ZoneOffset.UTC);
   private final UpdatePaymentStatusUseCase useCase =
       new UpdatePaymentStatusUseCase(paymentPersistencePort, currentTenantProvider, clock);
 
   @Test
   void shouldReflectPendingPaymentAsPendingOrderSnapshot() {
     var payment = payment(PaymentStatus.PENDING);
-    when(currentTenantProvider.getRequiredStoreId()).thenReturn(payment.getOrder().getStore().getId());
+    when(currentTenantProvider.getRequiredStoreId())
+        .thenReturn(payment.getOrder().getStore().getId());
     when(paymentPersistencePort.findPaymentWithOrderByIdAndStoreId(
             payment.getId(), payment.getOrder().getStore().getId()))
         .thenReturn(Optional.of(payment));
@@ -54,7 +54,8 @@ class UpdatePaymentStatusUseCaseTest {
   @Test
   void shouldReflectConfirmedPaymentAsPaidOrderSnapshot() {
     var payment = payment(PaymentStatus.PENDING);
-    when(currentTenantProvider.getRequiredStoreId()).thenReturn(payment.getOrder().getStore().getId());
+    when(currentTenantProvider.getRequiredStoreId())
+        .thenReturn(payment.getOrder().getStore().getId());
     when(paymentPersistencePort.findPaymentWithOrderByIdAndStoreId(
             payment.getId(), payment.getOrder().getStore().getId()))
         .thenReturn(Optional.of(payment));
@@ -71,7 +72,8 @@ class UpdatePaymentStatusUseCaseTest {
   @Test
   void shouldReflectFailedPaymentAsFailedOrderSnapshot() {
     var payment = payment(PaymentStatus.PENDING);
-    when(currentTenantProvider.getRequiredStoreId()).thenReturn(payment.getOrder().getStore().getId());
+    when(currentTenantProvider.getRequiredStoreId())
+        .thenReturn(payment.getOrder().getStore().getId());
     when(paymentPersistencePort.findPaymentWithOrderByIdAndStoreId(
             payment.getId(), payment.getOrder().getStore().getId()))
         .thenReturn(Optional.of(payment));
@@ -112,7 +114,8 @@ class UpdatePaymentStatusUseCaseTest {
   void shouldRejectInvalidPaymentStatusTransition() {
     var payment = payment(PaymentStatus.PENDING);
     payment.changeStatus(PaymentStatus.CONFIRMED);
-    when(currentTenantProvider.getRequiredStoreId()).thenReturn(payment.getOrder().getStore().getId());
+    when(currentTenantProvider.getRequiredStoreId())
+        .thenReturn(payment.getOrder().getStore().getId());
     when(paymentPersistencePort.findPaymentWithOrderByIdAndStoreId(
             payment.getId(), payment.getOrder().getStore().getId()))
         .thenReturn(Optional.of(payment));
@@ -126,7 +129,8 @@ class UpdatePaymentStatusUseCaseTest {
             throwable -> {
               var ex = (BusinessException) throwable;
               assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.PAYMENT_STATUS_TRANSITION_INVALID);
-              assertThat(ex).hasMessage("Invalid payment status transition from CONFIRMED to FAILED");
+              assertThat(ex)
+                  .hasMessage("Invalid payment status transition from CONFIRMED to FAILED");
             });
   }
 
