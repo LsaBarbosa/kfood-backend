@@ -1,2 +1,0 @@
-Application did not start successfully. Payment status update flow was not dynamically validated.
-Startup cause: Cannot load driver class: org.h2.Driver during bootRun with profile test.
