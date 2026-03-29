@@ -1,0 +1,693 @@
+## README
+# K-Food Backend
+
+Back-end do K-Food, uma plataforma SaaS para pequenos comércios com foco em canal próprio de vendas, operação de pedidos e evolução gradual para um produto multi-tenant.
+
+## Objetivo do projeto
+
+Construir um back-end sólido para suportar:
+
+- onboarding da loja
+- catálogo / cardápio digital
+- checkout
+- pedidos
+- pagamentos
+- eventos internos
+- auditoria e observabilidade
+- operação em produção
+
+A direção arquitetural do projeto é começar com um **monólito modular**, com separação clara entre **domínio**, **aplicação** e **infraestrutura**, preservando simplicidade operacional no MVP e deixando espaço para evolução futura.
+
+---
+
+## Visão do produto
+
+O produto não nasce como marketplace completo no MVP.
+
+A proposta é entregar um **canal próprio de vendas e operação** para pequenos comércios, permitindo:
+
+- vender pelo próprio link
+- organizar melhor os pedidos
+- reduzir dependência de marketplaces
+- manter relacionamento com a base de clientes
+- operar com menor complexidade no início
+
+Segmentos iniciais mais aderentes:
+
+- pizzaria
+- hamburgueria
+- açaí / lanches
+- doceria
+- marmitaria
+
+---
+
+## Escopo atual do projeto
+
+Até este ponto, o projeto cobre a base estrutural necessária para evoluir com segurança, incluindo:
+
+### Sprint 1 — Fundação do projeto
+
+- S1-01: repositório base
+- S1-02: bootstrap do Spring Boot com Java 25 e Gradle Wrapper
+- S1-03: estrutura inicial de pacotes
+- S1-04: dependências base
+- S1-05: endpoint técnico / health básico
+
+### Sprint 2 — DX, qualidade e CI
+
+- S2-01: infraestrutura local com Docker Compose para PostgreSQL, Redis e RabbitMQ
+- S2-02: profiles `local`, `test` e `prod`
+- S2-03: pipeline de build e testes com GitHub Actions
+- S2-04: formatação automática com Spotless
+- S2-05: cobertura com JaCoCo
+
+### Sprint 3 — Base técnica e banco
+
+- S3-01: Flyway com migration baseline
+- S3-02: padrão global de erro
+- S3-03: auditoria base com `createdAt` e `updatedAt`
+- S3-04: integração real com PostgreSQL via Testcontainers
+- S3-05: health / readiness no Actuator
+
+---
+
+## Stack atual
+
+### Base do projeto
+
+- Java 25
+- Spring Boot 4
+- Gradle Wrapper
+- GitHub
+- GitHub Actions
+
+### Dependências principais
+
+- Spring Web
+- Spring Validation
+- Spring Data JPA
+- Spring Security
+- Spring Boot Actuator
+- Flyway
+- PostgreSQL Driver
+
+### Qualidade e testes
+
+- JUnit 5
+- Mockito
+- Testcontainers
+- JaCoCo
+- Spotless
+- ArchUnit
+
+### Infraestrutura local
+
+- PostgreSQL
+- Redis
+- RabbitMQ
+
+---
+
+## Arquitetura alvo
+
+A solução segue a direção de um **monólito modular com evolução orientada a eventos**.
+
+Estrutura sugerida do código:
+
+```text
+com.kfood
+├── shared
+│   ├── config
+│   ├── security
+│   ├── exceptions
+│   ├── tenancy
+│   └── util
+├── <module>
+│   ├── api
+│   ├── application
+│   ├── domain
+│   └── infra
+```
+
+### Separação por camada
+
+- `api`: controllers, requests, responses e DTOs
+- `application`: casos de uso e orquestração
+- `domain`: regras de negócio, entidades e value objects
+- `infra`: persistência, integrações, adapters e configurações técnicas
+
+### Diretrizes arquiteturais
+
+- começar simples sem comprometer qualidade
+- priorizar coesão por módulo de negócio
+- manter separação clara de responsabilidades
+- usar PostgreSQL como fonte transacional principal
+- usar Redis para cache e dados temporários
+- usar RabbitMQ para eventos internos assíncronos
+- preparar a base para multi-tenancy lógico
+
+---
+
+## Estrutura atual esperada do projeto
+
+```text
+.
+├── .editorconfig
+├── .gitattributes
+├── .gitignore
+├── build.gradle
+├── settings.gradle
+├── gradlew
+├── gradlew.bat
+├── docker-compose.yml
+├── README.md
+├── .github
+│   └── workflows
+│       └── ci.yml
+└── src
+    ├── main
+    │   ├── java
+    │   │   └── com/kfood
+    │   │       ├── shared
+    │   │       └── ...
+    │   └── resources
+    │       ├── application.yml
+    │       ├── application-local.yml
+    │       ├── application-test.yml
+    │       ├── application-prod.yml
+    │       └── db
+    │           └── migration
+    └── test
+        └── java
+            └── com/kfood
+```
+
+---
+
+## Pré-requisitos
+
+Antes de rodar o projeto, tenha instalado:
+
+- JDK 25
+- Docker
+- Docker Compose
+- Git
+
+---
+
+## Como subir a infraestrutura local
+
+O projeto usa `docker-compose.yml` para subir dependências locais.
+
+### Subir serviços
+
+```bash
+docker compose up -d
+```
+
+### Verificar status
+
+```bash
+docker compose ps
+```
+
+### Ver logs
+
+```bash
+docker compose logs postgres
+docker compose logs redis
+docker compose logs rabbitmq
+```
+
+### Derrubar serviços
+
+```bash
+docker compose down
+```
+
+### Derrubar serviços e volumes
+
+```bash
+docker compose down -v
+```
+
+---
+
+## Serviços expostos localmente
+
+| Serviço | Porta |
+|---------|-------|
+| PostgreSQL | 5432 |
+| Redis | 6379 |
+| RabbitMQ AMQP | 5672 |
+| RabbitMQ Management | 15672 |
+
+---
+
+## Credenciais locais padrão
+
+### PostgreSQL
+
+- database: `kfood`
+- username: `kfood`
+- password: `kfood`
+
+### RabbitMQ
+
+- username: `kfood`
+- password: `kfood`
+
+Painel do RabbitMQ:
+
+## ArchitectureTest
+package com.kfood.architecture;
+
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+
+import com.tngtech.archunit.base.DescribedPredicate;
+import com.tngtech.archunit.core.domain.JavaClass;
+import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.importer.ClassFileImporter;
+import com.tngtech.archunit.core.importer.ImportOption;
+import org.junit.jupiter.api.Test;
+
+class ArchitectureTest {
+
+  private static final String BASE_PACKAGE = "com.kfood";
+
+  private final JavaClasses importedClasses =
+      new ClassFileImporter()
+          .withImportOption(ImportOption.Predefined.DO_NOT_INCLUDE_TESTS)
+          .importPackages(BASE_PACKAGE);
+
+  private static final DescribedPredicate<JavaClass> APPLICATION_CONTRACT_CLASSES =
+      new DescribedPredicate<>("application contract classes") {
+        @Override
+        public boolean test(JavaClass input) {
+          var name = input.getSimpleName();
+          return input.getPackageName().startsWith("com.kfood.payment.app.port")
+              || input.getPackageName().startsWith("com.kfood.payment.app.gateway")
+              || input.getPackageName().startsWith("com.kfood.order.app.port")
+              || input.getPackageName().startsWith("com.kfood.merchant.app.port")
+              || input.getPackageName().startsWith("com.kfood.merchant.application")
+              || ((input.getPackageName().startsWith("com.kfood.payment.app")
+                      || input.getPackageName().startsWith("com.kfood.order.app")
+                      || input.getPackageName().startsWith("com.kfood.merchant.app"))
+                  && (name.endsWith("Command")
+                      || name.endsWith("Output")
+                      || name.endsWith("Result")
+                      || name.endsWith("Query")));
+        }
+      };
+
+  @Test
+  void domainShouldNotDependOnApiOrInfra() {
+    noClasses()
+        .that()
+        .resideInAPackage("..domain..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAnyPackage("..api..", "..infra..")
+        .check(importedClasses);
+  }
+
+  @Test
+  void applicationLayerShouldNotDependOnHttpApiDtos() {
+    noClasses()
+        .that()
+        .resideInAnyPackage(
+            "com.kfood.payment.app..",
+            "com.kfood.order.app..",
+            "com.kfood.merchant.app..",
+            "com.kfood.merchant.application..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage("..api..")
+        .check(importedClasses);
+  }
+
+  @Test
+  void applicationContractsShouldNotDependOnInfraImplementations() {
+    noClasses()
+        .that(APPLICATION_CONTRACT_CLASSES)
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage("..infra..")
+        .check(importedClasses);
+  }
+
+  @Test
+  void paymentApplicationShouldNotDependOnInfraImplementations() {
+    noClasses()
+        .that()
+        .resideInAPackage("com.kfood.payment.app..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage("..infra..")
+        .check(importedClasses);
+  }
+
+  @Test
+  void orderUseCasesShouldNotDependOnInfraImplementations() {
+    noClasses()
+        .that()
+        .resideInAPackage("com.kfood.order.app..")
+        .and()
+        .haveSimpleNameEndingWith("UseCase")
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage("..infra..")
+        .check(importedClasses);
+  }
+
+  @Test
+  void merchantUseCasesShouldNotDependOnInfraImplementations() {
+    noClasses()
+        .that()
+        .resideInAPackage("com.kfood.merchant.app..")
+        .and()
+        .haveSimpleNameEndingWith("UseCase")
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage("..infra..")
+        .check(importedClasses);
+  }
+
+  @Test
+  void merchantUserApplicationShouldNotDependOnInfraImplementations() {
+    noClasses()
+        .that()
+        .resideInAPackage("com.kfood.merchant.application.user..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage("..infra..")
+        .check(importedClasses);
+  }
+
+  @Test
+  void paymentGatewayApplicationShouldNotDependOnApiOrInfra() {
+    noClasses()
+        .that()
+        .resideInAPackage("com.kfood.payment.app.gateway..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAnyPackage("..api..", "..infra..")
+        .check(importedClasses);
+  }
+
+  @Test
+  void catalogAvailabilityShouldNotDependOnInfra() {
+    noClasses()
+        .that()
+        .resideInAPackage("com.kfood.catalog.app.availability..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage("..infra..")
+        .check(importedClasses);
+  }
+
+  @Test
+  void catalogSelectionShouldNotDependOnInfra() {
+    noClasses()
+        .that()
+        .resideInAPackage("com.kfood.catalog.app.selection..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage("..infra..")
+        .check(importedClasses);
+  }
+}
+
+## payment/order/merchant endpoint and use case symbols
+src/main/java/com/kfood/payment/app/RegisterCashPaymentUseCase.java:15:public class RegisterCashPaymentUseCase {
+src/main/java/com/kfood/payment/app/RegisterCashPaymentUseCase.java:20:  public RegisterCashPaymentUseCase(
+src/main/java/com/kfood/payment/app/CreateOrderPixPaymentCommand.java:6:public record CreateOrderPixPaymentCommand(
+src/main/java/com/kfood/payment/app/OrderPixPaymentOutput.java:8:public record OrderPixPaymentOutput(
+src/main/java/com/kfood/payment/app/port/PaymentPersistencePort.java:13:  default PaymentRecord savePendingPixPayment(
+src/main/java/com/kfood/payment/app/port/PaymentRecord.java:28:  void attachPixChargeData(
+src/main/java/com/kfood/payment/app/CreatePixChargeCommand.java:6:public record CreatePixChargeCommand(
+src/main/java/com/kfood/payment/app/CreateOrderPixPaymentUseCase.java:4:import com.kfood.payment.app.gateway.CreatePixChargeResponse;
+src/main/java/com/kfood/payment/app/CreateOrderPixPaymentUseCase.java:5:import com.kfood.payment.app.gateway.PixChargeGatewayResponseValidator;
+src/main/java/com/kfood/payment/app/CreateOrderPixPaymentUseCase.java:22:  CreatePixChargeUseCase.class,
+src/main/java/com/kfood/payment/app/CreateOrderPixPaymentUseCase.java:23:  PixChargeGatewayResponseValidator.class
+src/main/java/com/kfood/payment/app/CreateOrderPixPaymentUseCase.java:25:public class CreateOrderPixPaymentUseCase {
+src/main/java/com/kfood/payment/app/CreateOrderPixPaymentUseCase.java:30:  private final CreatePixChargeUseCase createPixChargeUseCase;
+src/main/java/com/kfood/payment/app/CreateOrderPixPaymentUseCase.java:31:  private final PixChargeGatewayResponseValidator pixChargeGatewayResponseValidator;
+src/main/java/com/kfood/payment/app/CreateOrderPixPaymentUseCase.java:33:  public CreateOrderPixPaymentUseCase(
+src/main/java/com/kfood/payment/app/CreateOrderPixPaymentUseCase.java:37:      CreatePixChargeUseCase createPixChargeUseCase,
+src/main/java/com/kfood/payment/app/CreateOrderPixPaymentUseCase.java:38:      PixChargeGatewayResponseValidator pixChargeGatewayResponseValidator) {
+src/main/java/com/kfood/payment/app/CreateOrderPixPaymentUseCase.java:42:    this.createPixChargeUseCase = createPixChargeUseCase;
+src/main/java/com/kfood/payment/app/CreateOrderPixPaymentUseCase.java:47:  public OrderPixPaymentOutput execute(CreateOrderPixPaymentCommand command) {
+src/main/java/com/kfood/payment/app/CreateOrderPixPaymentUseCase.java:58:        paymentPersistencePort.savePendingPixPayment(UUID.randomUUID(), order, command.amount());
+src/main/java/com/kfood/payment/app/CreateOrderPixPaymentUseCase.java:61:        createPixChargeUseCase.execute(
+src/main/java/com/kfood/payment/app/CreateOrderPixPaymentUseCase.java:62:            new CreatePixChargeCommand(
+src/main/java/com/kfood/payment/app/CreateOrderPixPaymentUseCase.java:72:        new CreatePixChargeResponse(
+src/main/java/com/kfood/payment/app/CreateOrderPixPaymentUseCase.java:79:    payment.attachPixChargeData(
+src/main/java/com/kfood/payment/app/CreateOrderPixPaymentUseCase.java:85:    return new OrderPixPaymentOutput(
+src/main/java/com/kfood/payment/app/CreateOrderPixPaymentUseCase.java:100:    return "Pix charge for order " + orderReference;
+src/main/java/com/kfood/payment/app/CreatePixChargeUseCase.java:3:import com.kfood.payment.app.gateway.CreatePixChargeRequest;
+src/main/java/com/kfood/payment/app/CreatePixChargeUseCase.java:5:import com.kfood.payment.app.gateway.PaymentGatewayException;
+src/main/java/com/kfood/payment/app/CreatePixChargeUseCase.java:6:import com.kfood.payment.app.gateway.PixChargeGatewayRegistry;
+src/main/java/com/kfood/payment/app/CreatePixChargeUseCase.java:11:@ConditionalOnBean(PixChargeGatewayRegistry.class)
+src/main/java/com/kfood/payment/app/CreatePixChargeUseCase.java:12:public class CreatePixChargeUseCase {
+src/main/java/com/kfood/payment/app/CreatePixChargeUseCase.java:14:  private final PixChargeGatewayRegistry gatewayRegistry;
+src/main/java/com/kfood/payment/app/CreatePixChargeUseCase.java:16:  public CreatePixChargeUseCase(PixChargeGatewayRegistry gatewayRegistry) {
+src/main/java/com/kfood/payment/app/CreatePixChargeUseCase.java:20:  public PixChargeOutput execute(CreatePixChargeCommand command) {
+src/main/java/com/kfood/payment/app/CreatePixChargeUseCase.java:25:              new CreatePixChargeRequest(
+src/main/java/com/kfood/payment/app/CreatePixChargeUseCase.java:33:      return new PixChargeOutput(
+src/main/java/com/kfood/payment/app/CreatePixChargeUseCase.java:38:    } catch (PaymentGatewayException ex) {
+src/main/java/com/kfood/payment/app/CreatePixChargeUseCase.java:41:      throw new PaymentGatewayException(
+src/main/java/com/kfood/payment/app/CreatePixChargeUseCase.java:44:          "Unexpected error while creating Pix charge.",
+src/main/java/com/kfood/payment/app/PixChargeOutput.java:5:public record PixChargeOutput(
+src/main/java/com/kfood/payment/app/gateway/PixChargeGateway.java:3:public interface PixChargeGateway {
+src/main/java/com/kfood/payment/app/gateway/PixChargeGateway.java:7:  CreatePixChargeResponse createCharge(CreatePixChargeRequest request);
+src/main/java/com/kfood/payment/app/gateway/PixChargeGatewayRegistry.java:10:public class PixChargeGatewayRegistry {
+src/main/java/com/kfood/payment/app/gateway/PixChargeGatewayRegistry.java:12:  private final Map<String, PixChargeGateway> gatewaysByProviderCode;
+src/main/java/com/kfood/payment/app/gateway/PixChargeGatewayRegistry.java:14:  public PixChargeGatewayRegistry(List<PixChargeGateway> gateways) {
+src/main/java/com/kfood/payment/app/gateway/PixChargeGatewayRegistry.java:18:  public PixChargeGateway resolve(String providerCode) {
+src/main/java/com/kfood/payment/app/gateway/PixChargeGatewayRegistry.java:27:  private static Map<String, PixChargeGateway> indexByProviderCode(
+src/main/java/com/kfood/payment/app/gateway/PixChargeGatewayRegistry.java:28:      List<PixChargeGateway> gateways) {
+src/main/java/com/kfood/payment/app/gateway/PixChargeGatewayRegistry.java:29:    Map<String, PixChargeGateway> indexed = new LinkedHashMap<>();
+src/main/java/com/kfood/payment/app/gateway/CreatePixChargeResponse.java:5:public record CreatePixChargeResponse(
+src/main/java/com/kfood/payment/app/gateway/PixChargeGatewayResponseValidator.java:7:public class PixChargeGatewayResponseValidator {
+src/main/java/com/kfood/payment/app/gateway/PixChargeGatewayResponseValidator.java:11:  public PixChargeGatewayResponseValidator() {
+src/main/java/com/kfood/payment/app/gateway/PixChargeGatewayResponseValidator.java:15:  PixChargeGatewayResponseValidator(Clock clock) {
+src/main/java/com/kfood/payment/app/gateway/PixChargeGatewayResponseValidator.java:19:  public void ensureValid(String providerCode, CreatePixChargeResponse response) {
+src/main/java/com/kfood/payment/app/gateway/PixChargeGatewayResponseValidator.java:21:      throw invalidResponse(providerCode, "Pix charge response is required.");
+src/main/java/com/kfood/payment/app/gateway/PixChargeGatewayResponseValidator.java:24:      throw invalidResponse(providerCode, "Pix charge response must include provider reference.");
+src/main/java/com/kfood/payment/app/gateway/PixChargeGatewayResponseValidator.java:27:      throw invalidResponse(providerCode, "Pix charge response must include qr code payload.");
+src/main/java/com/kfood/payment/app/gateway/PixChargeGatewayResponseValidator.java:30:      throw invalidResponse(providerCode, "Pix charge response must include expiration.");
+src/main/java/com/kfood/payment/app/gateway/PixChargeGatewayResponseValidator.java:33:      throw invalidResponse(providerCode, "Pix charge response expiration must be in the future.");
+src/main/java/com/kfood/payment/app/gateway/PixChargeGatewayResponseValidator.java:37:  private static PaymentGatewayException invalidResponse(String providerCode, String message) {
+src/main/java/com/kfood/payment/app/gateway/PixChargeGatewayResponseValidator.java:38:    return new PaymentGatewayException(
+src/main/java/com/kfood/payment/app/gateway/PaymentGatewayException.java:7:public class PaymentGatewayException extends BusinessException {
+src/main/java/com/kfood/payment/app/gateway/PaymentGatewayException.java:12:  public PaymentGatewayException(
+src/main/java/com/kfood/payment/app/gateway/PaymentGatewayException.java:19:  public PaymentGatewayException(
+src/main/java/com/kfood/payment/app/gateway/CreatePixChargeRequest.java:6:public record CreatePixChargeRequest(
+src/main/java/com/kfood/payment/app/gateway/UnsupportedPaymentProviderException.java:3:public class UnsupportedPaymentProviderException extends PaymentGatewayException {
+src/main/java/com/kfood/payment/app/UpdatePaymentStatusUseCase.java:17:public class UpdatePaymentStatusUseCase {
+src/main/java/com/kfood/payment/app/UpdatePaymentStatusUseCase.java:23:  public UpdatePaymentStatusUseCase(
+src/main/java/com/kfood/payment/infra/persistence/Payment.java:70:  public static Payment createPendingPix(UUID id, SalesOrder order, BigDecimal amount) {
+src/main/java/com/kfood/payment/infra/persistence/Payment.java:137:  public void attachPixChargeData(
+src/main/java/com/kfood/payment/infra/gateway/MockPixChargeGateway.java:3:import com.kfood.payment.app.gateway.CreatePixChargeRequest;
+src/main/java/com/kfood/payment/infra/gateway/MockPixChargeGateway.java:4:import com.kfood.payment.app.gateway.CreatePixChargeResponse;
+src/main/java/com/kfood/payment/infra/gateway/MockPixChargeGateway.java:5:import com.kfood.payment.app.gateway.PixChargeGateway;
+src/main/java/com/kfood/payment/infra/gateway/MockPixChargeGateway.java:10:public class MockPixChargeGateway implements PixChargeGateway {
+src/main/java/com/kfood/payment/infra/gateway/MockPixChargeGateway.java:22:  public CreatePixChargeResponse createCharge(CreatePixChargeRequest request) {
+src/main/java/com/kfood/payment/infra/gateway/MockPixChargeGateway.java:23:    return new CreatePixChargeResponse(
+src/main/java/com/kfood/order/api/PublicOrderController.java:20:@RequestMapping("/v1/public/stores/{slug}/orders")
+src/main/java/com/kfood/order/api/PublicOrderController.java:33:  @PostMapping
+src/main/java/com/kfood/order/api/PublicOrderController.java:57:  @GetMapping("/{orderNumber}")
+src/main/java/com/kfood/order/api/OrderController.java:14:import com.kfood.payment.app.CreateOrderPixPaymentCommand;
+src/main/java/com/kfood/order/api/OrderController.java:15:import com.kfood.payment.app.CreateOrderPixPaymentUseCase;
+src/main/java/com/kfood/order/api/OrderController.java:17:import com.kfood.payment.app.UpdatePaymentStatusUseCase;
+src/main/java/com/kfood/order/api/OrderController.java:40:@RequestMapping("/v1/orders")
+src/main/java/com/kfood/order/api/OrderController.java:47:  private final ObjectProvider<CreateOrderPixPaymentUseCase> createOrderPixPaymentUseCaseProvider;
+src/main/java/com/kfood/order/api/OrderController.java:48:  private final ObjectProvider<UpdatePaymentStatusUseCase> updatePaymentStatusUseCaseProvider;
+src/main/java/com/kfood/order/api/OrderController.java:55:      ObjectProvider<CreateOrderPixPaymentUseCase> createOrderPixPaymentUseCaseProvider,
+src/main/java/com/kfood/order/api/OrderController.java:56:      ObjectProvider<UpdatePaymentStatusUseCase> updatePaymentStatusUseCaseProvider) {
+src/main/java/com/kfood/order/api/OrderController.java:61:    this.createOrderPixPaymentUseCaseProvider = createOrderPixPaymentUseCaseProvider;
+src/main/java/com/kfood/order/api/OrderController.java:65:  @GetMapping
+src/main/java/com/kfood/order/api/OrderController.java:100:  @GetMapping("/{orderId}")
+src/main/java/com/kfood/order/api/OrderController.java:106:  @PatchMapping("/{orderId}/status")
+src/main/java/com/kfood/order/api/OrderController.java:122:  @PatchMapping("/payments/{paymentId}/status")
+src/main/java/com/kfood/order/api/OrderController.java:137:  @PostMapping("/{orderId}/cancel")
+src/main/java/com/kfood/order/api/OrderController.java:149:  @PostMapping("/{orderId}/payments/pix")
+src/main/java/com/kfood/order/api/OrderController.java:152:  public CreatePixPaymentResponse createPixPayment(
+src/main/java/com/kfood/order/api/OrderController.java:155:      @Valid @RequestBody CreatePixPaymentRequest request) {
+src/main/java/com/kfood/order/api/OrderController.java:157:        createOrderPixPaymentUseCaseProvider
+src/main/java/com/kfood/order/api/OrderController.java:160:                new CreateOrderPixPaymentCommand(
+src/main/java/com/kfood/order/api/OrderController.java:162:    return new CreatePixPaymentResponse(
+src/main/java/com/kfood/order/api/CreatePixPaymentResponse.java:10:public record CreatePixPaymentResponse(
+src/main/java/com/kfood/order/api/CreatePixPaymentRequest.java:8:public record CreatePixPaymentRequest(
+src/main/java/com/kfood/order/app/CreatePublicOrderService.java:15:import com.kfood.payment.app.RegisterCashPaymentUseCase;
+src/main/java/com/kfood/order/app/CreatePublicOrderService.java:48:  private final RegisterCashPaymentUseCase registerCashPaymentUseCase;
+src/main/java/com/kfood/order/app/CreatePublicOrderService.java:62:      RegisterCashPaymentUseCase registerCashPaymentUseCase,
+src/main/java/com/kfood/merchant/api/PublicStoreController.java:20:@RequestMapping("/v1/public/stores")
+src/main/java/com/kfood/merchant/api/PublicStoreController.java:33:  @GetMapping("/{slug}")
+src/main/java/com/kfood/merchant/api/PublicStoreController.java:38:  @GetMapping("/{slug}/menu")
+src/main/java/com/kfood/merchant/api/StoreController.java:31:@RequestMapping("/v1/merchant/store")
+src/main/java/com/kfood/merchant/api/StoreController.java:57:  @PostMapping
+src/main/java/com/kfood/merchant/api/StoreController.java:87:  @PostMapping("/terms-acceptance")
+src/main/java/com/kfood/merchant/api/StoreController.java:103:  @GetMapping
+src/main/java/com/kfood/merchant/api/StoreController.java:109:  @PatchMapping("/status")
+src/main/java/com/kfood/merchant/api/MerchantUserController.java:19:@RequestMapping("/v1/merchant/users")
+src/main/java/com/kfood/merchant/api/MerchantUserController.java:32:  @PostMapping
+src/main/java/com/kfood/merchant/api/MerchantUserController.java:41:  @GetMapping
+src/main/java/com/kfood/merchant/api/StoreHoursController.java:21:@RequestMapping("/v1/merchant/store/hours")
+src/main/java/com/kfood/merchant/api/StoreHoursController.java:52:  @GetMapping
+src/main/java/com/kfood/merchant/api/DeliveryZoneController.java:24:@RequestMapping("/v1/merchant/store/zones")
+src/main/java/com/kfood/merchant/api/DeliveryZoneController.java:40:  @PostMapping
+src/main/java/com/kfood/merchant/api/DeliveryZoneController.java:54:  @GetMapping("/{zoneId}")
+src/main/java/com/kfood/merchant/api/DeliveryZoneController.java:60:  @GetMapping
+src/test/java/com/kfood/payment/app/CreatePixChargeUseCaseTest.java:10:import com.kfood.payment.app.gateway.CreatePixChargeRequest;
+src/test/java/com/kfood/payment/app/CreatePixChargeUseCaseTest.java:11:import com.kfood.payment.app.gateway.CreatePixChargeResponse;
+src/test/java/com/kfood/payment/app/CreatePixChargeUseCaseTest.java:13:import com.kfood.payment.app.gateway.PaymentGatewayException;
+src/test/java/com/kfood/payment/app/CreatePixChargeUseCaseTest.java:14:import com.kfood.payment.app.gateway.PixChargeGateway;
+src/test/java/com/kfood/payment/app/CreatePixChargeUseCaseTest.java:15:import com.kfood.payment.app.gateway.PixChargeGatewayRegistry;
+src/test/java/com/kfood/payment/app/CreatePixChargeUseCaseTest.java:22:class CreatePixChargeUseCaseTest {
+src/test/java/com/kfood/payment/app/CreatePixChargeUseCaseTest.java:24:  private final PixChargeGatewayRegistry gatewayRegistry = mock(PixChargeGatewayRegistry.class);
+src/test/java/com/kfood/payment/app/CreatePixChargeUseCaseTest.java:25:  private final CreatePixChargeUseCase useCase = new CreatePixChargeUseCase(gatewayRegistry);
+src/test/java/com/kfood/payment/app/CreatePixChargeUseCaseTest.java:28:  void shouldResolveProviderViaRegistryAndCreatePixCharge() {
+src/test/java/com/kfood/payment/app/CreatePixChargeUseCaseTest.java:29:    var gateway = mock(PixChargeGateway.class);
+src/test/java/com/kfood/payment/app/CreatePixChargeUseCaseTest.java:34:    when(gateway.createCharge(any(CreatePixChargeRequest.class)))
+src/test/java/com/kfood/payment/app/CreatePixChargeUseCaseTest.java:35:        .thenReturn(new CreatePixChargeResponse("mock", "charge-123", "pix:payload", expiresAt));
+src/test/java/com/kfood/payment/app/CreatePixChargeUseCaseTest.java:39:    ArgumentCaptor<CreatePixChargeRequest> captor =
+src/test/java/com/kfood/payment/app/CreatePixChargeUseCaseTest.java:40:        ArgumentCaptor.forClass(CreatePixChargeRequest.class);
+src/test/java/com/kfood/payment/app/CreatePixChargeUseCaseTest.java:58:    var gateway = mock(PixChargeGateway.class);
+src/test/java/com/kfood/payment/app/CreatePixChargeUseCaseTest.java:62:    when(gateway.createCharge(any(CreatePixChargeRequest.class)))
+src/test/java/com/kfood/payment/app/CreatePixChargeUseCaseTest.java:64:            new CreatePixChargeResponse(
+src/test/java/com/kfood/payment/app/CreatePixChargeUseCaseTest.java:73:    verify(gateway).createCharge(any(CreatePixChargeRequest.class));
+src/test/java/com/kfood/payment/app/CreatePixChargeUseCaseTest.java:80:    var gateway = mock(PixChargeGateway.class);
+src/test/java/com/kfood/payment/app/CreatePixChargeUseCaseTest.java:83:        new PaymentGatewayException(
+src/test/java/com/kfood/payment/app/CreatePixChargeUseCaseTest.java:87:    when(gateway.createCharge(any(CreatePixChargeRequest.class))).thenThrow(exception);
+src/test/java/com/kfood/payment/app/CreatePixChargeUseCaseTest.java:94:    var gateway = mock(PixChargeGateway.class);
+src/test/java/com/kfood/payment/app/CreatePixChargeUseCaseTest.java:99:    when(gateway.createCharge(any(CreatePixChargeRequest.class))).thenThrow(cause);
+src/test/java/com/kfood/payment/app/CreatePixChargeUseCaseTest.java:102:        .isInstanceOf(PaymentGatewayException.class)
+src/test/java/com/kfood/payment/app/CreatePixChargeUseCaseTest.java:105:              var ex = (PaymentGatewayException) throwable;
+src/test/java/com/kfood/payment/app/CreatePixChargeUseCaseTest.java:108:              assertThat(ex).hasMessage("Unexpected error while creating Pix charge.");
+src/test/java/com/kfood/payment/app/CreatePixChargeUseCaseTest.java:113:  private static CreatePixChargeCommand command(String providerCode) {
+src/test/java/com/kfood/payment/app/CreatePixChargeUseCaseTest.java:114:    return new CreatePixChargeCommand(
+src/test/java/com/kfood/payment/app/RegisterCashPaymentUseCaseTest.java:25:class RegisterCashPaymentUseCaseTest {
+src/test/java/com/kfood/payment/app/RegisterCashPaymentUseCaseTest.java:29:  private final RegisterCashPaymentUseCase useCase =
+src/test/java/com/kfood/payment/app/RegisterCashPaymentUseCaseTest.java:30:      new RegisterCashPaymentUseCase(paymentOrderLookupPort, paymentPersistencePort);
+src/test/java/com/kfood/payment/app/gateway/PixChargeGatewayRegistryTest.java:6:import com.kfood.payment.infra.gateway.MockPixChargeGateway;
+src/test/java/com/kfood/payment/app/gateway/PixChargeGatewayRegistryTest.java:11:class PixChargeGatewayRegistryTest {
+src/test/java/com/kfood/payment/app/gateway/PixChargeGatewayRegistryTest.java:15:    var gateway = new MockPixChargeGateway();
+src/test/java/com/kfood/payment/app/gateway/PixChargeGatewayRegistryTest.java:16:    var registry = new PixChargeGatewayRegistry(List.of(gateway));
+src/test/java/com/kfood/payment/app/gateway/PixChargeGatewayRegistryTest.java:25:    var registry = new PixChargeGatewayRegistry(List.of(new MockPixChargeGateway()));
+src/test/java/com/kfood/payment/app/gateway/PixChargeGatewayRegistryTest.java:40:    PixChargeGateway duplicateGateway =
+src/test/java/com/kfood/payment/app/gateway/PixChargeGatewayRegistryTest.java:41:        new PixChargeGateway() {
+src/test/java/com/kfood/payment/app/gateway/PixChargeGatewayRegistryTest.java:44:            return MockPixChargeGateway.PROVIDER_CODE;
+src/test/java/com/kfood/payment/app/gateway/PixChargeGatewayRegistryTest.java:48:          public CreatePixChargeResponse createCharge(CreatePixChargeRequest request) {
+src/test/java/com/kfood/payment/app/gateway/PixChargeGatewayRegistryTest.java:49:            return new CreatePixChargeResponse(
+src/test/java/com/kfood/payment/app/gateway/PixChargeGatewayRegistryTest.java:59:                new PixChargeGatewayRegistry(List.of(new MockPixChargeGateway(), duplicateGateway)))
+src/test/java/com/kfood/payment/app/gateway/PixChargeGatewayResponseValidatorTest.java:13:class PixChargeGatewayResponseValidatorTest {
+src/test/java/com/kfood/payment/app/gateway/PixChargeGatewayResponseValidatorTest.java:15:  private final PixChargeGatewayResponseValidator validator =
+src/test/java/com/kfood/payment/app/gateway/PixChargeGatewayResponseValidatorTest.java:16:      new PixChargeGatewayResponseValidator(
+src/test/java/com/kfood/payment/app/gateway/PixChargeGatewayResponseValidatorTest.java:21:    assertInvalid(null, "Pix charge response is required.");
+src/test/java/com/kfood/payment/app/gateway/PixChargeGatewayResponseValidatorTest.java:27:        new CreatePixChargeResponse("mock", "   ", "pix:payload", futureExpiration()),
+src/test/java/com/kfood/payment/app/gateway/PixChargeGatewayResponseValidatorTest.java:28:        "Pix charge response must include provider reference.");
+src/test/java/com/kfood/payment/app/gateway/PixChargeGatewayResponseValidatorTest.java:34:        new CreatePixChargeResponse("mock", "tx-123", "  ", futureExpiration()),
+src/test/java/com/kfood/payment/app/gateway/PixChargeGatewayResponseValidatorTest.java:35:        "Pix charge response must include qr code payload.");
+src/test/java/com/kfood/payment/app/gateway/PixChargeGatewayResponseValidatorTest.java:41:        new CreatePixChargeResponse("mock", "tx-123", "pix:payload", null),
+src/test/java/com/kfood/payment/app/gateway/PixChargeGatewayResponseValidatorTest.java:42:        "Pix charge response must include expiration.");
+src/test/java/com/kfood/payment/app/gateway/PixChargeGatewayResponseValidatorTest.java:48:        new CreatePixChargeResponse(
+src/test/java/com/kfood/payment/app/gateway/PixChargeGatewayResponseValidatorTest.java:50:        "Pix charge response expiration must be in the future.");
+src/test/java/com/kfood/payment/app/gateway/PixChargeGatewayResponseValidatorTest.java:59:                    new CreatePixChargeResponse(
+src/test/java/com/kfood/payment/app/gateway/PixChargeGatewayResponseValidatorTest.java:64:  private void assertInvalid(CreatePixChargeResponse response, String message) {
+src/test/java/com/kfood/payment/app/gateway/PixChargeGatewayResponseValidatorTest.java:66:        .isInstanceOf(PaymentGatewayException.class)
+src/test/java/com/kfood/payment/app/gateway/PixChargeGatewayResponseValidatorTest.java:69:              var ex = (PaymentGatewayException) throwable;
+src/test/java/com/kfood/payment/app/gateway/PaymentGatewayExceptionTest.java:9:class PaymentGatewayExceptionTest {
+src/test/java/com/kfood/payment/app/gateway/PaymentGatewayExceptionTest.java:15:        new PaymentGatewayException(
+src/test/java/com/kfood/payment/app/gateway/PaymentGatewayExceptionTest.java:40:        new PaymentGatewayException(
+src/test/java/com/kfood/payment/app/gateway/PaymentGatewayExceptionTest.java:50:        new PaymentGatewayException(
+src/test/java/com/kfood/payment/app/UpdatePaymentStatusUseCaseTest.java:28:class UpdatePaymentStatusUseCaseTest {
+src/test/java/com/kfood/payment/app/UpdatePaymentStatusUseCaseTest.java:33:  private final UpdatePaymentStatusUseCase useCase =
+src/test/java/com/kfood/payment/app/UpdatePaymentStatusUseCaseTest.java:34:      new UpdatePaymentStatusUseCase(paymentPersistencePort, currentTenantProvider, clock);
+src/test/java/com/kfood/payment/app/UpdatePaymentStatusUseCaseTest.java:171:    var payment = Payment.createPendingPix(UUID.randomUUID(), order, new BigDecimal("57.50"));
+src/test/java/com/kfood/payment/app/CreateOrderPixPaymentUseCaseTest.java:17:import com.kfood.payment.app.gateway.PaymentGatewayException;
+src/test/java/com/kfood/payment/app/CreateOrderPixPaymentUseCaseTest.java:18:import com.kfood.payment.app.gateway.PixChargeGatewayResponseValidator;
+src/test/java/com/kfood/payment/app/CreateOrderPixPaymentUseCaseTest.java:32:class CreateOrderPixPaymentUseCaseTest {
+src/test/java/com/kfood/payment/app/CreateOrderPixPaymentUseCaseTest.java:37:  private final CreatePixChargeUseCase createPixChargeUseCase = mock(CreatePixChargeUseCase.class);
+src/test/java/com/kfood/payment/app/CreateOrderPixPaymentUseCaseTest.java:38:  private final PixChargeGatewayResponseValidator pixChargeGatewayResponseValidator =
+src/test/java/com/kfood/payment/app/CreateOrderPixPaymentUseCaseTest.java:39:      new PixChargeGatewayResponseValidator();
+src/test/java/com/kfood/payment/app/CreateOrderPixPaymentUseCaseTest.java:40:  private final CreateOrderPixPaymentUseCase useCase =
+src/test/java/com/kfood/payment/app/CreateOrderPixPaymentUseCaseTest.java:41:      new CreateOrderPixPaymentUseCase(
+src/test/java/com/kfood/payment/app/CreateOrderPixPaymentUseCaseTest.java:45:          createPixChargeUseCase,
+src/test/java/com/kfood/payment/app/CreateOrderPixPaymentUseCaseTest.java:49:  void shouldCreatePendingPixPaymentAndReturnExpectedPayload() {
+src/test/java/com/kfood/payment/app/CreateOrderPixPaymentUseCaseTest.java:52:        new CreateOrderPixPaymentCommand(
+src/test/java/com/kfood/payment/app/CreateOrderPixPaymentUseCaseTest.java:58:    when(paymentPersistencePort.savePendingPixPayment(
+src/test/java/com/kfood/payment/app/CreateOrderPixPaymentUseCaseTest.java:62:                com.kfood.payment.infra.persistence.Payment.createPendingPix(
+src/test/java/com/kfood/payment/app/CreateOrderPixPaymentUseCaseTest.java:66:    when(createPixChargeUseCase.execute(any(CreatePixChargeCommand.class)))
+src/test/java/com/kfood/payment/app/CreateOrderPixPaymentUseCaseTest.java:68:            new PixChargeOutput(
+src/test/java/com/kfood/payment/app/CreateOrderPixPaymentUseCaseTest.java:73:    ArgumentCaptor<CreatePixChargeCommand> gatewayCommandCaptor =
+src/test/java/com/kfood/payment/app/CreateOrderPixPaymentUseCaseTest.java:74:        ArgumentCaptor.forClass(CreatePixChargeCommand.class);
+src/test/java/com/kfood/payment/app/CreateOrderPixPaymentUseCaseTest.java:75:    verify(createPixChargeUseCase).execute(gatewayCommandCaptor.capture());
+src/test/java/com/kfood/payment/app/CreateOrderPixPaymentUseCaseTest.java:102:    when(paymentPersistencePort.savePendingPixPayment(
+src/test/java/com/kfood/payment/app/CreateOrderPixPaymentUseCaseTest.java:106:                com.kfood.payment.infra.persistence.Payment.createPendingPix(
+src/test/java/com/kfood/payment/app/CreateOrderPixPaymentUseCaseTest.java:110:    when(createPixChargeUseCase.execute(any(CreatePixChargeCommand.class)))
+src/test/java/com/kfood/payment/app/CreateOrderPixPaymentUseCaseTest.java:112:            new PixChargeOutput(
+src/test/java/com/kfood/payment/app/CreateOrderPixPaymentUseCaseTest.java:118:                    new CreateOrderPixPaymentCommand(
+src/test/java/com/kfood/payment/app/CreateOrderPixPaymentUseCaseTest.java:120:        .isInstanceOf(PaymentGatewayException.class)
+src/test/java/com/kfood/payment/app/CreateOrderPixPaymentUseCaseTest.java:123:                assertThat(((PaymentGatewayException) throwable).getErrorType())
+src/test/java/com/kfood/payment/app/CreateOrderPixPaymentUseCaseTest.java:133:        new PaymentGatewayException(
+src/test/java/com/kfood/payment/app/CreateOrderPixPaymentUseCaseTest.java:134:            "mock", PaymentGatewayErrorType.TIMEOUT, "Pix provider timed out");
+src/test/java/com/kfood/payment/app/CreateOrderPixPaymentUseCaseTest.java:139:    when(paymentPersistencePort.savePendingPixPayment(
+src/test/java/com/kfood/payment/app/CreateOrderPixPaymentUseCaseTest.java:143:                com.kfood.payment.infra.persistence.Payment.createPendingPix(
+src/test/java/com/kfood/payment/app/CreateOrderPixPaymentUseCaseTest.java:147:    when(createPixChargeUseCase.execute(any(CreatePixChargeCommand.class))).thenThrow(exception);
+src/test/java/com/kfood/payment/app/CreateOrderPixPaymentUseCaseTest.java:152:                    new CreateOrderPixPaymentCommand(
+src/test/java/com/kfood/payment/app/CreateOrderPixPaymentUseCaseTest.java:169:                    new CreateOrderPixPaymentCommand(
+src/test/java/com/kfood/payment/infra/persistence/PaymentEntityTest.java:93:  void shouldCreatePendingPixPaymentUsingFactoryMethod() {
+src/test/java/com/kfood/payment/infra/persistence/PaymentEntityTest.java:94:    var payment = Payment.createPendingPix(UUID.randomUUID(), order(), new BigDecimal("57.5"));
+src/test/java/com/kfood/payment/infra/persistence/PaymentEntityTest.java:106:  void shouldAttachPixChargeData() {
+src/test/java/com/kfood/payment/infra/persistence/PaymentEntityTest.java:107:    var payment = Payment.createPendingPix(UUID.randomUUID(), order(), new BigDecimal("57.50"));
+src/test/java/com/kfood/payment/infra/persistence/PaymentEntityTest.java:110:    payment.attachPixChargeData("  mock  ", "  tx-123  ", "  copia-e-cola  ", expiresAt);
+src/test/java/com/kfood/payment/infra/persistence/PaymentEntityTest.java:120:    var payment = Payment.createPendingPix(UUID.randomUUID(), order(), new BigDecimal("57.50"));
+src/test/java/com/kfood/payment/infra/persistence/PaymentEntityTest.java:131:    var failed = Payment.createPendingPix(UUID.randomUUID(), order(), new BigDecimal("57.50"));
+src/test/java/com/kfood/payment/infra/persistence/PaymentEntityTest.java:134:    var canceled = Payment.createPendingPix(UUID.randomUUID(), order(), new BigDecimal("57.50"));
+src/test/java/com/kfood/payment/infra/persistence/PaymentEntityTest.java:137:    var expired = Payment.createPendingPix(UUID.randomUUID(), order(), new BigDecimal("57.50"));
+src/test/java/com/kfood/payment/infra/persistence/PaymentEntityTest.java:171:    var payment = Payment.createPendingPix(UUID.randomUUID(), order(), new BigDecimal("57.50"));
+src/test/java/com/kfood/payment/infra/gateway/MockPixChargeGatewayTest.java:5:import com.kfood.payment.app.gateway.CreatePixChargeRequest;
+src/test/java/com/kfood/payment/infra/gateway/MockPixChargeGatewayTest.java:11:class MockPixChargeGatewayTest {
+src/test/java/com/kfood/payment/infra/gateway/MockPixChargeGatewayTest.java:13:  private final MockPixChargeGateway gateway = new MockPixChargeGateway();
+src/test/java/com/kfood/payment/infra/gateway/MockPixChargeGatewayTest.java:21:  void shouldReturnDeterministicPixChargeResponse() {
+src/test/java/com/kfood/payment/infra/gateway/MockPixChargeGatewayTest.java:25:        new CreatePixChargeRequest(
+src/test/java/com/kfood/order/api/OrderPixPaymentControllerWebMvcTest.java:16:import com.kfood.payment.app.CreateOrderPixPaymentCommand;
+src/test/java/com/kfood/order/api/OrderPixPaymentControllerWebMvcTest.java:17:import com.kfood.payment.app.CreateOrderPixPaymentUseCase;
+src/test/java/com/kfood/order/api/OrderPixPaymentControllerWebMvcTest.java:18:import com.kfood.payment.app.OrderPixPaymentOutput;
+src/test/java/com/kfood/order/api/OrderPixPaymentControllerWebMvcTest.java:20:import com.kfood.payment.app.gateway.PaymentGatewayException;
+src/test/java/com/kfood/order/api/OrderPixPaymentControllerWebMvcTest.java:42:class OrderPixPaymentControllerWebMvcTest {
+src/test/java/com/kfood/order/api/OrderPixPaymentControllerWebMvcTest.java:48:  @MockitoBean private CreateOrderPixPaymentUseCase createOrderPixPaymentUseCase;
+src/test/java/com/kfood/order/api/OrderPixPaymentControllerWebMvcTest.java:51:  void shouldCreatePixPaymentWhenHeaderIsPresent() throws Exception {
+src/test/java/com/kfood/order/api/OrderPixPaymentControllerWebMvcTest.java:54:    when(createOrderPixPaymentUseCase.execute(any(CreateOrderPixPaymentCommand.class)))
+src/test/java/com/kfood/order/api/OrderPixPaymentControllerWebMvcTest.java:56:            new OrderPixPaymentOutput(
+src/test/java/com/kfood/order/api/OrderPixPaymentControllerWebMvcTest.java:90:    ArgumentCaptor<CreateOrderPixPaymentCommand> captor =
+src/test/java/com/kfood/order/api/OrderPixPaymentControllerWebMvcTest.java:91:        ArgumentCaptor.forClass(CreateOrderPixPaymentCommand.class);
+src/test/java/com/kfood/order/api/OrderPixPaymentControllerWebMvcTest.java:92:    verify(createOrderPixPaymentUseCase).execute(captor.capture());
+src/test/java/com/kfood/order/api/OrderPixPaymentControllerWebMvcTest.java:97:  void shouldCreatePixPaymentWhenHeaderIsAbsent() throws Exception {
+src/test/java/com/kfood/order/api/OrderPixPaymentControllerWebMvcTest.java:99:    when(createOrderPixPaymentUseCase.execute(any(CreateOrderPixPaymentCommand.class)))
+src/test/java/com/kfood/order/api/OrderPixPaymentControllerWebMvcTest.java:101:            new OrderPixPaymentOutput(
+src/test/java/com/kfood/order/api/OrderPixPaymentControllerWebMvcTest.java:124:    ArgumentCaptor<CreateOrderPixPaymentCommand> captor =
+src/test/java/com/kfood/order/api/OrderPixPaymentControllerWebMvcTest.java:125:        ArgumentCaptor.forClass(CreateOrderPixPaymentCommand.class);
+src/test/java/com/kfood/order/api/OrderPixPaymentControllerWebMvcTest.java:126:    verify(createOrderPixPaymentUseCase).execute(captor.capture());
+src/test/java/com/kfood/order/api/OrderPixPaymentControllerWebMvcTest.java:133:    when(createOrderPixPaymentUseCase.execute(any(CreateOrderPixPaymentCommand.class)))
+src/test/java/com/kfood/order/api/OrderPixPaymentControllerWebMvcTest.java:135:            new PaymentGatewayException(
+src/test/java/com/kfood/order/api/OrderPixPaymentControllerWebMvcTest.java:136:                "mock", PaymentGatewayErrorType.PROVIDER_UNAVAILABLE, "Pix provider unavailable"));
+src/test/java/com/kfood/order/api/OrderPixPaymentControllerWebMvcTest.java:152:        .andExpect(jsonPath("$.message").value("Pix provider unavailable"))
+src/test/java/com/kfood/order/api/OrderPixPaymentControllerWebMvcTest.java:159:    when(createOrderPixPaymentUseCase.execute(any(CreateOrderPixPaymentCommand.class)))
+src/test/java/com/kfood/order/api/OrderPixPaymentControllerWebMvcTest.java:161:            new PaymentGatewayException(
+src/test/java/com/kfood/order/api/OrderPixPaymentControllerWebMvcTest.java:164:                "Pix provider returned invalid response"));
+src/test/java/com/kfood/order/api/OrderPixPaymentControllerWebMvcTest.java:180:        .andExpect(jsonPath("$.message").value("Pix provider returned invalid response"))
+src/test/java/com/kfood/order/api/OrderPixPaymentControllerWebMvcTest.java:187:    when(createOrderPixPaymentUseCase.execute(any(CreateOrderPixPaymentCommand.class)))
+src/test/java/com/kfood/order/api/OrderPixPaymentControllerWebMvcTest.java:189:            new PaymentGatewayException(
+src/test/java/com/kfood/order/api/OrderPixPaymentControllerWebMvcTest.java:215:    when(createOrderPixPaymentUseCase.execute(any(CreateOrderPixPaymentCommand.class)))
+src/test/java/com/kfood/order/api/OrderPixPaymentControllerWebMvcTest.java:217:            new PaymentGatewayException(
+src/test/java/com/kfood/order/api/OrderPixPaymentControllerWebMvcTest.java:218:                "mock", PaymentGatewayErrorType.TIMEOUT, "Pix provider timed out"));
+src/test/java/com/kfood/order/api/OrderPixPaymentControllerWebMvcTest.java:234:        .andExpect(jsonPath("$.message").value("Pix provider timed out"))
+src/test/java/com/kfood/order/api/OrderPaymentStatusControllerWebMvcTest.java:18:import com.kfood.payment.app.UpdatePaymentStatusUseCase;
+src/test/java/com/kfood/order/api/OrderPaymentStatusControllerWebMvcTest.java:47:  @MockitoBean private UpdatePaymentStatusUseCase updatePaymentStatusUseCase;
+src/test/java/com/kfood/order/app/CreatePublicOrderServiceTest.java:28:import com.kfood.payment.app.RegisterCashPaymentUseCase;
+src/test/java/com/kfood/order/app/CreatePublicOrderServiceTest.java:157:    var registerCashPaymentUseCase = mock(RegisterCashPaymentUseCase.class);
+src/test/java/com/kfood/order/app/CreatePublicOrderServiceTest.java:241:    var registerCashPaymentUseCase = mock(RegisterCashPaymentUseCase.class);

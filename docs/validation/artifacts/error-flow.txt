@@ -1,0 +1,2 @@
+Application did not start successfully. PSP error flow was not dynamically validated.
+Startup cause: Cannot load driver class: org.h2.Driver during bootRun with profile test.
