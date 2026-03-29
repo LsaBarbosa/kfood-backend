@@ -1,8 +1,8 @@
 package com.kfood.order.app;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.kfood.checkout.app.CheckoutQuoteSnapshot;
 import com.kfood.order.app.port.OrderCheckoutValidationPort;

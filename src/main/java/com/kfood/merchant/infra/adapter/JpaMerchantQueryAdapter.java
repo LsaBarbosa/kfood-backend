@@ -148,9 +148,10 @@ public class JpaMerchantQueryAdapter implements MerchantQueryPort {
               ignored ->
                   new PublicStoreMenuCategoryAccumulator(category.getId(), category.getName()))
           .products()
-          .add(PublicStoreMapper.toMenuProductOutput(
-              toPublicMenuProductView(
-                  product, optionGroupsByProductId.getOrDefault(product.getId(), List.of()))));
+          .add(
+              PublicStoreMapper.toMenuProductOutput(
+                  toPublicMenuProductView(
+                      product, optionGroupsByProductId.getOrDefault(product.getId(), List.of()))));
     }
 
     return new PublicStoreMenuOutput(

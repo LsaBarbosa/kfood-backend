@@ -4,7 +4,8 @@ public final class StoreTermsAcceptanceMapper {
 
   private StoreTermsAcceptanceMapper() {}
 
-  public static StoreTermsAcceptanceOutput toOutput(MerchantViews.StoreTermsAcceptanceView acceptance) {
+  public static StoreTermsAcceptanceOutput toOutput(
+      MerchantViews.StoreTermsAcceptanceView acceptance) {
     return new StoreTermsAcceptanceOutput(
         acceptance.id(),
         acceptance.documentType(),

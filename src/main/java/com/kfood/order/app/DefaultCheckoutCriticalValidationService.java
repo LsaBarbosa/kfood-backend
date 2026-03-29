@@ -19,9 +19,7 @@ public class DefaultCheckoutCriticalValidationService implements CheckoutCritica
   @Override
   public void revalidate(UUID storeId, CheckoutQuoteSnapshot quoteSnapshot) {
     var orderCheckoutValidationPort =
-        orderCheckoutValidationPortProvider.getIfAvailable(
-            () ->
-                null);
+        orderCheckoutValidationPortProvider.getIfAvailable(() -> null);
     if (orderCheckoutValidationPort == null) {
       throw new IllegalStateException("OrderCheckoutValidationPort is not available.");
     }

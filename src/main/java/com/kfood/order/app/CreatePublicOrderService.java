@@ -11,10 +11,10 @@ import com.kfood.payment.domain.PaymentMethod;
 import com.kfood.shared.exceptions.BusinessException;
 import com.kfood.shared.exceptions.ErrorCode;
 import com.kfood.shared.idempotency.IdempotencyService;
-import org.springframework.beans.factory.ObjectProvider;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.util.UUID;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.http.HttpStatus;
@@ -139,7 +139,8 @@ public class CreatePublicOrderService {
     return createdOrder;
   }
 
-  private void validateRequestMatchesQuote(CreatePublicOrderCommand command, CheckoutQuoteSnapshot quote) {
+  private void validateRequestMatchesQuote(
+      CreatePublicOrderCommand command, CheckoutQuoteSnapshot quote) {
     if (!quote.customerId().equals(command.customerId())) {
       throw new BusinessException(
           ErrorCode.VALIDATION_ERROR,
