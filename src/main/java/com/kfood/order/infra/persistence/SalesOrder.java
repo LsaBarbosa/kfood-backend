@@ -5,6 +5,7 @@ import com.kfood.customer.infra.persistence.CustomerAddress;
 import com.kfood.merchant.infra.persistence.Store;
 import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.domain.OrderStatus;
+import com.kfood.order.app.port.OrderNumberTarget;
 import com.kfood.order.domain.OrderStatusTransitionException;
 import com.kfood.payment.app.port.PaymentOrder;
 import com.kfood.payment.domain.PaymentMethod;
@@ -34,7 +35,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "sales_order")
-public class SalesOrder extends AuditableEntity implements PaymentOrder {
+public class SalesOrder extends AuditableEntity implements PaymentOrder, OrderNumberTarget {
 
   @Id private UUID id;
 
@@ -193,6 +194,11 @@ public class SalesOrder extends AuditableEntity implements PaymentOrder {
 
   public String getOrderNumber() {
     return orderNumber;
+  }
+
+  @Override
+  public String getStoreTimezone() {
+    return store == null ? null : store.getTimezone();
   }
 
   public OrderStatus getStatus() {

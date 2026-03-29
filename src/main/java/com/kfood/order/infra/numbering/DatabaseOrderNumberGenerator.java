@@ -1,7 +1,7 @@
 package com.kfood.order.infra.numbering;
 
 import com.kfood.order.app.OrderNumberGenerator;
-import com.kfood.order.infra.persistence.SalesOrder;
+import com.kfood.order.app.port.OrderNumberTarget;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import java.time.Clock;
@@ -31,7 +31,7 @@ public class DatabaseOrderNumberGenerator implements OrderNumberGenerator {
   }
 
   @Override
-  public String next(SalesOrder order) {
+  public String next(OrderNumberTarget order) {
     var sequenceValue =
         ((Number)
                 entityManager
@@ -44,8 +44,8 @@ public class DatabaseOrderNumberGenerator implements OrderNumberGenerator {
     return PREFIX + "-" + datePart + "-" + sequencePart;
   }
 
-  private ZoneId resolveZone(SalesOrder order) {
-    var timezone = order.getStore().getTimezone();
+  private ZoneId resolveZone(OrderNumberTarget order) {
+    var timezone = order.getStoreTimezone();
     if (timezone == null || timezone.isBlank()) {
       return ZoneId.of("America/Sao_Paulo");
     }

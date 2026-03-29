@@ -90,8 +90,6 @@ class ArchitectureTest {
     noClasses()
         .that()
         .resideInAPackage("com.kfood.order.app..")
-        .and()
-        .haveSimpleNameEndingWith("UseCase")
         .should()
         .dependOnClassesThat()
         .resideInAPackage("..infra..")
