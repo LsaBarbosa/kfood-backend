@@ -1,52 +1,26 @@
 package com.kfood.order.app;
 
-import com.kfood.merchant.app.StoreSlugNotFoundException;
-import com.kfood.merchant.infra.persistence.StoreRepository;
-import com.kfood.order.api.PublicOrderLookupResponse;
-import com.kfood.order.infra.persistence.SalesOrderRepository;
+import com.kfood.order.app.port.OrderQueryPort;
 import java.util.Objects;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@ConditionalOnBean({StoreRepository.class, SalesOrderRepository.class})
+@ConditionalOnBean(OrderQueryPort.class)
 public class GetPublicOrderByNumberUseCase {
 
-  private final StoreRepository storeRepository;
-  private final SalesOrderRepository salesOrderRepository;
+  private final OrderQueryPort orderQueryPort;
 
-  public GetPublicOrderByNumberUseCase(
-      StoreRepository storeRepository, SalesOrderRepository salesOrderRepository) {
-    this.storeRepository = storeRepository;
-    this.salesOrderRepository = salesOrderRepository;
+  public GetPublicOrderByNumberUseCase(OrderQueryPort orderQueryPort) {
+    this.orderQueryPort = orderQueryPort;
   }
 
   @Transactional(readOnly = true)
-  public PublicOrderLookupResponse execute(String slug, String orderNumber) {
+  public PublicOrderLookupOutput execute(String slug, String orderNumber) {
     var normalizedSlug = normalize(slug);
     var normalizedOrderNumber = normalize(orderNumber);
-
-    var store =
-        storeRepository
-            .findBySlug(normalizedSlug)
-            .orElseThrow(() -> new StoreSlugNotFoundException(normalizedSlug));
-
-    var order =
-        salesOrderRepository
-            .findByStoreIdAndOrderNumber(store.getId(), normalizedOrderNumber)
-            .orElseThrow(() -> new OrderNotFoundException(normalizedOrderNumber));
-
-    return new PublicOrderLookupResponse(
-        order.getOrderNumber(),
-        order.getStatus(),
-        order.getPaymentStatusSnapshot(),
-        order.getFulfillmentType(),
-        order.getSubtotalAmount(),
-        order.getDeliveryFeeAmount(),
-        order.getTotalAmount(),
-        order.getCreatedAt(),
-        order.getScheduledFor());
+    return orderQueryPort.getPublicOrderLookup(normalizedSlug, normalizedOrderNumber);
   }
 
   private String normalize(String value) {

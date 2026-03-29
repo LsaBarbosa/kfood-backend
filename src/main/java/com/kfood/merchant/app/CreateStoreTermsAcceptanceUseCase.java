@@ -1,82 +1,46 @@
 package com.kfood.merchant.app;
 
-import com.kfood.identity.persistence.IdentityUserRepository;
-import com.kfood.merchant.api.CreateStoreTermsAcceptanceRequest;
-import com.kfood.merchant.api.StoreTermsAcceptanceResponse;
-import com.kfood.merchant.infra.persistence.StoreRepository;
-import com.kfood.merchant.infra.persistence.StoreTermsAcceptance;
-import com.kfood.merchant.infra.persistence.StoreTermsAcceptanceRepository;
+import com.kfood.merchant.app.port.MerchantCommandPort;
 import com.kfood.shared.security.CurrentAuthenticatedUserProvider;
 import com.kfood.shared.tenancy.CurrentTenantProvider;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Objects;
-import java.util.UUID;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @ConditionalOnBean({
-  StoreRepository.class,
-  StoreTermsAcceptanceRepository.class,
-  IdentityUserRepository.class,
+  MerchantCommandPort.class,
   CurrentTenantProvider.class,
   CurrentAuthenticatedUserProvider.class
 })
 public class CreateStoreTermsAcceptanceUseCase {
 
-  private final StoreRepository storeRepository;
-  private final StoreTermsAcceptanceRepository storeTermsAcceptanceRepository;
-  private final IdentityUserRepository identityUserRepository;
+  private final MerchantCommandPort merchantCommandPort;
   private final CurrentTenantProvider currentTenantProvider;
   private final CurrentAuthenticatedUserProvider currentAuthenticatedUserProvider;
   private final Clock clock;
 
   public CreateStoreTermsAcceptanceUseCase(
-      StoreRepository storeRepository,
-      StoreTermsAcceptanceRepository storeTermsAcceptanceRepository,
-      IdentityUserRepository identityUserRepository,
+      MerchantCommandPort merchantCommandPort,
       CurrentTenantProvider currentTenantProvider,
       CurrentAuthenticatedUserProvider currentAuthenticatedUserProvider,
       Clock clock) {
-    this.storeRepository = storeRepository;
-    this.storeTermsAcceptanceRepository = storeTermsAcceptanceRepository;
-    this.identityUserRepository = identityUserRepository;
+    this.merchantCommandPort = merchantCommandPort;
     this.currentTenantProvider = currentTenantProvider;
     this.currentAuthenticatedUserProvider = currentAuthenticatedUserProvider;
     this.clock = clock;
   }
 
   @Transactional
-  public StoreTermsAcceptanceResponse execute(
-      CreateStoreTermsAcceptanceRequest request, String requestIp) {
+  public StoreTermsAcceptanceOutput execute(
+      CreateStoreTermsAcceptanceCommand command, String requestIp) {
     var storeId = currentTenantProvider.getRequiredStoreId();
     var authenticatedUserId = currentAuthenticatedUserProvider.getRequiredUserId();
-
-    storeRepository.findById(storeId).orElseThrow(() -> new StoreNotFoundException(storeId));
-
-    var authenticatedUser =
-        identityUserRepository
-            .findById(authenticatedUserId)
-            .orElseThrow(() -> new AuthenticatedUserNotFoundException(authenticatedUserId));
-
-    if (!Objects.equals(authenticatedUser.getStoreId(), storeId)) {
-      throw new TenantAccessDeniedException();
-    }
-
-    var acceptance =
-        new StoreTermsAcceptance(
-            UUID.randomUUID(),
-            storeId,
-            authenticatedUserId,
-            request.documentType(),
-            request.documentVersion(),
-            Instant.now(clock),
-            normalizeRequestIp(requestIp));
-
-    return StoreTermsAcceptanceMapper.toResponse(
-        storeTermsAcceptanceRepository.saveAndFlush(acceptance));
+    return merchantCommandPort.createStoreTermsAcceptance(
+        storeId, authenticatedUserId, command, normalizeRequestIp(requestIp), Instant.now(clock));
   }
 
   private String normalizeRequestIp(String requestIp) {

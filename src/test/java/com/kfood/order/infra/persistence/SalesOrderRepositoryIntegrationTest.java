@@ -14,6 +14,7 @@ import com.kfood.merchant.infra.persistence.StoreRepository;
 import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.domain.OrderStatus;
 import com.kfood.payment.domain.PaymentMethod;
+import com.kfood.payment.domain.PaymentStatusSnapshot;
 import com.kfood.shared.persistence.TestJpaAuditingConfig;
 import com.kfood.support.PostgreSqlContainerIT;
 import java.math.BigDecimal;
@@ -78,6 +79,8 @@ class SalesOrderRepositoryIntegrationTest extends PostgreSqlContainerIT {
     assertThat(savedOrder.getStore().getId()).isEqualTo(store.getId());
     assertThat(savedOrder.getCustomer().getId()).isEqualTo(customer.getId());
     assertThat(savedOrder.getStatus()).isEqualTo(OrderStatus.NEW);
+    assertThat(savedOrder.getPaymentMethodSnapshot()).isEqualTo(PaymentMethod.PIX);
+    assertThat(savedOrder.getPaymentStatusSnapshot()).isEqualTo(PaymentStatusSnapshot.PENDING);
     assertThat(savedOrder.getSubtotalAmount()).isEqualByComparingTo("50.00");
     assertThat(savedOrder.getDeliveryFeeAmount()).isEqualByComparingTo("7.50");
     assertThat(savedOrder.getTotalAmount()).isEqualByComparingTo("57.50");

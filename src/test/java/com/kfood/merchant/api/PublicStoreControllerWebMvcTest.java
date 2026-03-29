@@ -7,6 +7,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.kfood.merchant.app.GetPublicStoreMenuUseCase;
 import com.kfood.merchant.app.GetPublicStoreUseCase;
+import com.kfood.merchant.app.PublicDeliveryZoneOutput;
+import com.kfood.merchant.app.PublicStoreHourOutput;
+import com.kfood.merchant.app.PublicStoreMenuCategoryOutput;
+import com.kfood.merchant.app.PublicStoreMenuOptionGroupOutput;
+import com.kfood.merchant.app.PublicStoreMenuOptionItemOutput;
+import com.kfood.merchant.app.PublicStoreMenuOutput;
+import com.kfood.merchant.app.PublicStoreMenuProductOutput;
+import com.kfood.merchant.app.PublicStoreOutput;
 import com.kfood.merchant.app.StoreSlugNotFoundException;
 import com.kfood.merchant.domain.StoreStatus;
 import java.math.BigDecimal;
@@ -41,16 +49,16 @@ class PublicStoreControllerWebMvcTest {
   void shouldReturnPublicStoreWithoutAuthentication() throws Exception {
     when(getPublicStoreUseCase.execute("loja-do-bairro"))
         .thenReturn(
-            new PublicStoreResponse(
+            new PublicStoreOutput(
                 "loja-do-bairro",
                 "Loja do Bairro",
                 StoreStatus.ACTIVE,
                 "21999990000",
                 List.of(
-                    new PublicStoreHourResponse(
+                    new PublicStoreHourOutput(
                         DayOfWeek.MONDAY, LocalTime.of(10, 0), LocalTime.of(22, 0), false)),
                 List.of(
-                    new PublicDeliveryZoneResponse(
+                    new PublicDeliveryZoneOutput(
                         "Centro", new BigDecimal("6.50"), new BigDecimal("25.00")))));
 
     mockMvc
@@ -85,13 +93,13 @@ class PublicStoreControllerWebMvcTest {
   void shouldReturnPublicMenuWithoutAuthentication() throws Exception {
     when(getPublicStoreMenuUseCase.execute("loja-do-bairro"))
         .thenReturn(
-            new PublicStoreMenuResponse(
+            new PublicStoreMenuOutput(
                 List.of(
-                    new PublicStoreMenuCategoryResponse(
+                    new PublicStoreMenuCategoryOutput(
                         java.util.UUID.randomUUID(),
                         "Bebidas",
                         List.of(
-                            new PublicStoreMenuProductResponse(
+                            new PublicStoreMenuProductOutput(
                                 UUID.randomUUID(),
                                 "Refrigerante",
                                 "Lata 350ml",
@@ -115,13 +123,13 @@ class PublicStoreControllerWebMvcTest {
   void shouldReturnPublicMenuWithOptionGroupsAndOptions() throws Exception {
     when(getPublicStoreMenuUseCase.execute("loja-do-bairro"))
         .thenReturn(
-            new PublicStoreMenuResponse(
+            new PublicStoreMenuOutput(
                 List.of(
-                    new PublicStoreMenuCategoryResponse(
+                    new PublicStoreMenuCategoryOutput(
                         UUID.randomUUID(),
                         "Pizzas",
                         List.of(
-                            new PublicStoreMenuProductResponse(
+                            new PublicStoreMenuProductOutput(
                                 UUID.randomUUID(),
                                 "Pizza Calabresa",
                                 "Pizza com calabresa",
@@ -129,19 +137,19 @@ class PublicStoreControllerWebMvcTest {
                                 "https://cdn.kfood/pizza.png",
                                 false,
                                 List.of(
-                                    new PublicStoreMenuOptionGroupResponse(
+                                    new PublicStoreMenuOptionGroupOutput(
                                         UUID.randomUUID(),
                                         "Bordas",
                                         1,
                                         2,
                                         true,
                                         List.of(
-                                            new PublicStoreMenuOptionItemResponse(
+                                            new PublicStoreMenuOptionItemOutput(
                                                 UUID.randomUUID(),
                                                 "Catupiry",
                                                 new BigDecimal("8.00"),
                                                 10),
-                                            new PublicStoreMenuOptionItemResponse(
+                                            new PublicStoreMenuOptionItemOutput(
                                                 UUID.randomUUID(),
                                                 "Cheddar",
                                                 new BigDecimal("7.50"),

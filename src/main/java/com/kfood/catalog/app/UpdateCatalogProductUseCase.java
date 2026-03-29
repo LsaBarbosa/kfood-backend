@@ -48,7 +48,7 @@ public class UpdateCatalogProductUseCase {
     var store =
         storeRepository.findById(storeId).orElseThrow(() -> new StoreNotFoundException(storeId));
 
-    storeOperationalGuard.ensureStoreIsNotSuspended(store);
+    storeOperationalGuard.ensureStoreIsNotSuspended(store.getId(), store.getStatus());
 
     var product =
         catalogProductRepository

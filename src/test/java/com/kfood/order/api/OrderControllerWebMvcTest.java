@@ -10,6 +10,7 @@ import com.kfood.identity.app.JwtTokenService;
 import com.kfood.identity.domain.UserRoleName;
 import com.kfood.identity.domain.UserStatus;
 import com.kfood.identity.persistence.IdentityUserEntity;
+import com.kfood.order.app.ListOrdersOutput;
 import com.kfood.order.app.ListOrdersUseCase;
 import com.kfood.order.domain.OrderStatus;
 import com.kfood.payment.domain.PaymentStatusSnapshot;
@@ -46,9 +47,9 @@ class OrderControllerWebMvcTest {
     var orderId = UUID.randomUUID();
     when(listOrdersUseCase.execute(any(), any()))
         .thenReturn(
-            new ListOrdersResponse(
+            new ListOrdersOutput(
                 List.of(
-                    new ListOrdersResponseItem(
+                    new ListOrdersOutput.Item(
                         orderId,
                         "PED-20260322-000123",
                         OrderStatus.NEW,
@@ -75,6 +76,7 @@ class OrderControllerWebMvcTest {
         .andExpect(jsonPath("$.items[0].orderNumber").value("PED-20260322-000123"))
         .andExpect(jsonPath("$.items[0].status").value("NEW"))
         .andExpect(jsonPath("$.items[0].paymentStatus").value("PENDING"))
+        .andExpect(jsonPath("$.items[0].paymentStatusSnapshot").value("PENDING"))
         .andExpect(jsonPath("$.items[0].customerName").value("Lucas Santana"))
         .andExpect(jsonPath("$.totalElements").value(1))
         .andExpect(jsonPath("$.sort[0]").value("createdAt,desc"));

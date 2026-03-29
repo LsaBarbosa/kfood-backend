@@ -1,5 +1,7 @@
 package com.kfood.order.api;
 
+import com.kfood.order.app.CreatePublicOrderCommand;
+import com.kfood.order.app.CreatePublicOrderOutput;
 import com.kfood.order.app.CreatePublicOrderService;
 import com.kfood.order.app.GetPublicOrderByNumberUseCase;
 import jakarta.validation.Valid;
@@ -38,7 +40,18 @@ public class PublicOrderController {
     if (createPublicOrderService == null) {
       throw new IllegalStateException("CreatePublicOrderService is not available.");
     }
-    return createPublicOrderService.create(slug, idempotencyKey, request);
+    return toCreatePublicOrderResponse(
+        createPublicOrderService.create(
+            slug,
+            idempotencyKey,
+            new CreatePublicOrderCommand(
+                request.quoteId(),
+                request.customerId(),
+                request.fulfillmentType(),
+                request.addressId(),
+                request.paymentMethod(),
+                request.notes(),
+                request.scheduledFor())));
   }
 
   @GetMapping("/{orderNumber}")
@@ -48,6 +61,28 @@ public class PublicOrderController {
     if (getPublicOrderByNumberUseCase == null) {
       throw new IllegalStateException("GetPublicOrderByNumberUseCase is not available.");
     }
-    return getPublicOrderByNumberUseCase.execute(slug, orderNumber);
+    var result = getPublicOrderByNumberUseCase.execute(slug, orderNumber);
+    return new PublicOrderLookupResponse(
+        result.orderNumber(),
+        result.status(),
+        result.paymentStatusSnapshot(),
+        result.fulfillmentType(),
+        result.subtotalAmount(),
+        result.deliveryFeeAmount(),
+        result.totalAmount(),
+        result.createdAt(),
+        result.scheduledFor());
+  }
+
+  private CreatePublicOrderResponse toCreatePublicOrderResponse(CreatePublicOrderOutput output) {
+    return new CreatePublicOrderResponse(
+        output.id(),
+        output.orderNumber(),
+        output.status(),
+        output.paymentStatusSnapshot(),
+        output.subtotalAmount(),
+        output.deliveryFeeAmount(),
+        output.totalAmount(),
+        output.createdAt());
   }
 }

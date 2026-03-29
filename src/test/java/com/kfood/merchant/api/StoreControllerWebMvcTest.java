@@ -14,13 +14,21 @@ import com.kfood.identity.app.JwtTokenService;
 import com.kfood.identity.domain.UserRoleName;
 import com.kfood.identity.domain.UserStatus;
 import com.kfood.identity.persistence.IdentityUserEntity;
+import com.kfood.merchant.app.ChangeStoreStatusCommand;
 import com.kfood.merchant.app.ChangeStoreStatusUseCase;
+import com.kfood.merchant.app.CreateStoreCommand;
+import com.kfood.merchant.app.CreateStoreOutput;
+import com.kfood.merchant.app.CreateStoreTermsAcceptanceCommand;
 import com.kfood.merchant.app.CreateStoreTermsAcceptanceUseCase;
 import com.kfood.merchant.app.CreateStoreUseCase;
 import com.kfood.merchant.app.GetStoreDetailsUseCase;
 import com.kfood.merchant.app.StoreActivationRequirementsNotMetException;
+import com.kfood.merchant.app.StoreDetailsOutput;
 import com.kfood.merchant.app.StoreNotActiveException;
 import com.kfood.merchant.app.StoreNotFoundException;
+import com.kfood.merchant.app.StoreOutput;
+import com.kfood.merchant.app.StoreTermsAcceptanceOutput;
+import com.kfood.merchant.app.UpdateStoreCommand;
 import com.kfood.merchant.app.UpdateStoreUseCase;
 import com.kfood.merchant.domain.LegalDocumentType;
 import com.kfood.merchant.domain.StoreStatus;
@@ -63,9 +71,9 @@ class StoreControllerWebMvcTest {
 
   @Test
   void shouldCreateStoreSuccessfully() throws Exception {
-    when(createStoreUseCase.execute(any(CreateStoreRequest.class)))
+    when(createStoreUseCase.execute(any(CreateStoreCommand.class)))
         .thenReturn(
-            new CreateStoreResponse(
+            new CreateStoreOutput(
                 UUID.randomUUID(),
                 "loja-do-bairro",
                 StoreStatus.SETUP,
@@ -111,7 +119,7 @@ class StoreControllerWebMvcTest {
   @Test
   void shouldReturnNotFoundWhenStoreDoesNotExist() throws Exception {
     var storeId = UUID.randomUUID();
-    when(updateStoreUseCase.execute(any(UpdateStoreRequest.class)))
+    when(updateStoreUseCase.execute(any(UpdateStoreCommand.class)))
         .thenThrow(new StoreNotFoundException(storeId));
 
     mockMvc
@@ -132,9 +140,9 @@ class StoreControllerWebMvcTest {
   @Test
   void shouldUpdateStoreSuccessfully() throws Exception {
     var storeId = UUID.randomUUID();
-    when(updateStoreUseCase.execute(any(UpdateStoreRequest.class)))
+    when(updateStoreUseCase.execute(any(UpdateStoreCommand.class)))
         .thenReturn(
-            new StoreResponse(
+            new StoreOutput(
                 storeId,
                 "Loja Premium",
                 "loja-premium",
@@ -201,7 +209,7 @@ class StoreControllerWebMvcTest {
   void shouldGetCurrentStoreDetails() throws Exception {
     when(getStoreDetailsUseCase.execute())
         .thenReturn(
-            new StoreDetailsResponse(
+            new StoreDetailsOutput(
                 UUID.randomUUID(),
                 "loja-do-bairro",
                 "Loja do Bairro",
@@ -223,9 +231,9 @@ class StoreControllerWebMvcTest {
 
   @Test
   void shouldChangeStoreStatus() throws Exception {
-    when(changeStoreStatusUseCase.execute(any(ChangeStoreStatusRequest.class)))
+    when(changeStoreStatusUseCase.execute(any(ChangeStoreStatusCommand.class)))
         .thenReturn(
-            new StoreDetailsResponse(
+            new StoreDetailsOutput(
                 UUID.randomUUID(),
                 "loja-do-bairro",
                 "Loja do Bairro",
@@ -252,7 +260,7 @@ class StoreControllerWebMvcTest {
 
   @Test
   void shouldReturnConflictWhenActivationRequirementsAreMissing() throws Exception {
-    when(changeStoreStatusUseCase.execute(any(ChangeStoreStatusRequest.class)))
+    when(changeStoreStatusUseCase.execute(any(ChangeStoreStatusCommand.class)))
         .thenThrow(
             new StoreActivationRequirementsNotMetException(java.util.List.of("termsAccepted")));
 
@@ -291,9 +299,9 @@ class StoreControllerWebMvcTest {
 
   @Test
   void shouldAllowStatusChangeForAdmin() throws Exception {
-    when(changeStoreStatusUseCase.execute(any(ChangeStoreStatusRequest.class)))
+    when(changeStoreStatusUseCase.execute(any(ChangeStoreStatusCommand.class)))
         .thenReturn(
-            new StoreDetailsResponse(
+            new StoreDetailsOutput(
                 UUID.randomUUID(),
                 "loja-do-bairro",
                 "Loja do Bairro",
@@ -322,9 +330,9 @@ class StoreControllerWebMvcTest {
   void shouldAcceptTermsSuccessfully() throws Exception {
     when(clientIpResolver.resolve(any())).thenReturn("203.0.113.9");
     when(createStoreTermsAcceptanceUseCase.execute(
-            any(CreateStoreTermsAcceptanceRequest.class), any(String.class)))
+            any(CreateStoreTermsAcceptanceCommand.class), any(String.class)))
         .thenReturn(
-            new StoreTermsAcceptanceResponse(
+            new StoreTermsAcceptanceOutput(
                 UUID.randomUUID(),
                 LegalDocumentType.TERMS_OF_USE,
                 "2026.03",
@@ -385,7 +393,7 @@ class StoreControllerWebMvcTest {
 
   @Test
   void shouldReturnConflictWhenStoreIsSuspendedForCriticalOperation() throws Exception {
-    when(updateStoreUseCase.execute(any(UpdateStoreRequest.class)))
+    when(updateStoreUseCase.execute(any(UpdateStoreCommand.class)))
         .thenThrow(new StoreNotActiveException(UUID.randomUUID(), StoreStatus.SUSPENDED));
 
     mockMvc

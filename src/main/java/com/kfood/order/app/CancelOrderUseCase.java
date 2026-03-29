@@ -1,11 +1,6 @@
 package com.kfood.order.app;
 
-import com.kfood.order.api.CancelOrderRequest;
-import com.kfood.order.api.CancelOrderResponse;
-import com.kfood.order.infra.persistence.OrderStatusHistory;
-import com.kfood.order.infra.persistence.OrderStatusHistoryRepository;
-import com.kfood.order.infra.persistence.OrderStatusTransitionException;
-import com.kfood.order.infra.persistence.SalesOrderRepository;
+import com.kfood.order.app.port.OrderWorkflowPort;
 import com.kfood.shared.exceptions.ApiFieldError;
 import com.kfood.shared.exceptions.BusinessException;
 import com.kfood.shared.exceptions.ErrorCode;
@@ -23,69 +18,40 @@ import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @ConditionalOnBean({
-  SalesOrderRepository.class,
-  OrderStatusHistoryRepository.class,
+  OrderWorkflowPort.class,
   CurrentTenantProvider.class,
   CurrentAuthenticatedUserProvider.class,
   Clock.class
 })
 public class CancelOrderUseCase {
 
-  private final SalesOrderRepository salesOrderRepository;
-  private final OrderStatusHistoryRepository orderStatusHistoryRepository;
+  private final OrderWorkflowPort orderWorkflowPort;
   private final CurrentTenantProvider currentTenantProvider;
   private final CurrentAuthenticatedUserProvider currentAuthenticatedUserProvider;
   private final Clock clock;
 
   public CancelOrderUseCase(
-      SalesOrderRepository salesOrderRepository,
-      OrderStatusHistoryRepository orderStatusHistoryRepository,
+      OrderWorkflowPort orderWorkflowPort,
       CurrentTenantProvider currentTenantProvider,
       CurrentAuthenticatedUserProvider currentAuthenticatedUserProvider,
       Clock clock) {
-    this.salesOrderRepository = salesOrderRepository;
-    this.orderStatusHistoryRepository = orderStatusHistoryRepository;
+    this.orderWorkflowPort = orderWorkflowPort;
     this.currentTenantProvider = currentTenantProvider;
     this.currentAuthenticatedUserProvider = currentAuthenticatedUserProvider;
     this.clock = clock;
   }
 
   @Transactional
-  public CancelOrderResponse execute(UUID orderId, CancelOrderRequest request) {
+  public CancelOrderOutput execute(UUID orderId, CancelOrderCommand command) {
     Objects.requireNonNull(orderId, "orderId must not be null");
-    Objects.requireNonNull(request, "request must not be null");
+    Objects.requireNonNull(command, "command must not be null");
 
-    var reason = normalizeRequiredReason(request.reason());
+    var reason = normalizeRequiredReason(command.reason());
     var storeId = currentTenantProvider.getRequiredStoreId();
     var actorUserId = currentAuthenticatedUserProvider.getRequiredUserId();
-    var order =
-        salesOrderRepository
-            .findByIdAndStoreId(orderId, storeId)
-            .orElseThrow(() -> new OrderNotFoundException(orderId));
-    var previousStatus = order.getStatus();
-
-    try {
-      order.cancel();
-    } catch (OrderStatusTransitionException exception) {
-      throw new BusinessException(
-          ErrorCode.ORDER_STATUS_TRANSITION_INVALID, exception.getMessage(), HttpStatus.CONFLICT);
-    }
-
     var canceledAt = Instant.now(clock);
-
-    salesOrderRepository.saveAndFlush(order);
-    orderStatusHistoryRepository.saveAndFlush(
-        OrderStatusHistory.create(
-            UUID.randomUUID(),
-            storeId,
-            order.getId(),
-            previousStatus,
-            order.getStatus(),
-            actorUserId,
-            canceledAt,
-            reason));
-
-    return new CancelOrderResponse(order.getId(), order.getStatus(), canceledAt, reason);
+    return orderWorkflowPort.cancel(
+        storeId, actorUserId, orderId, new CancelOrderCommand(reason), canceledAt);
   }
 
   private String normalizeRequiredReason(String value) {

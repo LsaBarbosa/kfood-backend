@@ -5,6 +5,9 @@ import com.kfood.customer.infra.persistence.CustomerAddress;
 import com.kfood.merchant.infra.persistence.Store;
 import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.domain.OrderStatus;
+import com.kfood.order.app.port.OrderNumberTarget;
+import com.kfood.order.domain.OrderStatusTransitionException;
+import com.kfood.payment.app.port.PaymentOrder;
 import com.kfood.payment.domain.PaymentMethod;
 import com.kfood.payment.domain.PaymentStatusSnapshot;
 import com.kfood.shared.infra.persistence.AuditableEntity;
@@ -32,7 +35,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "sales_order")
-public class SalesOrder extends AuditableEntity {
+public class SalesOrder extends AuditableEntity implements PaymentOrder, OrderNumberTarget {
 
   @Id private UUID id;
 
@@ -50,6 +53,10 @@ public class SalesOrder extends AuditableEntity {
   @Enumerated(EnumType.STRING)
   @Column(name = "payment_method", nullable = false, length = 20)
   private PaymentMethod paymentMethod;
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "payment_method_snapshot", nullable = false, length = 20)
+  private PaymentMethod paymentMethodSnapshot;
 
   @Enumerated(EnumType.STRING)
   @Column(name = "payment_status_snapshot", nullable = false, length = 20)
@@ -127,6 +134,7 @@ public class SalesOrder extends AuditableEntity {
     this.fulfillmentType =
         Objects.requireNonNull(fulfillmentType, "fulfillmentType must not be null");
     this.paymentMethod = Objects.requireNonNull(paymentMethod, "paymentMethod must not be null");
+    paymentMethodSnapshot = this.paymentMethod;
     this.subtotalAmount = normalizeMoney(subtotalAmount, "subtotalAmount");
     this.deliveryFeeAmount = normalizeMoney(deliveryFeeAmount, "deliveryFeeAmount");
     this.totalAmount = normalizeMoney(totalAmount, "totalAmount");
@@ -175,6 +183,11 @@ public class SalesOrder extends AuditableEntity {
     return store;
   }
 
+  @Override
+  public UUID getStoreId() {
+    return store.getId();
+  }
+
   public Customer getCustomer() {
     return customer;
   }
@@ -183,12 +196,21 @@ public class SalesOrder extends AuditableEntity {
     return orderNumber;
   }
 
+  @Override
+  public String getStoreTimezone() {
+    return store == null ? null : store.getTimezone();
+  }
+
   public OrderStatus getStatus() {
     return status;
   }
 
   public PaymentMethod getPaymentMethod() {
     return paymentMethod;
+  }
+
+  public PaymentMethod getPaymentMethodSnapshot() {
+    return paymentMethodSnapshot;
   }
 
   public PaymentStatusSnapshot getPaymentStatusSnapshot() {
@@ -209,6 +231,11 @@ public class SalesOrder extends AuditableEntity {
 
   public BigDecimal getTotalAmount() {
     return totalAmount;
+  }
+
+  @Override
+  public boolean isCashPaymentEnabled() {
+    return store.isCashPaymentEnabled();
   }
 
   public OffsetDateTime getScheduledFor() {
@@ -265,6 +292,13 @@ public class SalesOrder extends AuditableEntity {
     this.orderNumber = orderNumber.trim();
   }
 
+  public void markPaymentMethodSnapshot(PaymentMethod paymentMethod) {
+    var validatedPaymentMethod =
+        Objects.requireNonNull(paymentMethod, "paymentMethod must not be null");
+    this.paymentMethod = validatedPaymentMethod;
+    paymentMethodSnapshot = validatedPaymentMethod;
+  }
+
   public void addItem(SalesOrderItem item) {
     var validatedItem = Objects.requireNonNull(item, "item must not be null");
     validatedItem.attachToOrder(this);
@@ -272,8 +306,13 @@ public class SalesOrder extends AuditableEntity {
   }
 
   public void markPaymentStatusSnapshot(PaymentStatusSnapshot paymentStatusSnapshot) {
-    this.paymentStatusSnapshot =
+    var validatedPaymentStatusSnapshot =
         Objects.requireNonNull(paymentStatusSnapshot, "paymentStatusSnapshot must not be null");
+    if (this.paymentStatusSnapshot == PaymentStatusSnapshot.PAID
+        && validatedPaymentStatusSnapshot != PaymentStatusSnapshot.PAID) {
+      throw new IllegalStateException("paymentStatusSnapshot cannot regress from PAID");
+    }
+    this.paymentStatusSnapshot = validatedPaymentStatusSnapshot;
   }
 
   public void defineDeliveryAddressSnapshot(CustomerAddress address) {
@@ -366,6 +405,14 @@ public class SalesOrder extends AuditableEntity {
   }
 
   private void validateBusinessRules() {
+    if (paymentMethod == null && paymentMethodSnapshot != null) {
+      paymentMethod = paymentMethodSnapshot;
+    } else if (paymentMethod != null && paymentMethodSnapshot == null) {
+      paymentMethodSnapshot = paymentMethod;
+    } else if (paymentMethod != null && paymentMethodSnapshot != paymentMethod) {
+      paymentMethod = paymentMethodSnapshot;
+    }
+
     if (subtotalAmount.signum() < 0) {
       throw new IllegalArgumentException("subtotalAmount must not be negative");
     }

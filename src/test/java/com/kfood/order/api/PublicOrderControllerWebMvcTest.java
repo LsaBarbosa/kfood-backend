@@ -10,9 +10,11 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.kfood.merchant.app.StoreSlugNotFoundException;
+import com.kfood.order.app.CreatePublicOrderOutput;
 import com.kfood.order.app.CreatePublicOrderService;
 import com.kfood.order.app.GetPublicOrderByNumberUseCase;
 import com.kfood.order.app.OrderNotFoundException;
+import com.kfood.order.app.PublicOrderLookupOutput;
 import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.domain.OrderStatus;
 import com.kfood.payment.domain.PaymentMethod;
@@ -49,7 +51,7 @@ class PublicOrderControllerWebMvcTest {
     var customerId = UUID.randomUUID();
     when(createPublicOrderService.create(eq("loja-do-bairro"), eq("idem-123"), any()))
         .thenReturn(
-            new CreatePublicOrderResponse(
+            new CreatePublicOrderOutput(
                 orderId,
                 "PED-20260321-000001",
                 OrderStatus.NEW,
@@ -85,7 +87,7 @@ class PublicOrderControllerWebMvcTest {
   void shouldReturn200WhenPublicOrderIsFound() throws Exception {
     when(getPublicOrderByNumberUseCase.execute("loja-do-bairro", "PED-20260326-000123"))
         .thenReturn(
-            new PublicOrderLookupResponse(
+            new PublicOrderLookupOutput(
                 "PED-20260326-000123",
                 OrderStatus.PREPARING,
                 PaymentStatusSnapshot.PENDING,
@@ -102,6 +104,7 @@ class PublicOrderControllerWebMvcTest {
         .andExpect(jsonPath("$.orderNumber").value("PED-20260326-000123"))
         .andExpect(jsonPath("$.status").value("PREPARING"))
         .andExpect(jsonPath("$.paymentStatus").value("PENDING"))
+        .andExpect(jsonPath("$.paymentStatusSnapshot").value("PENDING"))
         .andExpect(jsonPath("$.fulfillmentType").value("DELIVERY"))
         .andExpect(jsonPath("$.subtotalAmount").value(50.00))
         .andExpect(jsonPath("$.deliveryFeeAmount").value(6.50))

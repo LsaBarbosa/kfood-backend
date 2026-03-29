@@ -2,6 +2,8 @@ package com.kfood.order.infra.persistence;
 
 import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.domain.OrderStatus;
+import com.kfood.payment.app.port.PaymentOrder;
+import com.kfood.payment.app.port.PaymentOrderLookupPort;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -15,7 +17,19 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 
 public interface SalesOrderRepository
-    extends JpaRepository<SalesOrder, UUID>, JpaSpecificationExecutor<SalesOrder> {
+    extends JpaRepository<SalesOrder, UUID>,
+        JpaSpecificationExecutor<SalesOrder>,
+        PaymentOrderLookupPort {
+
+  @Override
+  default Optional<PaymentOrder> findOrderById(UUID orderId) {
+    return findById(orderId).map(order -> order);
+  }
+
+  @Override
+  default Optional<PaymentOrder> findOrderByIdAndStoreId(UUID orderId, UUID storeId) {
+    return findByIdAndStoreId(orderId, storeId).map(order -> order);
+  }
 
   Optional<SalesOrder> findByIdAndStoreId(UUID id, UUID storeId);
 

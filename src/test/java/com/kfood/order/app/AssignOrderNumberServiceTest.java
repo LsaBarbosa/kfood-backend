@@ -6,13 +6,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.kfood.customer.infra.persistence.Customer;
-import com.kfood.merchant.infra.persistence.Store;
-import com.kfood.order.domain.FulfillmentType;
-import com.kfood.order.infra.persistence.SalesOrder;
-import com.kfood.payment.domain.PaymentMethod;
-import java.math.BigDecimal;
-import java.util.UUID;
+import com.kfood.order.app.port.OrderNumberTarget;
 import org.junit.jupiter.api.Test;
 
 class AssignOrderNumberServiceTest {
@@ -21,25 +15,13 @@ class AssignOrderNumberServiceTest {
   void shouldAssignNumberWhenMissing() {
     var generator = mock(OrderNumberGenerator.class);
     var service = new AssignOrderNumberService(generator);
-    var store = mock(Store.class);
-    var customer = mock(Customer.class);
-    var order =
-        SalesOrder.create(
-            UUID.randomUUID(),
-            store,
-            customer,
-            FulfillmentType.DELIVERY,
-            PaymentMethod.PIX,
-            new BigDecimal("50.00"),
-            new BigDecimal("6.50"),
-            new BigDecimal("56.50"),
-            null,
-            null);
+    var order = mock(OrderNumberTarget.class);
+    when(order.getOrderNumber()).thenReturn(null);
     when(generator.next(order)).thenReturn("PED-20260321-000001");
 
     service.assignIfMissing(order);
 
-    assertThat(order.getOrderNumber()).isEqualTo("PED-20260321-000001");
+    verify(order).assignOrderNumber("PED-20260321-000001");
     verify(generator).next(order);
   }
 
@@ -47,21 +29,8 @@ class AssignOrderNumberServiceTest {
   void shouldNotReassignWhenAlreadyPresent() {
     var generator = mock(OrderNumberGenerator.class);
     var service = new AssignOrderNumberService(generator);
-    var store = mock(Store.class);
-    var customer = mock(Customer.class);
-    var order =
-        SalesOrder.create(
-            UUID.randomUUID(),
-            store,
-            customer,
-            FulfillmentType.DELIVERY,
-            PaymentMethod.PIX,
-            new BigDecimal("50.00"),
-            new BigDecimal("6.50"),
-            new BigDecimal("56.50"),
-            null,
-            null);
-    order.assignOrderNumber("PED-20260321-000001");
+    var order = mock(OrderNumberTarget.class);
+    when(order.getOrderNumber()).thenReturn("PED-20260321-000001");
 
     service.assignIfMissing(order);
 

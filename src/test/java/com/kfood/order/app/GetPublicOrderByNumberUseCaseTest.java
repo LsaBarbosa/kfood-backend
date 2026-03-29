@@ -5,53 +5,53 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.kfood.customer.infra.persistence.Customer;
 import com.kfood.merchant.app.StoreSlugNotFoundException;
-import com.kfood.merchant.infra.persistence.Store;
-import com.kfood.merchant.infra.persistence.StoreRepository;
-import com.kfood.order.api.PublicOrderLookupResponse;
+import com.kfood.order.app.port.OrderQueryPort;
 import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.domain.OrderStatus;
-import com.kfood.order.infra.persistence.SalesOrder;
-import com.kfood.order.infra.persistence.SalesOrderRepository;
-import com.kfood.payment.domain.PaymentMethod;
 import com.kfood.payment.domain.PaymentStatusSnapshot;
 import java.math.BigDecimal;
-import java.util.Optional;
-import java.util.UUID;
+import java.time.Instant;
 import org.junit.jupiter.api.Test;
 
 class GetPublicOrderByNumberUseCaseTest {
 
-  private final StoreRepository storeRepository = mock(StoreRepository.class);
-  private final SalesOrderRepository salesOrderRepository = mock(SalesOrderRepository.class);
+  private final OrderQueryPort orderQueryPort = mock(OrderQueryPort.class);
   private final GetPublicOrderByNumberUseCase useCase =
-      new GetPublicOrderByNumberUseCase(storeRepository, salesOrderRepository);
+      new GetPublicOrderByNumberUseCase(orderQueryPort);
 
   @Test
   void shouldReturnPublicOrderWhenFound() {
-    var store = store();
-    var order = order(store);
+    var output =
+        new PublicOrderLookupOutput(
+            "PED-20260326-000123",
+            OrderStatus.NEW,
+            PaymentStatusSnapshot.PENDING,
+            FulfillmentType.DELIVERY,
+            new BigDecimal("50.00"),
+            new BigDecimal("6.50"),
+            new BigDecimal("56.50"),
+            Instant.parse("2026-03-26T12:00:00Z"),
+            null);
 
-    when(storeRepository.findBySlug("loja-do-bairro")).thenReturn(Optional.of(store));
-    when(salesOrderRepository.findByStoreIdAndOrderNumber(store.getId(), "PED-20260326-000123"))
-        .thenReturn(Optional.of(order));
+    when(orderQueryPort.getPublicOrderLookup("loja-do-bairro", "PED-20260326-000123"))
+        .thenReturn(output);
 
-    PublicOrderLookupResponse response =
-        useCase.execute(" loja-do-bairro ", " PED-20260326-000123 ");
+    var response = useCase.execute(" loja-do-bairro ", " PED-20260326-000123 ");
 
     assertThat(response.orderNumber()).isEqualTo("PED-20260326-000123");
     assertThat(response.status()).isEqualTo(OrderStatus.NEW);
-    assertThat(response.paymentStatus()).isEqualTo(PaymentStatusSnapshot.PENDING);
+    assertThat(response.paymentStatusSnapshot()).isEqualTo(PaymentStatusSnapshot.PENDING);
     assertThat(response.fulfillmentType()).isEqualTo(FulfillmentType.DELIVERY);
     assertThat(response.totalAmount()).isEqualByComparingTo("56.50");
-    assertThat(response.createdAt()).isEqualTo(order.getCreatedAt());
+    assertThat(response.createdAt()).isEqualTo(Instant.parse("2026-03-26T12:00:00Z"));
     assertThat(response.scheduledFor()).isNull();
   }
 
   @Test
   void shouldThrowWhenStoreDoesNotExist() {
-    when(storeRepository.findBySlug("nao-existe")).thenReturn(Optional.empty());
+    when(orderQueryPort.getPublicOrderLookup("nao-existe", "PED-20260326-000123"))
+        .thenThrow(new StoreSlugNotFoundException("nao-existe"));
 
     assertThatThrownBy(() -> useCase.execute(" nao-existe ", "PED-20260326-000123"))
         .isInstanceOf(StoreSlugNotFoundException.class);
@@ -59,10 +59,8 @@ class GetPublicOrderByNumberUseCaseTest {
 
   @Test
   void shouldThrowWhenOrderDoesNotExist() {
-    var store = store();
-    when(storeRepository.findBySlug("loja-do-bairro")).thenReturn(Optional.of(store));
-    when(salesOrderRepository.findByStoreIdAndOrderNumber(store.getId(), "PED-20260326-000999"))
-        .thenReturn(Optional.empty());
+    when(orderQueryPort.getPublicOrderLookup("loja-do-bairro", "PED-20260326-000999"))
+        .thenThrow(new OrderNotFoundException("PED-20260326-000999"));
 
     assertThatThrownBy(() -> useCase.execute("loja-do-bairro", "PED-20260326-000999"))
         .isInstanceOf(OrderNotFoundException.class)
@@ -71,42 +69,11 @@ class GetPublicOrderByNumberUseCaseTest {
 
   @Test
   void shouldThrowWhenOrderBelongsToAnotherStore() {
-    var store = store();
-    when(storeRepository.findBySlug("loja-do-bairro")).thenReturn(Optional.of(store));
-    when(salesOrderRepository.findByStoreIdAndOrderNumber(store.getId(), "PED-20260326-000555"))
-        .thenReturn(Optional.empty());
+    when(orderQueryPort.getPublicOrderLookup("loja-do-bairro", "PED-20260326-000555"))
+        .thenThrow(new OrderNotFoundException("PED-20260326-000555"));
 
     assertThatThrownBy(() -> useCase.execute("loja-do-bairro", "PED-20260326-000555"))
         .isInstanceOf(OrderNotFoundException.class)
         .hasMessage("Order not found for number: PED-20260326-000555");
-  }
-
-  private Store store() {
-    return new Store(
-        UUID.randomUUID(),
-        "Loja do Bairro",
-        "loja-do-bairro",
-        "45.723.174/0001-10",
-        "21999990000",
-        "America/Sao_Paulo");
-  }
-
-  private SalesOrder order(Store store) {
-    var customer =
-        new Customer(UUID.randomUUID(), store, "Lucas Santana", "21999990000", "lucas@email.com");
-    var order =
-        SalesOrder.create(
-            UUID.randomUUID(),
-            store,
-            customer,
-            FulfillmentType.DELIVERY,
-            PaymentMethod.PIX,
-            new BigDecimal("50.00"),
-            new BigDecimal("6.50"),
-            new BigDecimal("56.50"),
-            null,
-            "Tocar campainha");
-    order.assignOrderNumber("PED-20260326-000123");
-    return order;
   }
 }

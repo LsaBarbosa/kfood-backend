@@ -1,5 +1,6 @@
 package com.kfood.order.api;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.domain.OrderStatus;
 import com.kfood.payment.domain.PaymentStatusSnapshot;
@@ -16,4 +17,10 @@ public record PublicOrderLookupResponse(
     BigDecimal deliveryFeeAmount,
     BigDecimal totalAmount,
     Instant createdAt,
-    OffsetDateTime scheduledFor) {}
+    OffsetDateTime scheduledFor) {
+
+  @JsonProperty("paymentStatusSnapshot")
+  public PaymentStatusSnapshot paymentStatusSnapshot() {
+    return paymentStatus;
+  }
+}
