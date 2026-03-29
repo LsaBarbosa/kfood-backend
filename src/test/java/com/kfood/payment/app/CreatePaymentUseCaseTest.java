@@ -3,6 +3,7 @@ package com.kfood.payment.app;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -15,7 +16,6 @@ import com.kfood.payment.app.port.PaymentOrderLookupPort;
 import com.kfood.payment.app.port.PaymentPersistencePort;
 import com.kfood.payment.domain.PaymentMethod;
 import com.kfood.payment.domain.PaymentStatus;
-import com.kfood.payment.infra.persistence.Payment;
 import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.UUID;
@@ -33,12 +33,16 @@ class CreatePaymentUseCaseTest {
     var order = order();
     var command =
         new CreatePaymentCommand(order.getId(), PaymentMethod.PIX, new BigDecimal("57.50"));
-    var savedPayment =
-        Payment.createPending(UUID.randomUUID(), order, PaymentMethod.PIX, new BigDecimal("57.50"));
-
     when(paymentOrderLookupPort.findOrderById(order.getId())).thenReturn(Optional.of(order));
-    when(paymentPersistencePort.savePayment(any(Payment.class)))
-        .thenAnswer(invocation -> invocation.getArgument(0));
+    when(paymentPersistencePort.savePendingPayment(
+            any(UUID.class), eq(order), eq(PaymentMethod.PIX), eq(new BigDecimal("57.50"))))
+        .thenAnswer(
+            invocation ->
+                com.kfood.payment.infra.persistence.Payment.createPending(
+                    invocation.getArgument(0),
+                    (SalesOrder) invocation.getArgument(1),
+                    invocation.getArgument(2),
+                    invocation.getArgument(3)));
 
     var result = useCase.execute(command);
 
@@ -66,21 +70,15 @@ class CreatePaymentUseCaseTest {
     var command = new CreatePaymentCommand(order.getId(), PaymentMethod.CASH, new BigDecimal("10"));
 
     when(paymentOrderLookupPort.findOrderById(order.getId())).thenReturn(Optional.of(order));
-    when(paymentPersistencePort.savePayment(any(Payment.class)))
+    when(paymentPersistencePort.savePendingPayment(
+            any(UUID.class), eq(order), eq(PaymentMethod.CASH), eq(new BigDecimal("10"))))
         .thenAnswer(
             invocation -> {
-              Payment payment = invocation.getArgument(0);
-              return new Payment(
-                  payment.getId(),
-                  payment.getOrder(),
-                  payment.getPaymentMethod(),
-                  payment.getProviderName(),
-                  payment.getProviderReference(),
-                  payment.getStatus(),
-                  payment.getAmount(),
-                  payment.getQrCodePayload(),
-                  payment.getConfirmedAt(),
-                  payment.getExpiresAt());
+              return com.kfood.payment.infra.persistence.Payment.createPending(
+                  invocation.getArgument(0),
+                  (SalesOrder) invocation.getArgument(1),
+                  invocation.getArgument(2),
+                  invocation.getArgument(3));
             });
 
     var result = useCase.execute(command);

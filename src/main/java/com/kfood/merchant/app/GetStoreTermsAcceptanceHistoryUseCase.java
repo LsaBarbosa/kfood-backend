@@ -1,6 +1,5 @@
 package com.kfood.merchant.app;
 
-import com.kfood.merchant.api.StoreTermsAcceptanceHistoryItemResponse;
 import com.kfood.merchant.infra.persistence.StoreRepository;
 import com.kfood.merchant.infra.persistence.StoreTermsAcceptanceRepository;
 import com.kfood.shared.tenancy.CurrentTenantProvider;
@@ -31,12 +30,12 @@ public class GetStoreTermsAcceptanceHistoryUseCase {
   }
 
   @Transactional(readOnly = true)
-  public List<StoreTermsAcceptanceHistoryItemResponse> execute() {
+  public List<StoreTermsAcceptanceHistoryItemOutput> execute() {
     var storeId = currentTenantProvider.getRequiredStoreId();
     storeRepository.findById(storeId).orElseThrow(() -> new StoreNotFoundException(storeId));
 
     return storeTermsAcceptanceRepository.findAllByStoreIdOrderByAcceptedAtDesc(storeId).stream()
-        .map(StoreTermsAcceptanceMapper::toHistoryItem)
+        .map(StoreTermsAcceptanceMapper::toHistoryItemOutput)
         .toList();
   }
 }

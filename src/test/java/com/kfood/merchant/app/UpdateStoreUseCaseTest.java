@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.kfood.merchant.api.UpdateStoreRequest;
 import com.kfood.merchant.infra.persistence.Store;
 import com.kfood.merchant.infra.persistence.StoreRepository;
 import com.kfood.shared.tenancy.CurrentTenantProvider;
@@ -32,7 +31,7 @@ class UpdateStoreUseCaseTest {
             "45.723.174/0001-10",
             "21999990000",
             "America/Sao_Paulo");
-    var request = new UpdateStoreRequest("Loja Premium", null, null, "21911112222", null);
+    var request = new UpdateStoreCommand("Loja Premium", null, null, "21911112222", null);
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
     when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
@@ -60,7 +59,7 @@ class UpdateStoreUseCaseTest {
             "21999990000",
             "America/Sao_Paulo");
     var request =
-        new UpdateStoreRequest(null, "loja-do-bairro-premium", "31.662.365/0001-40", null, "UTC");
+        new UpdateStoreCommand(null, "loja-do-bairro-premium", "31.662.365/0001-40", null, "UTC");
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
     when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
@@ -77,7 +76,7 @@ class UpdateStoreUseCaseTest {
   @Test
   void shouldThrowWhenStoreDoesNotExist() {
     var storeId = UUID.randomUUID();
-    var request = new UpdateStoreRequest("Novo nome", null, null, null, null);
+    var request = new UpdateStoreCommand("Novo nome", null, null, null, null);
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
     when(storeRepository.findById(storeId)).thenReturn(Optional.empty());
@@ -98,7 +97,7 @@ class UpdateStoreUseCaseTest {
             "45.723.174/0001-10",
             "21999990000",
             "America/Sao_Paulo");
-    var request = new UpdateStoreRequest(null, "novo-slug", null, null, null);
+    var request = new UpdateStoreCommand(null, "novo-slug", null, null, null);
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
     when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
@@ -120,7 +119,7 @@ class UpdateStoreUseCaseTest {
             "45.723.174/0001-10",
             "21999990000",
             "America/Sao_Paulo");
-    var request = new UpdateStoreRequest("Loja Premium", "loja-do-bairro", null, null, null);
+    var request = new UpdateStoreCommand("Loja Premium", "loja-do-bairro", null, null, null);
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
     when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
@@ -152,7 +151,7 @@ class UpdateStoreUseCaseTest {
     assertThatThrownBy(
             () ->
                 updateStoreUseCase.execute(
-                    new UpdateStoreRequest("Novo nome", null, null, null, null)))
+                    new UpdateStoreCommand("Novo nome", null, null, null, null)))
         .isInstanceOf(StoreNotActiveException.class)
         .hasMessageContaining("SUSPENDED");
   }

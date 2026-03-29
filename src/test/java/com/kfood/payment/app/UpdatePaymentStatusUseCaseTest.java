@@ -36,10 +36,10 @@ class UpdatePaymentStatusUseCaseTest {
   @Test
   void shouldReflectPendingPaymentAsPendingOrderSnapshot() {
     var payment = payment(PaymentStatus.PENDING);
-    when(currentTenantProvider.getRequiredStoreId())
-        .thenReturn(payment.getOrder().getStore().getId());
+    var order = (SalesOrder) payment.getOrder();
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(payment.getOrder().getStoreId());
     when(paymentPersistencePort.findPaymentWithOrderByIdAndStoreId(
-            payment.getId(), payment.getOrder().getStore().getId()))
+            payment.getId(), payment.getOrder().getStoreId()))
         .thenReturn(Optional.of(payment));
 
     var result =
@@ -47,17 +47,16 @@ class UpdatePaymentStatusUseCaseTest {
 
     assertThat(result.paymentStatus()).isEqualTo(PaymentStatus.PENDING);
     assertThat(result.orderPaymentStatusSnapshot()).isEqualTo(PaymentStatusSnapshot.PENDING);
-    assertThat(payment.getOrder().getPaymentStatusSnapshot())
-        .isEqualTo(PaymentStatusSnapshot.PENDING);
+    assertThat(order.getPaymentStatusSnapshot()).isEqualTo(PaymentStatusSnapshot.PENDING);
   }
 
   @Test
   void shouldReflectConfirmedPaymentAsPaidOrderSnapshot() {
     var payment = payment(PaymentStatus.PENDING);
-    when(currentTenantProvider.getRequiredStoreId())
-        .thenReturn(payment.getOrder().getStore().getId());
+    var order = (SalesOrder) payment.getOrder();
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(payment.getOrder().getStoreId());
     when(paymentPersistencePort.findPaymentWithOrderByIdAndStoreId(
-            payment.getId(), payment.getOrder().getStore().getId()))
+            payment.getId(), payment.getOrder().getStoreId()))
         .thenReturn(Optional.of(payment));
 
     var result =
@@ -65,17 +64,16 @@ class UpdatePaymentStatusUseCaseTest {
 
     assertThat(result.paymentStatus()).isEqualTo(PaymentStatus.CONFIRMED);
     assertThat(result.orderPaymentStatusSnapshot()).isEqualTo(PaymentStatusSnapshot.PAID);
-    assertThat(payment.getOrder().getPaymentStatusSnapshot()).isEqualTo(PaymentStatusSnapshot.PAID);
+    assertThat(order.getPaymentStatusSnapshot()).isEqualTo(PaymentStatusSnapshot.PAID);
     assertThat(payment.getConfirmedAt()).isEqualTo(Instant.parse("2026-03-27T18:00:00Z"));
   }
 
   @Test
   void shouldReflectFailedPaymentAsFailedOrderSnapshot() {
     var payment = payment(PaymentStatus.PENDING);
-    when(currentTenantProvider.getRequiredStoreId())
-        .thenReturn(payment.getOrder().getStore().getId());
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(payment.getOrder().getStoreId());
     when(paymentPersistencePort.findPaymentWithOrderByIdAndStoreId(
-            payment.getId(), payment.getOrder().getStore().getId()))
+            payment.getId(), payment.getOrder().getStoreId()))
         .thenReturn(Optional.of(payment));
 
     var result =
@@ -91,16 +89,16 @@ class UpdatePaymentStatusUseCaseTest {
     var canceled = payment(PaymentStatus.PENDING);
     var expired = payment(PaymentStatus.PENDING);
     when(currentTenantProvider.getRequiredStoreId())
-        .thenReturn(canceled.getOrder().getStore().getId(), expired.getOrder().getStore().getId());
+        .thenReturn(canceled.getOrder().getStoreId(), expired.getOrder().getStoreId());
     when(paymentPersistencePort.findPaymentWithOrderByIdAndStoreId(
-            canceled.getId(), canceled.getOrder().getStore().getId()))
+            canceled.getId(), canceled.getOrder().getStoreId()))
         .thenReturn(Optional.of(canceled));
 
     var canceledResult =
         useCase.execute(new UpdatePaymentStatusCommand(canceled.getId(), PaymentStatus.CANCELED));
 
     when(paymentPersistencePort.findPaymentWithOrderByIdAndStoreId(
-            expired.getId(), expired.getOrder().getStore().getId()))
+            expired.getId(), expired.getOrder().getStoreId()))
         .thenReturn(Optional.of(expired));
 
     var expiredResult =
@@ -114,10 +112,9 @@ class UpdatePaymentStatusUseCaseTest {
   void shouldRejectInvalidPaymentStatusTransition() {
     var payment = payment(PaymentStatus.PENDING);
     payment.changeStatus(PaymentStatus.CONFIRMED);
-    when(currentTenantProvider.getRequiredStoreId())
-        .thenReturn(payment.getOrder().getStore().getId());
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(payment.getOrder().getStoreId());
     when(paymentPersistencePort.findPaymentWithOrderByIdAndStoreId(
-            payment.getId(), payment.getOrder().getStore().getId()))
+            payment.getId(), payment.getOrder().getStoreId()))
         .thenReturn(Optional.of(payment));
 
     assertThatThrownBy(

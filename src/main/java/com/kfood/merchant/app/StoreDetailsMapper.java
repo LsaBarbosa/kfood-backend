@@ -1,15 +1,13 @@
 package com.kfood.merchant.app;
 
-import com.kfood.merchant.api.StoreDetailsResponse;
 import com.kfood.merchant.infra.persistence.Store;
 
 public final class StoreDetailsMapper {
 
   private StoreDetailsMapper() {}
 
-  public static StoreDetailsResponse toResponse(
-      Store store, StoreActivationRequirements requirements) {
-    return new StoreDetailsResponse(
+  public static StoreDetailsOutput toOutput(Store store, StoreActivationRequirements requirements) {
+    return new StoreDetailsOutput(
         store.getId(),
         store.getSlug(),
         store.getName(),

@@ -6,6 +6,7 @@ import com.kfood.merchant.infra.persistence.Store;
 import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.domain.OrderStatus;
 import com.kfood.order.domain.OrderStatusTransitionException;
+import com.kfood.payment.app.port.PaymentOrder;
 import com.kfood.payment.domain.PaymentMethod;
 import com.kfood.payment.domain.PaymentStatusSnapshot;
 import com.kfood.shared.infra.persistence.AuditableEntity;
@@ -33,7 +34,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "sales_order")
-public class SalesOrder extends AuditableEntity {
+public class SalesOrder extends AuditableEntity implements PaymentOrder {
 
   @Id private UUID id;
 
@@ -181,6 +182,11 @@ public class SalesOrder extends AuditableEntity {
     return store;
   }
 
+  @Override
+  public UUID getStoreId() {
+    return store.getId();
+  }
+
   public Customer getCustomer() {
     return customer;
   }
@@ -219,6 +225,11 @@ public class SalesOrder extends AuditableEntity {
 
   public BigDecimal getTotalAmount() {
     return totalAmount;
+  }
+
+  @Override
+  public boolean isCashPaymentEnabled() {
+    return store.isCashPaymentEnabled();
   }
 
   public OffsetDateTime getScheduledFor() {

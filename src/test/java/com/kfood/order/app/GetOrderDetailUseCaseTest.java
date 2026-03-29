@@ -8,7 +8,6 @@ import static org.mockito.Mockito.when;
 import com.kfood.customer.infra.persistence.Customer;
 import com.kfood.customer.infra.persistence.CustomerAddress;
 import com.kfood.merchant.infra.persistence.Store;
-import com.kfood.order.api.OrderDetailResponse;
 import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.domain.OrderStatus;
 import com.kfood.order.infra.persistence.SalesOrder;
@@ -41,7 +40,7 @@ class GetOrderDetailUseCaseTest {
     when(salesOrderRepository.findDetailedByIdAndStoreId(order.getId(), storeId))
         .thenReturn(Optional.of(order));
 
-    OrderDetailResponse response = useCase.execute(order.getId());
+    OrderDetailOutput response = useCase.execute(order.getId());
 
     assertThat(response.id()).isEqualTo(order.getId());
     assertThat(response.orderNumber()).isEqualTo("PED-20260322-000123");

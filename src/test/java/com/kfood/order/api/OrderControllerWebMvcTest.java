@@ -10,6 +10,7 @@ import com.kfood.identity.app.JwtTokenService;
 import com.kfood.identity.domain.UserRoleName;
 import com.kfood.identity.domain.UserStatus;
 import com.kfood.identity.persistence.IdentityUserEntity;
+import com.kfood.order.app.ListOrdersOutput;
 import com.kfood.order.app.ListOrdersUseCase;
 import com.kfood.order.domain.OrderStatus;
 import com.kfood.payment.domain.PaymentStatusSnapshot;
@@ -46,9 +47,9 @@ class OrderControllerWebMvcTest {
     var orderId = UUID.randomUUID();
     when(listOrdersUseCase.execute(any(), any()))
         .thenReturn(
-            new ListOrdersResponse(
+            new ListOrdersOutput(
                 List.of(
-                    new ListOrdersResponseItem(
+                    new ListOrdersOutput.Item(
                         orderId,
                         "PED-20260322-000123",
                         OrderStatus.NEW,

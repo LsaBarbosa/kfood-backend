@@ -3,6 +3,7 @@ package com.kfood.payment.app;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -20,7 +21,6 @@ import com.kfood.payment.app.port.PaymentPersistencePort;
 import com.kfood.payment.domain.PaymentMethod;
 import com.kfood.payment.domain.PaymentStatus;
 import com.kfood.payment.domain.PaymentStatusSnapshot;
-import com.kfood.payment.infra.persistence.Payment;
 import com.kfood.shared.tenancy.CurrentTenantProvider;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
@@ -52,11 +52,17 @@ class CreateOrderPixPaymentUseCaseTest {
         new CreateOrderPixPaymentCommand(
             order.getId(), new BigDecimal("57.50"), "mock", "idem-123");
 
-    when(currentTenantProvider.getRequiredStoreId()).thenReturn(order.getStore().getId());
-    when(paymentOrderLookupPort.findOrderByIdAndStoreId(order.getId(), order.getStore().getId()))
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(order.getStoreId());
+    when(paymentOrderLookupPort.findOrderByIdAndStoreId(order.getId(), order.getStoreId()))
         .thenReturn(Optional.of(order));
-    when(paymentPersistencePort.savePayment(any(Payment.class)))
-        .thenAnswer(invocation -> invocation.getArgument(0));
+    when(paymentPersistencePort.savePendingPixPayment(
+            any(UUID.class), eq(order), eq(new BigDecimal("57.50"))))
+        .thenAnswer(
+            invocation ->
+                com.kfood.payment.infra.persistence.Payment.createPendingPix(
+                    invocation.getArgument(0),
+                    (SalesOrder) invocation.getArgument(1),
+                    invocation.getArgument(2)));
     when(createPixChargeUseCase.execute(any(CreatePixChargeCommand.class)))
         .thenReturn(
             new PixChargeOutput(
@@ -90,11 +96,17 @@ class CreateOrderPixPaymentUseCaseTest {
   void shouldRejectInvalidProviderResponse() {
     var order = order();
 
-    when(currentTenantProvider.getRequiredStoreId()).thenReturn(order.getStore().getId());
-    when(paymentOrderLookupPort.findOrderByIdAndStoreId(order.getId(), order.getStore().getId()))
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(order.getStoreId());
+    when(paymentOrderLookupPort.findOrderByIdAndStoreId(order.getId(), order.getStoreId()))
         .thenReturn(Optional.of(order));
-    when(paymentPersistencePort.savePayment(any(Payment.class)))
-        .thenAnswer(invocation -> invocation.getArgument(0));
+    when(paymentPersistencePort.savePendingPixPayment(
+            any(UUID.class), eq(order), eq(new BigDecimal("57.50"))))
+        .thenAnswer(
+            invocation ->
+                com.kfood.payment.infra.persistence.Payment.createPendingPix(
+                    invocation.getArgument(0),
+                    (SalesOrder) invocation.getArgument(1),
+                    invocation.getArgument(2)));
     when(createPixChargeUseCase.execute(any(CreatePixChargeCommand.class)))
         .thenReturn(
             new PixChargeOutput(
@@ -121,11 +133,17 @@ class CreateOrderPixPaymentUseCaseTest {
         new PaymentGatewayException(
             "mock", PaymentGatewayErrorType.TIMEOUT, "Pix provider timed out");
 
-    when(currentTenantProvider.getRequiredStoreId()).thenReturn(order.getStore().getId());
-    when(paymentOrderLookupPort.findOrderByIdAndStoreId(order.getId(), order.getStore().getId()))
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(order.getStoreId());
+    when(paymentOrderLookupPort.findOrderByIdAndStoreId(order.getId(), order.getStoreId()))
         .thenReturn(Optional.of(order));
-    when(paymentPersistencePort.savePayment(any(Payment.class)))
-        .thenAnswer(invocation -> invocation.getArgument(0));
+    when(paymentPersistencePort.savePendingPixPayment(
+            any(UUID.class), eq(order), eq(new BigDecimal("57.50"))))
+        .thenAnswer(
+            invocation ->
+                com.kfood.payment.infra.persistence.Payment.createPendingPix(
+                    invocation.getArgument(0),
+                    (SalesOrder) invocation.getArgument(1),
+                    invocation.getArgument(2)));
     when(createPixChargeUseCase.execute(any(CreatePixChargeCommand.class))).thenThrow(exception);
 
     assertThatThrownBy(

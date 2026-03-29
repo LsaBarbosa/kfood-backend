@@ -11,7 +11,6 @@ import com.kfood.identity.domain.UserRoleName;
 import com.kfood.identity.domain.UserStatus;
 import com.kfood.identity.persistence.IdentityUserEntity;
 import com.kfood.identity.persistence.IdentityUserRepository;
-import com.kfood.merchant.api.CreateStoreTermsAcceptanceRequest;
 import com.kfood.merchant.domain.LegalDocumentType;
 import com.kfood.merchant.infra.persistence.Store;
 import com.kfood.merchant.infra.persistence.StoreRepository;
@@ -52,7 +51,7 @@ class CreateStoreTermsAcceptanceUseCaseTest {
   void shouldPersistTermsAcceptanceWithServerGeneratedTimestampIpVersionUserAndStore() {
     var storeId = UUID.randomUUID();
     var userId = UUID.randomUUID();
-    var request = new CreateStoreTermsAcceptanceRequest(LegalDocumentType.TERMS_OF_USE, "2026.03");
+    var request = new CreateStoreTermsAcceptanceCommand(LegalDocumentType.TERMS_OF_USE, "2026.03");
     var store = store(storeId);
     var user = owner(userId, storeId);
 
@@ -95,12 +94,12 @@ class CreateStoreTermsAcceptanceUseCaseTest {
 
     var firstResponse =
         createStoreTermsAcceptanceUseCase.execute(
-            new CreateStoreTermsAcceptanceRequest(LegalDocumentType.TERMS_OF_USE, "2026.03"),
+            new CreateStoreTermsAcceptanceCommand(LegalDocumentType.TERMS_OF_USE, "2026.03"),
             "203.0.113.9");
 
     var secondResponse =
         createStoreTermsAcceptanceUseCase.execute(
-            new CreateStoreTermsAcceptanceRequest(LegalDocumentType.TERMS_OF_USE, "2026.04"),
+            new CreateStoreTermsAcceptanceCommand(LegalDocumentType.TERMS_OF_USE, "2026.04"),
             "203.0.113.10");
 
     assertThat(secondResponse.id()).isNotEqualTo(firstResponse.id());
@@ -109,7 +108,7 @@ class CreateStoreTermsAcceptanceUseCaseTest {
 
   @Test
   void shouldRejectAcceptanceWithoutAuthenticatedUser() {
-    var request = new CreateStoreTermsAcceptanceRequest(LegalDocumentType.TERMS_OF_USE, "2026.03");
+    var request = new CreateStoreTermsAcceptanceCommand(LegalDocumentType.TERMS_OF_USE, "2026.03");
 
     when(currentAuthenticatedUserProvider.getRequiredUserId())
         .thenThrow(new AccessDeniedException("Unauthenticated request"));
@@ -124,7 +123,7 @@ class CreateStoreTermsAcceptanceUseCaseTest {
     var storeId = UUID.randomUUID();
     var anotherStoreId = UUID.randomUUID();
     var userId = UUID.randomUUID();
-    var request = new CreateStoreTermsAcceptanceRequest(LegalDocumentType.TERMS_OF_USE, "2026.03");
+    var request = new CreateStoreTermsAcceptanceCommand(LegalDocumentType.TERMS_OF_USE, "2026.03");
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
     when(currentAuthenticatedUserProvider.getRequiredUserId()).thenReturn(userId);
@@ -141,7 +140,7 @@ class CreateStoreTermsAcceptanceUseCaseTest {
   void shouldThrowWhenStoreDoesNotExist() {
     var storeId = UUID.randomUUID();
     var userId = UUID.randomUUID();
-    var request = new CreateStoreTermsAcceptanceRequest(LegalDocumentType.TERMS_OF_USE, "2026.03");
+    var request = new CreateStoreTermsAcceptanceCommand(LegalDocumentType.TERMS_OF_USE, "2026.03");
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
     when(currentAuthenticatedUserProvider.getRequiredUserId()).thenReturn(userId);
@@ -156,7 +155,7 @@ class CreateStoreTermsAcceptanceUseCaseTest {
   void shouldThrowWhenAuthenticatedUserDoesNotExist() {
     var storeId = UUID.randomUUID();
     var userId = UUID.randomUUID();
-    var request = new CreateStoreTermsAcceptanceRequest(LegalDocumentType.TERMS_OF_USE, "2026.03");
+    var request = new CreateStoreTermsAcceptanceCommand(LegalDocumentType.TERMS_OF_USE, "2026.03");
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
     when(currentAuthenticatedUserProvider.getRequiredUserId()).thenReturn(userId);

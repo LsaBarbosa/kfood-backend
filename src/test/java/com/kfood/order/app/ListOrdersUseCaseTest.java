@@ -64,7 +64,7 @@ class ListOrdersUseCaseTest {
     assertThat(response.items()).hasSize(1);
     assertThat(response.items().getFirst().orderNumber()).isEqualTo("PED-20260322-000123");
     assertThat(response.items().getFirst().customerName()).isEqualTo("Lucas Santana");
-    assertThat(response.items().getFirst().paymentStatus())
+    assertThat(response.items().getFirst().paymentStatusSnapshot())
         .isEqualTo(order.getPaymentStatusSnapshot());
     assertThat(response.totalElements()).isEqualTo(1);
     assertThat(response.sort()).containsExactly("createdAt,desc");

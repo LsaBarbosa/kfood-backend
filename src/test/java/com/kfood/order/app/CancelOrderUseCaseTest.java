@@ -10,7 +10,6 @@ import static org.mockito.Mockito.when;
 
 import com.kfood.customer.infra.persistence.Customer;
 import com.kfood.merchant.infra.persistence.Store;
-import com.kfood.order.api.CancelOrderRequest;
 import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.domain.OrderStatus;
 import com.kfood.order.infra.persistence.OrderStatusHistory;
@@ -63,7 +62,7 @@ class CancelOrderUseCaseTest {
         .thenAnswer(invocation -> invocation.getArgument(0));
 
     var response =
-        useCase.execute(order.getId(), new CancelOrderRequest("  Customer gave up on the order  "));
+        useCase.execute(order.getId(), new CancelOrderCommand("  Customer gave up on the order  "));
 
     assertThat(response.id()).isEqualTo(order.getId());
     assertThat(response.status()).isEqualTo(OrderStatus.CANCELED);
@@ -86,7 +85,7 @@ class CancelOrderUseCaseTest {
 
   @Test
   void shouldRejectCancellationWithoutReason() {
-    assertThatThrownBy(() -> useCase.execute(UUID.randomUUID(), new CancelOrderRequest("   ")))
+    assertThatThrownBy(() -> useCase.execute(UUID.randomUUID(), new CancelOrderCommand("   ")))
         .isInstanceOf(BusinessException.class)
         .satisfies(
             throwable -> {
@@ -118,7 +117,7 @@ class CancelOrderUseCaseTest {
 
     assertThatThrownBy(
             () ->
-                useCase.execute(order.getId(), new CancelOrderRequest("Customer called too late")))
+                useCase.execute(order.getId(), new CancelOrderCommand("Customer called too late")))
         .isInstanceOf(BusinessException.class)
         .satisfies(
             throwable -> {
@@ -143,19 +142,19 @@ class CancelOrderUseCaseTest {
     when(currentAuthenticatedUserProvider.getRequiredUserId()).thenReturn(actorUserId);
     when(salesOrderRepository.findByIdAndStoreId(orderId, storeId)).thenReturn(Optional.empty());
 
-    assertThatThrownBy(() -> useCase.execute(orderId, new CancelOrderRequest("Customer request")))
+    assertThatThrownBy(() -> useCase.execute(orderId, new CancelOrderCommand("Customer request")))
         .isInstanceOf(OrderNotFoundException.class)
         .hasMessage("Order not found for id: " + orderId);
   }
 
   @Test
   void shouldRejectNullArguments() {
-    assertThatThrownBy(() -> useCase.execute(null, new CancelOrderRequest("Customer request")))
+    assertThatThrownBy(() -> useCase.execute(null, new CancelOrderCommand("Customer request")))
         .isInstanceOf(NullPointerException.class)
         .hasMessage("orderId must not be null");
     assertThatThrownBy(() -> useCase.execute(UUID.randomUUID(), null))
         .isInstanceOf(NullPointerException.class)
-        .hasMessage("request must not be null");
+        .hasMessage("command must not be null");
   }
 
   private SalesOrder newOrder(UUID storeId, FulfillmentType fulfillmentType) {

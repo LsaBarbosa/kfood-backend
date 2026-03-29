@@ -3,11 +3,11 @@ package com.kfood.payment.app;
 import com.kfood.order.app.OrderNotFoundException;
 import com.kfood.payment.app.gateway.CreatePixChargeResponse;
 import com.kfood.payment.app.gateway.PixChargeGatewayResponseValidator;
+import com.kfood.payment.app.port.PaymentOrder;
 import com.kfood.payment.app.port.PaymentOrderLookupPort;
 import com.kfood.payment.app.port.PaymentPersistencePort;
 import com.kfood.payment.domain.PaymentMethod;
 import com.kfood.payment.domain.PaymentStatus;
-import com.kfood.payment.infra.persistence.Payment;
 import com.kfood.shared.tenancy.CurrentTenantProvider;
 import java.util.UUID;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -55,8 +55,7 @@ public class CreateOrderPixPaymentUseCase {
     order.markPaymentStatusSnapshot(PaymentStatusSnapshotMapper.from(PaymentStatus.PENDING));
 
     var payment =
-        paymentPersistencePort.savePayment(
-            Payment.createPendingPix(UUID.randomUUID(), order, command.amount()));
+        paymentPersistencePort.savePendingPixPayment(UUID.randomUUID(), order, command.amount());
 
     var pixCharge =
         createPixChargeUseCase.execute(
@@ -93,7 +92,7 @@ public class CreateOrderPixPaymentUseCase {
         validatedResponse.expiresAt());
   }
 
-  private String buildDescription(com.kfood.order.infra.persistence.SalesOrder order) {
+  private String buildDescription(PaymentOrder order) {
     var orderReference =
         order.getOrderNumber() == null || order.getOrderNumber().isBlank()
             ? order.getId().toString()

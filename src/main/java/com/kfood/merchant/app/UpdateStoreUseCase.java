@@ -1,7 +1,5 @@
 package com.kfood.merchant.app;
 
-import com.kfood.merchant.api.StoreResponse;
-import com.kfood.merchant.api.UpdateStoreRequest;
 import com.kfood.merchant.infra.persistence.StoreRepository;
 import com.kfood.shared.tenancy.CurrentTenantProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -30,36 +28,43 @@ public class UpdateStoreUseCase {
   }
 
   @Transactional
-  public StoreResponse execute(UpdateStoreRequest request) {
+  public StoreOutput execute(UpdateStoreCommand command) {
     var storeId = currentTenantProvider.getRequiredStoreId();
     var store =
         storeRepository.findById(storeId).orElseThrow(() -> new StoreNotFoundException(storeId));
 
     storeOperationalGuard.ensureStoreIsNotSuspended(store);
 
-    if (request.slug() != null
-        && !request.slug().equals(store.getSlug())
-        && storeRepository.existsBySlugAndIdNot(request.slug(), storeId)) {
-      throw new StoreSlugAlreadyExistsException(request.slug());
+    if (command.slug() != null
+        && !command.slug().equals(store.getSlug())
+        && storeRepository.existsBySlugAndIdNot(command.slug(), storeId)) {
+      throw new StoreSlugAlreadyExistsException(command.slug());
     }
 
-    if (request.name() != null) {
-      store.changeName(request.name());
+    if (command.name() != null) {
+      store.changeName(command.name());
     }
-    if (request.slug() != null) {
-      store.changeSlug(request.slug());
+    if (command.slug() != null) {
+      store.changeSlug(command.slug());
     }
-    if (request.cnpj() != null) {
-      store.changeCnpj(request.cnpj());
+    if (command.cnpj() != null) {
+      store.changeCnpj(command.cnpj());
     }
-    if (request.phone() != null) {
-      store.changePhone(request.phone());
+    if (command.phone() != null) {
+      store.changePhone(command.phone());
     }
-    if (request.timezone() != null) {
-      store.changeTimezone(request.timezone());
+    if (command.timezone() != null) {
+      store.changeTimezone(command.timezone());
     }
 
     var savedStore = storeRepository.saveAndFlush(store);
-    return StoreMapper.toResponse(savedStore);
+    return new StoreOutput(
+        savedStore.getId(),
+        savedStore.getName(),
+        savedStore.getSlug(),
+        savedStore.getCnpj(),
+        savedStore.getPhone(),
+        savedStore.getTimezone(),
+        savedStore.getStatus());
   }
 }

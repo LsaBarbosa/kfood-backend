@@ -3,7 +3,6 @@ package com.kfood.payment.app;
 import com.kfood.order.app.OrderNotFoundException;
 import com.kfood.payment.app.port.PaymentOrderLookupPort;
 import com.kfood.payment.app.port.PaymentPersistencePort;
-import com.kfood.payment.infra.persistence.Payment;
 import java.util.UUID;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Service;
@@ -31,9 +30,8 @@ public class CreatePaymentUseCase {
             .orElseThrow(() -> new OrderNotFoundException(command.orderId()));
 
     var saved =
-        paymentPersistencePort.savePayment(
-            Payment.createPending(
-                UUID.randomUUID(), order, command.paymentMethod(), command.amount()));
+        paymentPersistencePort.savePendingPayment(
+            UUID.randomUUID(), order, command.paymentMethod(), command.amount());
 
     return new PaymentOutput(
         saved.getId(),

@@ -1,8 +1,6 @@
 package com.kfood.merchant.app;
 
 import com.kfood.identity.persistence.IdentityUserRepository;
-import com.kfood.merchant.api.CreateStoreTermsAcceptanceRequest;
-import com.kfood.merchant.api.StoreTermsAcceptanceResponse;
 import com.kfood.merchant.infra.persistence.StoreRepository;
 import com.kfood.merchant.infra.persistence.StoreTermsAcceptance;
 import com.kfood.merchant.infra.persistence.StoreTermsAcceptanceRepository;
@@ -49,8 +47,8 @@ public class CreateStoreTermsAcceptanceUseCase {
   }
 
   @Transactional
-  public StoreTermsAcceptanceResponse execute(
-      CreateStoreTermsAcceptanceRequest request, String requestIp) {
+  public StoreTermsAcceptanceOutput execute(
+      CreateStoreTermsAcceptanceCommand command, String requestIp) {
     var storeId = currentTenantProvider.getRequiredStoreId();
     var authenticatedUserId = currentAuthenticatedUserProvider.getRequiredUserId();
 
@@ -70,13 +68,17 @@ public class CreateStoreTermsAcceptanceUseCase {
             UUID.randomUUID(),
             storeId,
             authenticatedUserId,
-            request.documentType(),
-            request.documentVersion(),
+            command.documentType(),
+            command.documentVersion(),
             Instant.now(clock),
             normalizeRequestIp(requestIp));
 
-    return StoreTermsAcceptanceMapper.toResponse(
-        storeTermsAcceptanceRepository.saveAndFlush(acceptance));
+    var savedAcceptance = storeTermsAcceptanceRepository.saveAndFlush(acceptance);
+    return new StoreTermsAcceptanceOutput(
+        savedAcceptance.getId(),
+        savedAcceptance.getDocumentType(),
+        savedAcceptance.getDocumentVersion(),
+        savedAcceptance.getAcceptedAt());
   }
 
   private String normalizeRequestIp(String requestIp) {

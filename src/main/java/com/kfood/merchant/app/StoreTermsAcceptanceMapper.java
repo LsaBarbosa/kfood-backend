@@ -1,24 +1,22 @@
 package com.kfood.merchant.app;
 
-import com.kfood.merchant.api.StoreTermsAcceptanceHistoryItemResponse;
-import com.kfood.merchant.api.StoreTermsAcceptanceResponse;
 import com.kfood.merchant.infra.persistence.StoreTermsAcceptance;
 
 public final class StoreTermsAcceptanceMapper {
 
   private StoreTermsAcceptanceMapper() {}
 
-  public static StoreTermsAcceptanceResponse toResponse(StoreTermsAcceptance acceptance) {
-    return new StoreTermsAcceptanceResponse(
+  public static StoreTermsAcceptanceOutput toOutput(StoreTermsAcceptance acceptance) {
+    return new StoreTermsAcceptanceOutput(
         acceptance.getId(),
         acceptance.getDocumentType(),
         acceptance.getDocumentVersion(),
         acceptance.getAcceptedAt());
   }
 
-  public static StoreTermsAcceptanceHistoryItemResponse toHistoryItem(
+  public static StoreTermsAcceptanceHistoryItemOutput toHistoryItemOutput(
       StoreTermsAcceptance acceptance) {
-    return new StoreTermsAcceptanceHistoryItemResponse(
+    return new StoreTermsAcceptanceHistoryItemOutput(
         acceptance.getId(),
         acceptance.getAcceptedByUserId(),
         acceptance.getDocumentType(),

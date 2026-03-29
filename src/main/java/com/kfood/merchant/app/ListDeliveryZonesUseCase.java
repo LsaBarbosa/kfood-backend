@@ -1,6 +1,5 @@
 package com.kfood.merchant.app;
 
-import com.kfood.merchant.api.DeliveryZoneResponse;
 import com.kfood.merchant.infra.persistence.DeliveryZoneRepository;
 import com.kfood.shared.tenancy.CurrentTenantProvider;
 import java.util.List;
@@ -22,10 +21,10 @@ public class ListDeliveryZonesUseCase {
   }
 
   @Transactional(readOnly = true)
-  public List<DeliveryZoneResponse> execute() {
+  public List<DeliveryZoneOutput> execute() {
     var storeId = currentTenantProvider.getRequiredStoreId();
     return deliveryZoneRepository.findAllByStoreIdOrderByZoneNameAsc(storeId).stream()
-        .map(DeliveryZoneMapper::toResponse)
+        .map(DeliveryZoneMapper::toOutput)
         .toList();
   }
 }

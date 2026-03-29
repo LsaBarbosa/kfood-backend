@@ -1,14 +1,13 @@
 package com.kfood.merchant.app;
 
-import com.kfood.merchant.api.DeliveryZoneResponse;
 import com.kfood.merchant.infra.persistence.DeliveryZone;
 
 public final class DeliveryZoneMapper {
 
   private DeliveryZoneMapper() {}
 
-  public static DeliveryZoneResponse toResponse(DeliveryZone zone) {
-    return new DeliveryZoneResponse(
+  public static DeliveryZoneOutput toOutput(DeliveryZone zone) {
+    return new DeliveryZoneOutput(
         zone.getId(),
         zone.getZoneName(),
         zone.getFeeAmount(),

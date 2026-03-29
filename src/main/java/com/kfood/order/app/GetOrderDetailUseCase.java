@@ -1,6 +1,5 @@
 package com.kfood.order.app;
 
-import com.kfood.order.api.OrderDetailResponse;
 import com.kfood.order.infra.persistence.SalesOrder;
 import com.kfood.order.infra.persistence.SalesOrderItem;
 import com.kfood.order.infra.persistence.SalesOrderItemOption;
@@ -25,7 +24,7 @@ public class GetOrderDetailUseCase {
   }
 
   @Transactional(readOnly = true)
-  public OrderDetailResponse execute(UUID orderId) {
+  public OrderDetailOutput execute(UUID orderId) {
     var storeId = currentTenantProvider.getRequiredStoreId();
     var order =
         salesOrderRepository
@@ -34,8 +33,8 @@ public class GetOrderDetailUseCase {
     return toResponse(order);
   }
 
-  private OrderDetailResponse toResponse(SalesOrder order) {
-    return new OrderDetailResponse(
+  private OrderDetailOutput toResponse(SalesOrder order) {
+    return new OrderDetailOutput(
         order.getId(),
         order.getOrderNumber(),
         order.getStatus(),
@@ -47,23 +46,23 @@ public class GetOrderDetailUseCase {
         order.getScheduledFor(),
         order.getCreatedAt(),
         order.getUpdatedAt(),
-        new OrderDetailResponse.CustomerDetail(
+        new OrderDetailOutput.Customer(
             order.getCustomer().getId(),
             order.getCustomer().getName(),
             order.getCustomer().getPhone(),
             order.getCustomer().getEmail()),
         toAddress(order),
-        new OrderDetailResponse.PaymentDetail(
+        new OrderDetailOutput.Payment(
             order.getPaymentMethodSnapshot(), order.getPaymentStatusSnapshot()),
         order.getItems().stream().map(this::toItem).toList());
   }
 
-  private OrderDetailResponse.AddressDetail toAddress(SalesOrder order) {
+  private OrderDetailOutput.Address toAddress(SalesOrder order) {
     if (!order.hasDeliveryAddressSnapshot()) {
       return null;
     }
 
-    return new OrderDetailResponse.AddressDetail(
+    return new OrderDetailOutput.Address(
         order.getDeliveryAddressLabel(),
         order.getDeliveryAddressZipCode(),
         order.getDeliveryAddressStreet(),
@@ -74,8 +73,8 @@ public class GetOrderDetailUseCase {
         order.getDeliveryAddressComplement());
   }
 
-  private OrderDetailResponse.ItemDetail toItem(SalesOrderItem item) {
-    return new OrderDetailResponse.ItemDetail(
+  private OrderDetailOutput.Item toItem(SalesOrderItem item) {
+    return new OrderDetailOutput.Item(
         item.getId(),
         item.getProductId(),
         item.getProductNameSnapshot(),
@@ -86,8 +85,8 @@ public class GetOrderDetailUseCase {
         item.getOptions().stream().map(this::toOption).toList());
   }
 
-  private OrderDetailResponse.ItemOptionDetail toOption(SalesOrderItemOption option) {
-    return new OrderDetailResponse.ItemOptionDetail(
+  private OrderDetailOutput.ItemOption toOption(SalesOrderItemOption option) {
+    return new OrderDetailOutput.ItemOption(
         option.getId(),
         option.getOptionNameSnapshot(),
         option.getExtraPriceSnapshot(),

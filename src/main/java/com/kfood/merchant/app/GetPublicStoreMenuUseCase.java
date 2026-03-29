@@ -4,8 +4,6 @@ import com.kfood.catalog.infra.persistence.CatalogCategoryRepository;
 import com.kfood.catalog.infra.persistence.CatalogOptionGroup;
 import com.kfood.catalog.infra.persistence.CatalogOptionGroupRepository;
 import com.kfood.catalog.infra.persistence.CatalogProductRepository;
-import com.kfood.merchant.api.PublicStoreMenuCategoryResponse;
-import com.kfood.merchant.api.PublicStoreMenuResponse;
 import com.kfood.merchant.infra.persistence.StoreRepository;
 import java.time.ZoneId;
 import java.util.LinkedHashMap;
@@ -40,7 +38,7 @@ public class GetPublicStoreMenuUseCase {
   }
 
   @Transactional(readOnly = true)
-  public PublicStoreMenuResponse execute(String slug) {
+  public PublicStoreMenuOutput execute(String slug) {
     var normalizedSlug = normalize(slug);
     var store =
         storeRepository
@@ -64,16 +62,16 @@ public class GetPublicStoreMenuUseCase {
                   new PublicStoreMenuCategoryAccumulator(category.getId(), category.getName()))
           .products()
           .add(
-              PublicStoreMapper.toMenuProductResponse(
+              PublicStoreMapper.toMenuProductOutput(
                   product,
                   optionGroupsByProductId.getOrDefault(product.getId(), java.util.List.of())));
     }
 
-    return new PublicStoreMenuResponse(
+    return new PublicStoreMenuOutput(
         categoriesById.values().stream()
             .map(
                 category ->
-                    new PublicStoreMenuCategoryResponse(
+                    new PublicStoreMenuCategoryOutput(
                         category.id(), category.name(), java.util.List.copyOf(category.products())))
             .toList());
   }
@@ -104,9 +102,7 @@ public class GetPublicStoreMenuUseCase {
   }
 
   private record PublicStoreMenuCategoryAccumulator(
-      java.util.UUID id,
-      String name,
-      java.util.List<com.kfood.merchant.api.PublicStoreMenuProductResponse> products) {
+      java.util.UUID id, String name, java.util.List<PublicStoreMenuProductOutput> products) {
 
     private PublicStoreMenuCategoryAccumulator(java.util.UUID id, String name) {
       this(id, name, new java.util.ArrayList<>());

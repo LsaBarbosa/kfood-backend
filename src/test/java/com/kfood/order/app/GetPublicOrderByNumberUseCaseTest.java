@@ -9,7 +9,6 @@ import com.kfood.customer.infra.persistence.Customer;
 import com.kfood.merchant.app.StoreSlugNotFoundException;
 import com.kfood.merchant.infra.persistence.Store;
 import com.kfood.merchant.infra.persistence.StoreRepository;
-import com.kfood.order.api.PublicOrderLookupResponse;
 import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.domain.OrderStatus;
 import com.kfood.order.infra.persistence.SalesOrder;
@@ -37,12 +36,11 @@ class GetPublicOrderByNumberUseCaseTest {
     when(salesOrderRepository.findByStoreIdAndOrderNumber(store.getId(), "PED-20260326-000123"))
         .thenReturn(Optional.of(order));
 
-    PublicOrderLookupResponse response =
-        useCase.execute(" loja-do-bairro ", " PED-20260326-000123 ");
+    PublicOrderLookupOutput response = useCase.execute(" loja-do-bairro ", " PED-20260326-000123 ");
 
     assertThat(response.orderNumber()).isEqualTo("PED-20260326-000123");
     assertThat(response.status()).isEqualTo(OrderStatus.NEW);
-    assertThat(response.paymentStatus()).isEqualTo(PaymentStatusSnapshot.PENDING);
+    assertThat(response.paymentStatusSnapshot()).isEqualTo(PaymentStatusSnapshot.PENDING);
     assertThat(response.fulfillmentType()).isEqualTo(FulfillmentType.DELIVERY);
     assertThat(response.totalAmount()).isEqualByComparingTo("56.50");
     assertThat(response.createdAt()).isEqualTo(order.getCreatedAt());

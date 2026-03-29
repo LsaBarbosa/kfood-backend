@@ -21,7 +21,7 @@ class PublicStoreMapperTest {
     var group = optionGroup(product, "Bordas", 1, 2, true, true);
     group.addItem(optionItem(group, "Catupiry", "8.00", true, 10));
 
-    var response = PublicStoreMapper.toMenuProductResponse(product);
+    var response = PublicStoreMapper.toMenuProductOutput(product);
 
     assertThat(response.optionGroups()).hasSize(1);
     var mappedGroup = response.optionGroups().getFirst();
@@ -44,7 +44,7 @@ class PublicStoreMapperTest {
     group.addItem(optionItem(group, "Barbecue", "2.50", true, 5));
     group.addItem(optionItem(group, "Alho", "1.50", false, 6));
 
-    var response = PublicStoreMapper.toMenuProductResponse(product);
+    var response = PublicStoreMapper.toMenuProductOutput(product);
 
     assertThat(response.optionGroups()).hasSize(1);
     var mappedGroup = response.optionGroups().getFirst();

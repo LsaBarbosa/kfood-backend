@@ -2,6 +2,7 @@ package com.kfood.order.infra.persistence;
 
 import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.domain.OrderStatus;
+import com.kfood.payment.app.port.PaymentOrder;
 import com.kfood.payment.app.port.PaymentOrderLookupPort;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -21,13 +22,13 @@ public interface SalesOrderRepository
         PaymentOrderLookupPort {
 
   @Override
-  default Optional<SalesOrder> findOrderById(UUID orderId) {
-    return findById(orderId);
+  default Optional<PaymentOrder> findOrderById(UUID orderId) {
+    return findById(orderId).map(order -> order);
   }
 
   @Override
-  default Optional<SalesOrder> findOrderByIdAndStoreId(UUID orderId, UUID storeId) {
-    return findByIdAndStoreId(orderId, storeId);
+  default Optional<PaymentOrder> findOrderByIdAndStoreId(UUID orderId, UUID storeId) {
+    return findByIdAndStoreId(orderId, storeId).map(order -> order);
   }
 
   Optional<SalesOrder> findByIdAndStoreId(UUID id, UUID storeId);

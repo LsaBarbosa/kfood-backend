@@ -13,7 +13,6 @@ import com.kfood.identity.domain.UserStatus;
 import com.kfood.identity.persistence.IdentityUserEntity;
 import com.kfood.identity.persistence.IdentityUserRepository;
 import com.kfood.identity.persistence.IdentityUserRoleEntity;
-import com.kfood.merchant.api.CreateStoreRequest;
 import com.kfood.merchant.domain.StoreStatus;
 import com.kfood.merchant.infra.persistence.Store;
 import com.kfood.merchant.infra.persistence.StoreRepository;
@@ -39,7 +38,7 @@ class CreateStoreUseCaseTest {
   void shouldCreateStoreAndBindOwnerToNewStore() throws Exception {
     var userId = UUID.randomUUID();
     var request =
-        new CreateStoreRequest(
+        new CreateStoreCommand(
             "Loja do Bairro",
             "loja-do-bairro",
             "45.723.174/0001-10",
@@ -79,7 +78,7 @@ class CreateStoreUseCaseTest {
   void shouldCreateStoreWithoutBindingAdminUser() throws Exception {
     var userId = UUID.randomUUID();
     var request =
-        new CreateStoreRequest(
+        new CreateStoreCommand(
             "Loja Admin", "loja-admin", "45.723.174/0001-10", "21999990000", "America/Sao_Paulo");
     var admin = adminUser(userId);
     var persistedStore =
@@ -108,7 +107,7 @@ class CreateStoreUseCaseTest {
   void shouldRejectDuplicatedSlug() {
     var userId = UUID.randomUUID();
     var request =
-        new CreateStoreRequest(
+        new CreateStoreCommand(
             "Loja do Bairro",
             "loja-do-bairro",
             "45.723.174/0001-10",
@@ -130,7 +129,7 @@ class CreateStoreUseCaseTest {
     var userId = UUID.randomUUID();
     var currentStoreId = UUID.randomUUID();
     var request =
-        new CreateStoreRequest(
+        new CreateStoreCommand(
             "Outra Loja", "outra-loja", "45.723.174/0001-10", "21999990000", "America/Sao_Paulo");
 
     when(currentAuthenticatedUserProvider.getRequiredUserId()).thenReturn(userId);
@@ -146,7 +145,7 @@ class CreateStoreUseCaseTest {
   void shouldRejectWhenAuthenticatedUserDoesNotExist() {
     var userId = UUID.randomUUID();
     var request =
-        new CreateStoreRequest(
+        new CreateStoreCommand(
             "Loja do Bairro",
             "loja-do-bairro",
             "45.723.174/0001-10",

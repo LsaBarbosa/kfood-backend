@@ -12,11 +12,11 @@ import org.junit.jupiter.api.Test;
 class StoreMapperTest {
 
   @Test
-  void shouldMapCreateResponse() throws Exception {
+  void shouldMapCreateOutput() throws Exception {
     var store = store();
     setAuditableField(store, "createdAt", Instant.parse("2026-03-20T10:00:00Z"));
 
-    var response = StoreMapper.toCreateResponse(store);
+    var response = StoreMapper.toCreateOutput(store);
 
     assertThat(response.id()).isEqualTo(store.getId());
     assertThat(response.slug()).isEqualTo("loja-do-bairro");
@@ -25,10 +25,10 @@ class StoreMapperTest {
   }
 
   @Test
-  void shouldMapStoreResponse() {
+  void shouldMapStoreOutput() {
     var store = store();
 
-    var response = StoreMapper.toResponse(store);
+    var response = StoreMapper.toOutput(store);
 
     assertThat(response.id()).isEqualTo(store.getId());
     assertThat(response.name()).isEqualTo("Loja do Bairro");

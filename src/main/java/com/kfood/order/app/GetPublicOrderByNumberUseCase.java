@@ -2,7 +2,6 @@ package com.kfood.order.app;
 
 import com.kfood.merchant.app.StoreSlugNotFoundException;
 import com.kfood.merchant.infra.persistence.StoreRepository;
-import com.kfood.order.api.PublicOrderLookupResponse;
 import com.kfood.order.infra.persistence.SalesOrderRepository;
 import java.util.Objects;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -23,7 +22,7 @@ public class GetPublicOrderByNumberUseCase {
   }
 
   @Transactional(readOnly = true)
-  public PublicOrderLookupResponse execute(String slug, String orderNumber) {
+  public PublicOrderLookupOutput execute(String slug, String orderNumber) {
     var normalizedSlug = normalize(slug);
     var normalizedOrderNumber = normalize(orderNumber);
 
@@ -37,7 +36,7 @@ public class GetPublicOrderByNumberUseCase {
             .findByStoreIdAndOrderNumber(store.getId(), normalizedOrderNumber)
             .orElseThrow(() -> new OrderNotFoundException(normalizedOrderNumber));
 
-    return new PublicOrderLookupResponse(
+    return new PublicOrderLookupOutput(
         order.getOrderNumber(),
         order.getStatus(),
         order.getPaymentStatusSnapshot(),

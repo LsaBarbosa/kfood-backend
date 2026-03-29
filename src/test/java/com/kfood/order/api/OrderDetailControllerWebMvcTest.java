@@ -11,6 +11,7 @@ import com.kfood.identity.domain.UserRoleName;
 import com.kfood.identity.domain.UserStatus;
 import com.kfood.identity.persistence.IdentityUserEntity;
 import com.kfood.order.app.GetOrderDetailUseCase;
+import com.kfood.order.app.OrderDetailOutput;
 import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.domain.OrderStatus;
 import com.kfood.payment.domain.PaymentMethod;
@@ -49,7 +50,7 @@ class OrderDetailControllerWebMvcTest {
 
     when(getOrderDetailUseCase.execute(eq(orderId)))
         .thenReturn(
-            new OrderDetailResponse(
+            new OrderDetailOutput(
                 orderId,
                 "PED-20260322-000123",
                 OrderStatus.NEW,
@@ -61,14 +62,13 @@ class OrderDetailControllerWebMvcTest {
                 null,
                 Instant.parse("2026-03-22T18:25:00Z"),
                 Instant.parse("2026-03-22T18:25:00Z"),
-                new OrderDetailResponse.CustomerDetail(
+                new OrderDetailOutput.Customer(
                     UUID.randomUUID(), "Lucas Santana", "21999990000", "lucas@email.com"),
-                new OrderDetailResponse.AddressDetail(
+                new OrderDetailOutput.Address(
                     "Casa", "25000000", "Rua das Flores", "45", "Centro", "Mage", "RJ", "Ap 101"),
-                new OrderDetailResponse.PaymentDetail(
-                    PaymentMethod.PIX, PaymentStatusSnapshot.PENDING),
+                new OrderDetailOutput.Payment(PaymentMethod.PIX, PaymentStatusSnapshot.PENDING),
                 List.of(
-                    new OrderDetailResponse.ItemDetail(
+                    new OrderDetailOutput.Item(
                         UUID.randomUUID(),
                         UUID.randomUUID(),
                         "Pizza Calabresa",
@@ -77,7 +77,7 @@ class OrderDetailControllerWebMvcTest {
                         new BigDecimal("50.00"),
                         "Sem cebola",
                         List.of(
-                            new OrderDetailResponse.ItemOptionDetail(
+                            new OrderDetailOutput.ItemOption(
                                 UUID.randomUUID(),
                                 "Borda Catupiry",
                                 new BigDecimal("8.00"),

@@ -1,7 +1,5 @@
 package com.kfood.merchant.app;
 
-import com.kfood.merchant.api.CreateDeliveryZoneRequest;
-import com.kfood.merchant.api.DeliveryZoneResponse;
 import com.kfood.merchant.infra.persistence.DeliveryZone;
 import com.kfood.merchant.infra.persistence.DeliveryZoneRepository;
 import com.kfood.merchant.infra.persistence.StoreRepository;
@@ -37,14 +35,14 @@ public class CreateDeliveryZoneUseCase {
   }
 
   @Transactional
-  public DeliveryZoneResponse execute(CreateDeliveryZoneRequest request) {
+  public DeliveryZoneOutput execute(CreateDeliveryZoneCommand command) {
     var storeId = currentTenantProvider.getRequiredStoreId();
     var store =
         storeRepository.findById(storeId).orElseThrow(() -> new StoreNotFoundException(storeId));
 
     storeOperationalGuard.ensureStoreIsNotSuspended(store);
 
-    var zoneName = request.zoneName().trim();
+    var zoneName = command.zoneName().trim();
 
     if (deliveryZoneRepository.existsByStoreIdAndZoneName(storeId, zoneName)) {
       throw new DeliveryZoneAlreadyExistsException(zoneName);
@@ -55,10 +53,10 @@ public class CreateDeliveryZoneUseCase {
             UUID.randomUUID(),
             store,
             zoneName,
-            request.feeAmount(),
-            request.minOrderAmount(),
-            request.active());
+            command.feeAmount(),
+            command.minOrderAmount(),
+            command.active());
 
-    return DeliveryZoneMapper.toResponse(deliveryZoneRepository.saveAndFlush(zone));
+    return DeliveryZoneMapper.toOutput(deliveryZoneRepository.saveAndFlush(zone));
   }
 }

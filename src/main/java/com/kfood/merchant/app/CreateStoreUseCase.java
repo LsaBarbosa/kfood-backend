@@ -2,8 +2,6 @@ package com.kfood.merchant.app;
 
 import com.kfood.identity.domain.UserRoleName;
 import com.kfood.identity.persistence.IdentityUserRepository;
-import com.kfood.merchant.api.CreateStoreRequest;
-import com.kfood.merchant.api.CreateStoreResponse;
 import com.kfood.merchant.infra.persistence.Store;
 import com.kfood.merchant.infra.persistence.StoreRepository;
 import com.kfood.shared.security.CurrentAuthenticatedUserProvider;
@@ -34,7 +32,7 @@ public class CreateStoreUseCase {
   }
 
   @Transactional
-  public CreateStoreResponse execute(CreateStoreRequest request) {
+  public CreateStoreOutput execute(CreateStoreCommand command) {
     var authenticatedUserId = currentAuthenticatedUserProvider.getRequiredUserId();
     var authenticatedUser =
         identityUserRepository
@@ -45,18 +43,18 @@ public class CreateStoreUseCase {
       throw new OwnerAlreadyBoundToAnotherStoreException(authenticatedUser.getStoreId());
     }
 
-    if (storeRepository.existsBySlug(request.slug())) {
-      throw new StoreSlugAlreadyExistsException(request.slug());
+    if (storeRepository.existsBySlug(command.slug())) {
+      throw new StoreSlugAlreadyExistsException(command.slug());
     }
 
     var store =
         new Store(
             UUID.randomUUID(),
-            request.name(),
-            request.slug(),
-            request.cnpj(),
-            request.phone(),
-            request.timezone());
+            command.name(),
+            command.slug(),
+            command.cnpj(),
+            command.phone(),
+            command.timezone());
 
     var savedStore = storeRepository.saveAndFlush(store);
 
@@ -65,6 +63,10 @@ public class CreateStoreUseCase {
       identityUserRepository.saveAndFlush(authenticatedUser);
     }
 
-    return StoreMapper.toCreateResponse(savedStore);
+    return new CreateStoreOutput(
+        savedStore.getId(),
+        savedStore.getSlug(),
+        savedStore.getStatus(),
+        savedStore.getCreatedAt());
   }
 }

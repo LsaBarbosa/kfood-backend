@@ -1,6 +1,5 @@
 package com.kfood.merchant.app;
 
-import com.kfood.merchant.api.StoreHoursResponse;
 import com.kfood.merchant.infra.persistence.StoreBusinessHourRepository;
 import com.kfood.merchant.infra.persistence.StoreRepository;
 import com.kfood.shared.tenancy.CurrentTenantProvider;
@@ -31,7 +30,7 @@ public class GetStoreHoursUseCase {
   }
 
   @Transactional(readOnly = true)
-  public StoreHoursResponse execute() {
+  public StoreHoursOutput execute() {
     var storeId = currentTenantProvider.getRequiredStoreId();
     var store =
         storeRepository.findById(storeId).orElseThrow(() -> new StoreNotFoundException(storeId));
@@ -39,9 +38,9 @@ public class GetStoreHoursUseCase {
     var hours =
         storeBusinessHourRepository.findByStoreId(storeId).stream()
             .sorted(Comparator.comparingInt(item -> item.getDayOfWeek().getValue()))
-            .map(StoreHoursMapper::toResponse)
+            .map(StoreHoursMapper::toOutput)
             .toList();
 
-    return new StoreHoursResponse(store.getHoursVersion(), hours);
+    return new StoreHoursOutput(store.getHoursVersion(), hours);
   }
 }

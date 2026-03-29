@@ -1,6 +1,5 @@
 package com.kfood.merchant.app;
 
-import com.kfood.merchant.api.DeliveryZoneResponse;
 import com.kfood.merchant.infra.persistence.DeliveryZoneRepository;
 import com.kfood.shared.tenancy.CurrentTenantProvider;
 import java.util.UUID;
@@ -22,12 +21,12 @@ public class GetDeliveryZoneUseCase {
   }
 
   @Transactional(readOnly = true)
-  public DeliveryZoneResponse execute(UUID zoneId) {
+  public DeliveryZoneOutput execute(UUID zoneId) {
     var storeId = currentTenantProvider.getRequiredStoreId();
     var zone =
         deliveryZoneRepository
             .findByIdAndStoreId(zoneId, storeId)
             .orElseThrow(() -> new DeliveryZoneNotFoundException(zoneId));
-    return DeliveryZoneMapper.toResponse(zone);
+    return DeliveryZoneMapper.toOutput(zone);
   }
 }

@@ -3,6 +3,7 @@ package com.kfood.payment.app;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -16,7 +17,6 @@ import com.kfood.payment.app.port.PaymentPersistencePort;
 import com.kfood.payment.domain.PaymentMethod;
 import com.kfood.payment.domain.PaymentStatus;
 import com.kfood.payment.domain.PaymentStatusSnapshot;
-import com.kfood.payment.infra.persistence.Payment;
 import java.math.BigDecimal;
 import java.util.Optional;
 import java.util.UUID;
@@ -34,8 +34,15 @@ class RegisterCashPaymentUseCaseTest {
     var order = order(true);
 
     when(paymentOrderLookupPort.findOrderById(order.getId())).thenReturn(Optional.of(order));
-    when(paymentPersistencePort.savePayment(any(Payment.class)))
-        .thenAnswer(invocation -> invocation.getArgument(0));
+    when(paymentPersistencePort.savePendingPayment(
+            any(UUID.class), eq(order), eq(PaymentMethod.CASH), eq(order.getTotalAmount())))
+        .thenAnswer(
+            invocation ->
+                com.kfood.payment.infra.persistence.Payment.createPending(
+                    invocation.getArgument(0),
+                    (SalesOrder) invocation.getArgument(1),
+                    invocation.getArgument(2),
+                    invocation.getArgument(3)));
 
     var result = useCase.execute(new RegisterCashPaymentCommand(order.getId()));
 
@@ -76,8 +83,15 @@ class RegisterCashPaymentUseCaseTest {
     var order = order(true);
 
     when(paymentOrderLookupPort.findOrderById(order.getId())).thenReturn(Optional.of(order));
-    when(paymentPersistencePort.savePayment(any(Payment.class)))
-        .thenAnswer(invocation -> invocation.getArgument(0));
+    when(paymentPersistencePort.savePendingPayment(
+            any(UUID.class), eq(order), eq(PaymentMethod.CASH), eq(order.getTotalAmount())))
+        .thenAnswer(
+            invocation ->
+                com.kfood.payment.infra.persistence.Payment.createPending(
+                    invocation.getArgument(0),
+                    (SalesOrder) invocation.getArgument(1),
+                    invocation.getArgument(2),
+                    invocation.getArgument(3)));
 
     var result = useCase.execute(new RegisterCashPaymentCommand(order.getId()));
 

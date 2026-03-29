@@ -5,7 +5,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.kfood.merchant.api.ChangeStoreStatusRequest;
 import com.kfood.merchant.domain.StoreStatus;
 import com.kfood.merchant.infra.persistence.Store;
 import com.kfood.merchant.infra.persistence.StoreRepository;
@@ -37,7 +36,7 @@ class ChangeStoreStatusUseCaseTest {
 
     assertThatThrownBy(
             () ->
-                changeStoreStatusUseCase.execute(new ChangeStoreStatusRequest(StoreStatus.ACTIVE)))
+                changeStoreStatusUseCase.execute(new ChangeStoreStatusCommand(StoreStatus.ACTIVE)))
         .isInstanceOf(StoreActivationRequirementsNotMetException.class)
         .hasMessageContaining("termsAccepted");
 
@@ -56,7 +55,7 @@ class ChangeStoreStatusUseCaseTest {
 
     assertThatThrownBy(
             () ->
-                changeStoreStatusUseCase.execute(new ChangeStoreStatusRequest(StoreStatus.ACTIVE)))
+                changeStoreStatusUseCase.execute(new ChangeStoreStatusCommand(StoreStatus.ACTIVE)))
         .isInstanceOf(StoreActivationRequirementsNotMetException.class)
         .hasMessageContaining("hoursConfigured");
 
@@ -75,7 +74,7 @@ class ChangeStoreStatusUseCaseTest {
     when(storeRepository.saveAndFlush(store)).thenReturn(store);
 
     var response =
-        changeStoreStatusUseCase.execute(new ChangeStoreStatusRequest(StoreStatus.ACTIVE));
+        changeStoreStatusUseCase.execute(new ChangeStoreStatusCommand(StoreStatus.ACTIVE));
 
     assertThat(response.status()).isEqualTo(StoreStatus.ACTIVE);
     assertThat(store.getStatus()).isEqualTo(StoreStatus.ACTIVE);
@@ -94,7 +93,7 @@ class ChangeStoreStatusUseCaseTest {
     when(storeRepository.saveAndFlush(store)).thenReturn(store);
 
     var response =
-        changeStoreStatusUseCase.execute(new ChangeStoreStatusRequest(StoreStatus.SUSPENDED));
+        changeStoreStatusUseCase.execute(new ChangeStoreStatusCommand(StoreStatus.SUSPENDED));
 
     assertThat(response.status()).isEqualTo(StoreStatus.SUSPENDED);
     assertThat(store.getStatus()).isEqualTo(StoreStatus.SUSPENDED);
@@ -114,7 +113,7 @@ class ChangeStoreStatusUseCaseTest {
     when(storeRepository.saveAndFlush(store)).thenReturn(store);
 
     var response =
-        changeStoreStatusUseCase.execute(new ChangeStoreStatusRequest(StoreStatus.ACTIVE));
+        changeStoreStatusUseCase.execute(new ChangeStoreStatusCommand(StoreStatus.ACTIVE));
 
     assertThat(response.status()).isEqualTo(StoreStatus.ACTIVE);
     assertThat(store.getStatus()).isEqualTo(StoreStatus.ACTIVE);
@@ -133,7 +132,7 @@ class ChangeStoreStatusUseCaseTest {
     assertThatThrownBy(
             () ->
                 changeStoreStatusUseCase.execute(
-                    new ChangeStoreStatusRequest(StoreStatus.SUSPENDED)))
+                    new ChangeStoreStatusCommand(StoreStatus.SUSPENDED)))
         .isInstanceOf(RuntimeException.class)
         .hasMessageContaining("Invalid store status transition");
   }
@@ -149,7 +148,7 @@ class ChangeStoreStatusUseCaseTest {
         .thenReturn(new StoreActivationRequirements(true, true, true));
 
     assertThatThrownBy(
-            () -> changeStoreStatusUseCase.execute(new ChangeStoreStatusRequest(StoreStatus.SETUP)))
+            () -> changeStoreStatusUseCase.execute(new ChangeStoreStatusCommand(StoreStatus.SETUP)))
         .isInstanceOf(BusinessException.class)
         .hasMessageContaining("Changing status to SETUP is not allowed");
   }
@@ -163,7 +162,7 @@ class ChangeStoreStatusUseCaseTest {
 
     assertThatThrownBy(
             () ->
-                changeStoreStatusUseCase.execute(new ChangeStoreStatusRequest(StoreStatus.ACTIVE)))
+                changeStoreStatusUseCase.execute(new ChangeStoreStatusCommand(StoreStatus.ACTIVE)))
         .isInstanceOf(StoreNotFoundException.class)
         .hasMessageContaining(storeId.toString());
   }

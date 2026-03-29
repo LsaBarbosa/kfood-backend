@@ -3,12 +3,6 @@ package com.kfood.merchant.app;
 import com.kfood.catalog.infra.persistence.CatalogOptionGroup;
 import com.kfood.catalog.infra.persistence.CatalogOptionItem;
 import com.kfood.catalog.infra.persistence.CatalogProduct;
-import com.kfood.merchant.api.PublicDeliveryZoneResponse;
-import com.kfood.merchant.api.PublicStoreHourResponse;
-import com.kfood.merchant.api.PublicStoreMenuOptionGroupResponse;
-import com.kfood.merchant.api.PublicStoreMenuOptionItemResponse;
-import com.kfood.merchant.api.PublicStoreMenuProductResponse;
-import com.kfood.merchant.api.PublicStoreResponse;
 import com.kfood.merchant.infra.persistence.DeliveryZone;
 import com.kfood.merchant.infra.persistence.Store;
 import com.kfood.merchant.infra.persistence.StoreBusinessHour;
@@ -18,11 +12,11 @@ public final class PublicStoreMapper {
 
   private PublicStoreMapper() {}
 
-  public static PublicStoreResponse toResponse(
+  public static PublicStoreOutput toOutput(
       Store store,
-      List<PublicStoreHourResponse> hours,
-      List<PublicDeliveryZoneResponse> deliveryZones) {
-    return new PublicStoreResponse(
+      List<PublicStoreHourOutput> hours,
+      List<PublicDeliveryZoneOutput> deliveryZones) {
+    return new PublicStoreOutput(
         store.getSlug(),
         store.getName(),
         store.getStatus(),
@@ -31,23 +25,23 @@ public final class PublicStoreMapper {
         deliveryZones);
   }
 
-  public static PublicStoreHourResponse toHourResponse(StoreBusinessHour hour) {
-    return new PublicStoreHourResponse(
+  public static PublicStoreHourOutput toHourOutput(StoreBusinessHour hour) {
+    return new PublicStoreHourOutput(
         hour.getDayOfWeek(), hour.getOpenTime(), hour.getCloseTime(), hour.isClosed());
   }
 
-  public static PublicDeliveryZoneResponse toDeliveryZoneResponse(DeliveryZone zone) {
-    return new PublicDeliveryZoneResponse(
+  public static PublicDeliveryZoneOutput toDeliveryZoneOutput(DeliveryZone zone) {
+    return new PublicDeliveryZoneOutput(
         zone.getZoneName(), zone.getFeeAmount(), zone.getMinOrderAmount());
   }
 
-  public static PublicStoreMenuProductResponse toMenuProductResponse(CatalogProduct product) {
-    return toMenuProductResponse(product, product.getOptionGroups());
+  public static PublicStoreMenuProductOutput toMenuProductOutput(CatalogProduct product) {
+    return toMenuProductOutput(product, product.getOptionGroups());
   }
 
-  public static PublicStoreMenuProductResponse toMenuProductResponse(
+  public static PublicStoreMenuProductOutput toMenuProductOutput(
       CatalogProduct product, List<CatalogOptionGroup> optionGroups) {
-    return new PublicStoreMenuProductResponse(
+    return new PublicStoreMenuProductOutput(
         product.getId(),
         product.getName(),
         product.getDescription(),
@@ -60,8 +54,8 @@ public final class PublicStoreMapper {
             .toList());
   }
 
-  static PublicStoreMenuOptionGroupResponse toMenuOptionGroupResponse(CatalogOptionGroup group) {
-    return new PublicStoreMenuOptionGroupResponse(
+  static PublicStoreMenuOptionGroupOutput toMenuOptionGroupResponse(CatalogOptionGroup group) {
+    return new PublicStoreMenuOptionGroupOutput(
         group.getId(),
         group.getName(),
         group.getMinSelect(),
@@ -73,8 +67,8 @@ public final class PublicStoreMapper {
             .toList());
   }
 
-  static PublicStoreMenuOptionItemResponse toMenuOptionItemResponse(CatalogOptionItem item) {
-    return new PublicStoreMenuOptionItemResponse(
+  static PublicStoreMenuOptionItemOutput toMenuOptionItemResponse(CatalogOptionItem item) {
+    return new PublicStoreMenuOptionItemOutput(
         item.getId(), item.getName(), item.getExtraPrice(), item.getSortOrder());
   }
 }

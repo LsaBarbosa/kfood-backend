@@ -1,10 +1,13 @@
 package com.kfood.order.api;
 
 import com.kfood.identity.app.Roles;
+import com.kfood.order.app.CancelOrderCommand;
 import com.kfood.order.app.CancelOrderUseCase;
 import com.kfood.order.app.GetOrderDetailUseCase;
 import com.kfood.order.app.ListOrdersQuery;
 import com.kfood.order.app.ListOrdersUseCase;
+import com.kfood.order.app.OrderDetailOutput;
+import com.kfood.order.app.UpdateOrderStatusCommand;
 import com.kfood.order.app.UpdateOrderStatusUseCase;
 import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.domain.OrderStatus;
@@ -70,22 +73,50 @@ public class OrderController {
       @RequestParam(required = false) FulfillmentType fulfillmentType,
       @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC)
           Pageable pageable) {
-    return listOrdersUseCaseProvider
-        .getObject()
-        .execute(new ListOrdersQuery(status, dateFrom, dateTo, fulfillmentType), pageable);
+    var result =
+        listOrdersUseCaseProvider
+            .getObject()
+            .execute(new ListOrdersQuery(status, dateFrom, dateTo, fulfillmentType), pageable);
+    return new ListOrdersResponse(
+        result.items().stream()
+            .map(
+                item ->
+                    new ListOrdersResponseItem(
+                        item.id(),
+                        item.orderNumber(),
+                        item.status(),
+                        item.paymentStatusSnapshot(),
+                        item.customerName(),
+                        item.totalAmount(),
+                        item.createdAt()))
+            .toList(),
+        result.page(),
+        result.size(),
+        result.totalElements(),
+        result.totalPages(),
+        result.sort());
   }
 
   @GetMapping("/{orderId}")
   @PreAuthorize(Roles.OWNER_MANAGER_ATTENDANT)
   public OrderDetailResponse detail(@PathVariable UUID orderId) {
-    return getOrderDetailUseCaseProvider.getObject().execute(orderId);
+    return toOrderDetailResponse(getOrderDetailUseCaseProvider.getObject().execute(orderId));
   }
 
   @PatchMapping("/{orderId}/status")
   @PreAuthorize(Roles.OWNER_MANAGER_ATTENDANT)
   public UpdateOrderStatusResponse updateStatus(
       @PathVariable UUID orderId, @Valid @RequestBody UpdateOrderStatusRequest request) {
-    return updateOrderStatusUseCaseProvider.getObject().execute(orderId, request);
+    var result =
+        updateOrderStatusUseCaseProvider
+            .getObject()
+            .execute(orderId, new UpdateOrderStatusCommand(request.newStatus(), request.reason()));
+    return new UpdateOrderStatusResponse(
+        result.id(),
+        result.previousStatus(),
+        result.newStatus(),
+        result.changedAt(),
+        result.changedBy());
   }
 
   @PatchMapping("/payments/{paymentId}/status")
@@ -107,7 +138,12 @@ public class OrderController {
   @PreAuthorize(Roles.OWNER_OR_MANAGER)
   public CancelOrderResponse cancel(
       @PathVariable UUID orderId, @Valid @RequestBody CancelOrderRequest request) {
-    return cancelOrderUseCaseProvider.getObject().execute(orderId, request);
+    var result =
+        cancelOrderUseCaseProvider
+            .getObject()
+            .execute(orderId, new CancelOrderCommand(request.reason()));
+    return new CancelOrderResponse(
+        result.id(), result.status(), result.canceledAt(), result.reason());
   }
 
   @PostMapping("/{orderId}/payments/pix")
@@ -131,5 +167,60 @@ public class OrderController {
         result.providerReference(),
         result.qrCodePayload(),
         result.expiresAt());
+  }
+
+  private OrderDetailResponse toOrderDetailResponse(OrderDetailOutput output) {
+    return new OrderDetailResponse(
+        output.id(),
+        output.orderNumber(),
+        output.status(),
+        output.fulfillmentType(),
+        output.subtotalAmount(),
+        output.deliveryFeeAmount(),
+        output.totalAmount(),
+        output.notes(),
+        output.scheduledFor(),
+        output.createdAt(),
+        output.updatedAt(),
+        new OrderDetailResponse.CustomerDetail(
+            output.customer().id(),
+            output.customer().name(),
+            output.customer().phone(),
+            output.customer().email()),
+        output.address() == null
+            ? null
+            : new OrderDetailResponse.AddressDetail(
+                output.address().label(),
+                output.address().zipCode(),
+                output.address().street(),
+                output.address().number(),
+                output.address().district(),
+                output.address().city(),
+                output.address().state(),
+                output.address().complement()),
+        new OrderDetailResponse.PaymentDetail(
+            output.payment().paymentMethodSnapshot(), output.payment().paymentStatusSnapshot()),
+        output.items().stream()
+            .map(
+                item ->
+                    new OrderDetailResponse.ItemDetail(
+                        item.id(),
+                        item.productId(),
+                        item.productNameSnapshot(),
+                        item.unitPriceSnapshot(),
+                        item.quantity(),
+                        item.totalItemAmount(),
+                        item.notes(),
+                        item.options().stream()
+                            .map(
+                                option ->
+                                    new OrderDetailResponse.ItemOptionDetail(
+                                        option.id(),
+                                        option.optionNameSnapshot(),
+                                        option.extraPriceSnapshot(),
+                                        option.quantity(),
+                                        option.totalExtraAmount()))
+                            .toList()))
+            .toList());
   }
 }

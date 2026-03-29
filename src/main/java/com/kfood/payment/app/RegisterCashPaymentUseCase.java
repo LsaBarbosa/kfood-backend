@@ -5,7 +5,6 @@ import com.kfood.payment.app.port.PaymentOrderLookupPort;
 import com.kfood.payment.app.port.PaymentPersistencePort;
 import com.kfood.payment.domain.PaymentMethod;
 import com.kfood.payment.domain.PaymentStatus;
-import com.kfood.payment.infra.persistence.Payment;
 import java.util.UUID;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Service;
@@ -32,17 +31,16 @@ public class RegisterCashPaymentUseCase {
             .findOrderById(command.orderId())
             .orElseThrow(() -> new OrderNotFoundException(command.orderId()));
 
-    if (!order.getStore().isCashPaymentEnabled()) {
-      throw new CashPaymentNotEnabledException(order.getStore().getId());
+    if (!order.isCashPaymentEnabled()) {
+      throw new CashPaymentNotEnabledException(order.getStoreId());
     }
 
     order.markPaymentMethodSnapshot(PaymentMethod.CASH);
     order.markPaymentStatusSnapshot(PaymentStatusSnapshotMapper.from(PaymentStatus.PENDING));
 
     var saved =
-        paymentPersistencePort.savePayment(
-            Payment.createPending(
-                UUID.randomUUID(), order, PaymentMethod.CASH, order.getTotalAmount()));
+        paymentPersistencePort.savePendingPayment(
+            UUID.randomUUID(), order, PaymentMethod.CASH, order.getTotalAmount());
 
     return new PaymentOutput(
         saved.getId(),

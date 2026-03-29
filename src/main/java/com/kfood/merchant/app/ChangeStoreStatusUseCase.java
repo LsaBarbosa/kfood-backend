@@ -1,7 +1,5 @@
 package com.kfood.merchant.app;
 
-import com.kfood.merchant.api.ChangeStoreStatusRequest;
-import com.kfood.merchant.api.StoreDetailsResponse;
 import com.kfood.merchant.domain.StoreStatus;
 import com.kfood.merchant.infra.persistence.StoreRepository;
 import com.kfood.shared.exceptions.BusinessException;
@@ -34,18 +32,18 @@ public class ChangeStoreStatusUseCase {
   }
 
   @Transactional
-  public StoreDetailsResponse execute(ChangeStoreStatusRequest request) {
+  public StoreDetailsOutput execute(ChangeStoreStatusCommand command) {
     var storeId = currentTenantProvider.getRequiredStoreId();
     var store =
         storeRepository.findById(storeId).orElseThrow(() -> new StoreNotFoundException(storeId));
     var requirements = storeActivationRequirementsService.evaluate(storeId);
 
-    if (request.targetStatus() == StoreStatus.ACTIVE) {
+    if (command.targetStatus() == StoreStatus.ACTIVE) {
       if (!requirements.canActivate()) {
         throw new StoreActivationRequirementsNotMetException(requirements.missingRequirements());
       }
       store.activate();
-    } else if (request.targetStatus() == StoreStatus.SUSPENDED) {
+    } else if (command.targetStatus() == StoreStatus.SUSPENDED) {
       store.suspend();
     } else {
       throw new BusinessException(
@@ -55,6 +53,14 @@ public class ChangeStoreStatusUseCase {
     }
 
     var savedStore = storeRepository.saveAndFlush(store);
-    return StoreDetailsMapper.toResponse(savedStore, requirements);
+    return new StoreDetailsOutput(
+        savedStore.getId(),
+        savedStore.getSlug(),
+        savedStore.getName(),
+        savedStore.getStatus(),
+        savedStore.getPhone(),
+        savedStore.getTimezone(),
+        requirements.hoursConfigured(),
+        requirements.deliveryZonesConfigured());
   }
 }

@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 class StoreTermsAcceptanceMapperTest {
 
   @Test
-  void shouldMapPostResponse() {
+  void shouldMapPostOutput() {
     var acceptance =
         new StoreTermsAcceptance(
             UUID.randomUUID(),
@@ -22,7 +22,7 @@ class StoreTermsAcceptanceMapperTest {
             Instant.parse("2026-03-20T10:15:00Z"),
             "203.0.113.9");
 
-    var response = StoreTermsAcceptanceMapper.toResponse(acceptance);
+    var response = StoreTermsAcceptanceMapper.toOutput(acceptance);
 
     assertThat(response.id()).isEqualTo(acceptance.getId());
     assertThat(response.documentType()).isEqualTo(LegalDocumentType.TERMS_OF_USE);
@@ -41,7 +41,7 @@ class StoreTermsAcceptanceMapperTest {
             Instant.parse("2026-03-20T10:15:00Z"),
             "203.0.113.9");
 
-    var response = StoreTermsAcceptanceMapper.toHistoryItem(acceptance);
+    var response = StoreTermsAcceptanceMapper.toHistoryItemOutput(acceptance);
 
     assertThat(response.id()).isEqualTo(acceptance.getId());
     assertThat(response.acceptedByUserId()).isEqualTo(acceptance.getAcceptedByUserId());

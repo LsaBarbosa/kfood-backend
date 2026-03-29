@@ -1,7 +1,5 @@
 package com.kfood.order.app;
 
-import com.kfood.order.api.ListOrdersResponse;
-import com.kfood.order.api.ListOrdersResponseItem;
 import com.kfood.order.infra.persistence.SalesOrder;
 import com.kfood.order.infra.persistence.SalesOrderRepository;
 import com.kfood.shared.exceptions.BusinessException;
@@ -37,7 +35,7 @@ public class ListOrdersUseCase {
   }
 
   @Transactional(readOnly = true)
-  public ListOrdersResponse execute(ListOrdersQuery query, Pageable pageable) {
+  public ListOrdersOutput execute(ListOrdersQuery query, Pageable pageable) {
     validateDateRange(query.dateFrom(), query.dateTo());
 
     var storeId = currentTenantProvider.getRequiredStoreId();
@@ -51,7 +49,7 @@ public class ListOrdersUseCase {
             OffsetDateTime.now(clock),
             pageable);
 
-    return new ListOrdersResponse(
+    return new ListOrdersOutput(
         page.getContent().stream().map(this::toItem).toList(),
         page.getNumber(),
         page.getSize(),
@@ -77,8 +75,8 @@ public class ListOrdersUseCase {
     return value == null ? null : value.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC);
   }
 
-  private ListOrdersResponseItem toItem(SalesOrder order) {
-    return new ListOrdersResponseItem(
+  private ListOrdersOutput.Item toItem(SalesOrder order) {
+    return new ListOrdersOutput.Item(
         order.getId(),
         order.getOrderNumber(),
         order.getStatus(),

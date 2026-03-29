@@ -1,7 +1,5 @@
 package com.kfood.order.app;
 
-import com.kfood.order.api.UpdateOrderStatusRequest;
-import com.kfood.order.api.UpdateOrderStatusResponse;
 import com.kfood.order.domain.OrderStatus;
 import com.kfood.order.domain.OrderStatusTransitionException;
 import com.kfood.order.infra.persistence.OrderStatusHistory;
@@ -50,11 +48,11 @@ public class UpdateOrderStatusUseCase {
   }
 
   @Transactional
-  public UpdateOrderStatusResponse execute(UUID orderId, UpdateOrderStatusRequest request) {
+  public UpdateOrderStatusOutput execute(UUID orderId, UpdateOrderStatusCommand command) {
     Objects.requireNonNull(orderId, "orderId must not be null");
-    Objects.requireNonNull(request, "request must not be null");
+    Objects.requireNonNull(command, "command must not be null");
 
-    var targetStatus = Objects.requireNonNull(request.newStatus(), "newStatus must not be null");
+    var targetStatus = Objects.requireNonNull(command.newStatus(), "newStatus must not be null");
     if (targetStatus == OrderStatus.CANCELED) {
       throw new BusinessException(
           ErrorCode.VALIDATION_ERROR,
@@ -89,9 +87,9 @@ public class UpdateOrderStatusUseCase {
             order.getStatus(),
             actorUserId,
             changedAt,
-            request.reason()));
+            command.reason()));
 
-    return new UpdateOrderStatusResponse(
+    return new UpdateOrderStatusOutput(
         order.getId(), previousStatus, order.getStatus(), changedAt, actorUserId);
   }
 }

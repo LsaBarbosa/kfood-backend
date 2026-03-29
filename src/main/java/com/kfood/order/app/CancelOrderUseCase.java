@@ -1,7 +1,5 @@
 package com.kfood.order.app;
 
-import com.kfood.order.api.CancelOrderRequest;
-import com.kfood.order.api.CancelOrderResponse;
 import com.kfood.order.domain.OrderStatusTransitionException;
 import com.kfood.order.infra.persistence.OrderStatusHistory;
 import com.kfood.order.infra.persistence.OrderStatusHistoryRepository;
@@ -51,11 +49,11 @@ public class CancelOrderUseCase {
   }
 
   @Transactional
-  public CancelOrderResponse execute(UUID orderId, CancelOrderRequest request) {
+  public CancelOrderOutput execute(UUID orderId, CancelOrderCommand command) {
     Objects.requireNonNull(orderId, "orderId must not be null");
-    Objects.requireNonNull(request, "request must not be null");
+    Objects.requireNonNull(command, "command must not be null");
 
-    var reason = normalizeRequiredReason(request.reason());
+    var reason = normalizeRequiredReason(command.reason());
     var storeId = currentTenantProvider.getRequiredStoreId();
     var actorUserId = currentAuthenticatedUserProvider.getRequiredUserId();
     var order =
@@ -85,7 +83,7 @@ public class CancelOrderUseCase {
             canceledAt,
             reason));
 
-    return new CancelOrderResponse(order.getId(), order.getStatus(), canceledAt, reason);
+    return new CancelOrderOutput(order.getId(), order.getStatus(), canceledAt, reason);
   }
 
   private String normalizeRequiredReason(String value) {

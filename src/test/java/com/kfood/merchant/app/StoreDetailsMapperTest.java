@@ -10,7 +10,7 @@ import org.junit.jupiter.api.Test;
 class StoreDetailsMapperTest {
 
   @Test
-  void shouldMapStoreDetailsResponse() {
+  void shouldMapStoreDetailsOutput() {
     var store =
         new Store(
             UUID.randomUUID(),
@@ -21,7 +21,7 @@ class StoreDetailsMapperTest {
             "America/Sao_Paulo");
     var requirements = new StoreActivationRequirements(true, false, false);
 
-    var response = StoreDetailsMapper.toResponse(store, requirements);
+    var response = StoreDetailsMapper.toOutput(store, requirements);
 
     assertThat(response.id()).isEqualTo(store.getId());
     assertThat(response.slug()).isEqualTo("loja-do-bairro");

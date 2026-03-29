@@ -6,7 +6,6 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.kfood.merchant.api.CreateDeliveryZoneRequest;
 import com.kfood.merchant.infra.persistence.DeliveryZone;
 import com.kfood.merchant.infra.persistence.DeliveryZoneRepository;
 import com.kfood.merchant.infra.persistence.Store;
@@ -38,8 +37,8 @@ class CreateDeliveryZoneUseCaseTest {
             "45.723.174/0001-10",
             "21999990000",
             "America/Sao_Paulo");
-    var request =
-        new CreateDeliveryZoneRequest(
+    var command =
+        new CreateDeliveryZoneCommand(
             "Centro", new BigDecimal("6.50"), new BigDecimal("25.00"), true);
     var savedZone =
         new DeliveryZone(
@@ -55,7 +54,7 @@ class CreateDeliveryZoneUseCaseTest {
     when(deliveryZoneRepository.existsByStoreIdAndZoneName(storeId, "Centro")).thenReturn(false);
     when(deliveryZoneRepository.saveAndFlush(any(DeliveryZone.class))).thenReturn(savedZone);
 
-    var response = createDeliveryZoneUseCase.execute(request);
+    var response = createDeliveryZoneUseCase.execute(command);
 
     assertThat(response.id()).isEqualTo(savedZone.getId());
     assertThat(response.zoneName()).isEqualTo("Centro");
@@ -75,15 +74,15 @@ class CreateDeliveryZoneUseCaseTest {
             "45.723.174/0001-10",
             "21999990000",
             "America/Sao_Paulo");
-    var request =
-        new CreateDeliveryZoneRequest(
+    var command =
+        new CreateDeliveryZoneCommand(
             "Centro", new BigDecimal("6.50"), new BigDecimal("25.00"), true);
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
     when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
     when(deliveryZoneRepository.existsByStoreIdAndZoneName(storeId, "Centro")).thenReturn(true);
 
-    assertThatThrownBy(() -> createDeliveryZoneUseCase.execute(request))
+    assertThatThrownBy(() -> createDeliveryZoneUseCase.execute(command))
         .isInstanceOf(DeliveryZoneAlreadyExistsException.class)
         .hasMessageContaining("Centro");
   }
@@ -91,14 +90,14 @@ class CreateDeliveryZoneUseCaseTest {
   @Test
   void shouldThrowWhenStoreDoesNotExist() {
     var storeId = UUID.randomUUID();
-    var request =
-        new CreateDeliveryZoneRequest(
+    var command =
+        new CreateDeliveryZoneCommand(
             "Centro", new BigDecimal("6.50"), new BigDecimal("25.00"), true);
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
     when(storeRepository.findById(storeId)).thenReturn(Optional.empty());
 
-    assertThatThrownBy(() -> createDeliveryZoneUseCase.execute(request))
+    assertThatThrownBy(() -> createDeliveryZoneUseCase.execute(command))
         .isInstanceOf(StoreNotFoundException.class)
         .hasMessageContaining(storeId.toString());
   }
@@ -116,14 +115,14 @@ class CreateDeliveryZoneUseCaseTest {
             "America/Sao_Paulo");
     store.activate();
     store.suspend();
-    var request =
-        new CreateDeliveryZoneRequest(
+    var command =
+        new CreateDeliveryZoneCommand(
             "Centro", new BigDecimal("6.50"), new BigDecimal("25.00"), true);
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
     when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
 
-    assertThatThrownBy(() -> createDeliveryZoneUseCase.execute(request))
+    assertThatThrownBy(() -> createDeliveryZoneUseCase.execute(command))
         .isInstanceOf(StoreNotActiveException.class)
         .hasMessageContaining("SUSPENDED");
   }

@@ -10,7 +10,6 @@ import static org.mockito.Mockito.when;
 
 import com.kfood.customer.infra.persistence.Customer;
 import com.kfood.merchant.infra.persistence.Store;
-import com.kfood.order.api.UpdateOrderStatusRequest;
 import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.domain.OrderStatus;
 import com.kfood.order.infra.persistence.OrderStatusHistory;
@@ -65,7 +64,7 @@ class UpdateOrderStatusUseCaseTest {
     var response =
         useCase.execute(
             order.getId(),
-            new UpdateOrderStatusRequest(OrderStatus.PREPARING, "  Order entered preparation  "));
+            new UpdateOrderStatusCommand(OrderStatus.PREPARING, "  Order entered preparation  "));
 
     assertThat(response.id()).isEqualTo(order.getId());
     assertThat(response.previousStatus()).isEqualTo(OrderStatus.NEW);
@@ -101,7 +100,7 @@ class UpdateOrderStatusUseCaseTest {
     assertThatThrownBy(
             () ->
                 useCase.execute(
-                    order.getId(), new UpdateOrderStatusRequest(OrderStatus.READY, null)))
+                    order.getId(), new UpdateOrderStatusCommand(OrderStatus.READY, null)))
         .isInstanceOf(BusinessException.class)
         .satisfies(
             throwable -> {
@@ -122,7 +121,7 @@ class UpdateOrderStatusUseCaseTest {
             () ->
                 useCase.execute(
                     UUID.randomUUID(),
-                    new UpdateOrderStatusRequest(OrderStatus.CANCELED, "Customer canceled")))
+                    new UpdateOrderStatusCommand(OrderStatus.CANCELED, "Customer canceled")))
         .isInstanceOf(BusinessException.class)
         .satisfies(
             throwable -> {
@@ -148,7 +147,7 @@ class UpdateOrderStatusUseCaseTest {
 
     assertThatThrownBy(
             () ->
-                useCase.execute(orderId, new UpdateOrderStatusRequest(OrderStatus.PREPARING, null)))
+                useCase.execute(orderId, new UpdateOrderStatusCommand(OrderStatus.PREPARING, null)))
         .isInstanceOf(OrderNotFoundException.class)
         .hasMessage("Order not found for id: " + orderId);
   }
@@ -156,14 +155,14 @@ class UpdateOrderStatusUseCaseTest {
   @Test
   void shouldRejectNullArguments() {
     assertThatThrownBy(
-            () -> useCase.execute(null, new UpdateOrderStatusRequest(OrderStatus.NEW, null)))
+            () -> useCase.execute(null, new UpdateOrderStatusCommand(OrderStatus.NEW, null)))
         .isInstanceOf(NullPointerException.class)
         .hasMessage("orderId must not be null");
     assertThatThrownBy(() -> useCase.execute(UUID.randomUUID(), null))
         .isInstanceOf(NullPointerException.class)
-        .hasMessage("request must not be null");
+        .hasMessage("command must not be null");
     assertThatThrownBy(
-            () -> useCase.execute(UUID.randomUUID(), new UpdateOrderStatusRequest(null, null)))
+            () -> useCase.execute(UUID.randomUUID(), new UpdateOrderStatusCommand(null, null)))
         .isInstanceOf(NullPointerException.class)
         .hasMessage("newStatus must not be null");
   }

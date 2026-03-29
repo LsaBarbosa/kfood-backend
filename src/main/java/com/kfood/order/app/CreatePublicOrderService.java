@@ -6,8 +6,6 @@ import com.kfood.customer.infra.persistence.CustomerAddressRepository;
 import com.kfood.customer.infra.persistence.CustomerRepository;
 import com.kfood.merchant.app.StoreSlugNotFoundException;
 import com.kfood.merchant.infra.persistence.StoreRepository;
-import com.kfood.order.api.CreatePublicOrderRequest;
-import com.kfood.order.api.CreatePublicOrderResponse;
 import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.infra.persistence.SalesOrder;
 import com.kfood.order.infra.persistence.SalesOrderItem;
@@ -102,30 +100,30 @@ public class CreatePublicOrderService {
   }
 
   @Transactional
-  public CreatePublicOrderResponse create(
-      String storeSlug, String idempotencyKey, CreatePublicOrderRequest request) {
+  public CreatePublicOrderOutput create(
+      String storeSlug, String idempotencyKey, CreatePublicOrderCommand command) {
     var store =
         storeRepository
             .findBySlug(storeSlug.trim())
             .orElseThrow(() -> new StoreSlugNotFoundException(storeSlug));
     if (idempotencyKey == null || idempotencyKey.isBlank()) {
-      return doCreate(store.getId(), request);
+      return doCreate(store.getId(), command);
     }
     return idempotencyService.execute(
         store.getId(),
         IDEMPOTENCY_SCOPE,
         idempotencyKey,
-        request,
-        CreatePublicOrderResponse.class,
-        () -> doCreate(store.getId(), request));
+        command,
+        CreatePublicOrderOutput.class,
+        () -> doCreate(store.getId(), command));
   }
 
-  private CreatePublicOrderResponse doCreate(UUID storeId, CreatePublicOrderRequest request) {
+  private CreatePublicOrderOutput doCreate(UUID storeId, CreatePublicOrderCommand command) {
     var store = storeRepository.findById(storeId).orElseThrow();
 
     var customer =
         customerRepository
-            .findByIdAndStoreId(request.customerId(), storeId)
+            .findByIdAndStoreId(command.customerId(), storeId)
             .orElseThrow(
                 () ->
                     new BusinessException(
@@ -133,10 +131,10 @@ public class CreatePublicOrderService {
                         "Customer not found for this store.",
                         HttpStatus.NOT_FOUND));
     var address =
-        request.fulfillmentType() == FulfillmentType.PICKUP
+        command.fulfillmentType() == FulfillmentType.PICKUP
             ? null
             : customerAddressRepository
-                .findByIdAndCustomerId(request.addressId(), customer.getId())
+                .findByIdAndCustomerId(command.addressId(), customer.getId())
                 .orElseThrow(
                     () ->
                         new BusinessException(
@@ -145,7 +143,7 @@ public class CreatePublicOrderService {
                             HttpStatus.NOT_FOUND));
     var quote =
         checkoutQuoteSnapshotGateway
-            .findValidByStoreIdAndQuoteId(storeId, request.quoteId())
+            .findValidByStoreIdAndQuoteId(storeId, command.quoteId())
             .orElseThrow(
                 () ->
                     new BusinessException(
@@ -153,7 +151,7 @@ public class CreatePublicOrderService {
                         "Quote not found or expired.",
                         HttpStatus.NOT_FOUND));
     validateRequestMatchesQuote(
-        request, quote, customer.getId(), address == null ? null : address.getId());
+        command, quote, customer.getId(), address == null ? null : address.getId());
     checkoutCriticalValidationService.revalidate(store, quote);
 
     var order =
@@ -161,18 +159,18 @@ public class CreatePublicOrderService {
             UUID.randomUUID(),
             store,
             customer,
-            request.fulfillmentType(),
-            request.paymentMethod(),
+            command.fulfillmentType(),
+            command.paymentMethod(),
             quote.subtotalAmount(),
             quote.deliveryFeeAmount(),
             quote.totalAmount(),
             null,
-            request.notes());
+            command.notes());
     if (address != null) {
       order.defineDeliveryAddressSnapshot(address);
     }
     try {
-      order.defineSchedule(request.scheduledFor(), clock);
+      order.defineSchedule(command.scheduledFor(), clock);
     } catch (IllegalArgumentException exception) {
       throw new BusinessException(
           ErrorCode.VALIDATION_ERROR,
@@ -201,7 +199,7 @@ public class CreatePublicOrderService {
 
     assignOrderNumberService.assignIfMissing(order);
     var saved = salesOrderRepository.save(order);
-    if (request.paymentMethod() == PaymentMethod.CASH && registerCashPaymentUseCase != null) {
+    if (command.paymentMethod() == PaymentMethod.CASH && registerCashPaymentUseCase != null) {
       registerCashPaymentUseCase.execute(new RegisterCashPaymentCommand(saved.getId()));
     }
     orderCreatedPublisher.publish(
@@ -212,7 +210,7 @@ public class CreatePublicOrderService {
             saved.getStatus(),
             saved.getTotalAmount(),
             OffsetDateTime.now(clock)));
-    return new CreatePublicOrderResponse(
+    return new CreatePublicOrderOutput(
         saved.getId(),
         saved.getOrderNumber(),
         saved.getStatus(),
@@ -224,7 +222,7 @@ public class CreatePublicOrderService {
   }
 
   private void validateRequestMatchesQuote(
-      CreatePublicOrderRequest request,
+      CreatePublicOrderCommand command,
       CheckoutQuoteSnapshot quote,
       UUID customerId,
       UUID addressId) {
@@ -234,13 +232,13 @@ public class CreatePublicOrderService {
           "Quote does not belong to the informed customer.",
           HttpStatus.BAD_REQUEST);
     }
-    if (quote.fulfillmentType() != request.fulfillmentType()) {
+    if (quote.fulfillmentType() != command.fulfillmentType()) {
       throw new BusinessException(
           ErrorCode.VALIDATION_ERROR,
           "fulfillmentType differs from the quote.",
           HttpStatus.BAD_REQUEST);
     }
-    if (request.fulfillmentType() == FulfillmentType.DELIVERY
+    if (command.fulfillmentType() == FulfillmentType.DELIVERY
         && !java.util.Objects.equals(quote.addressId(), addressId)) {
       throw new BusinessException(
           ErrorCode.VALIDATION_ERROR, "addressId differs from the quote.", HttpStatus.BAD_REQUEST);

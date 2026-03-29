@@ -14,6 +14,10 @@ import com.kfood.identity.domain.UserStatus;
 import com.kfood.identity.persistence.IdentityUserEntity;
 import com.kfood.merchant.app.GetStoreHoursUseCase;
 import com.kfood.merchant.app.InvalidStoreHoursException;
+import com.kfood.merchant.app.StoreHourOutput;
+import com.kfood.merchant.app.StoreHoursOutput;
+import com.kfood.merchant.app.UpdateStoreHoursCommand;
+import com.kfood.merchant.app.UpdateStoreHoursOutput;
 import com.kfood.merchant.app.UpdateStoreHoursUseCase;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
@@ -47,8 +51,8 @@ class StoreHoursControllerWebMvcTest {
 
   @Test
   void shouldUpdateStoreHours() throws Exception {
-    when(updateStoreHoursUseCase.execute(any(UpdateStoreHoursRequest.class)))
-        .thenReturn(new UpdateStoreHoursResponse(true, 1));
+    when(updateStoreHoursUseCase.execute(any(UpdateStoreHoursCommand.class)))
+        .thenReturn(new UpdateStoreHoursOutput(true, 1));
 
     mockMvc
         .perform(
@@ -79,7 +83,7 @@ class StoreHoursControllerWebMvcTest {
 
   @Test
   void shouldReturnBadRequestWhenBusinessRuleFails() throws Exception {
-    when(updateStoreHoursUseCase.execute(any(UpdateStoreHoursRequest.class)))
+    when(updateStoreHoursUseCase.execute(any(UpdateStoreHoursCommand.class)))
         .thenThrow(new InvalidStoreHoursException("openTime must be before closeTime"));
 
     mockMvc
@@ -108,10 +112,10 @@ class StoreHoursControllerWebMvcTest {
   void shouldAllowConsultationForAttendant() throws Exception {
     when(getStoreHoursUseCase.execute())
         .thenReturn(
-            new StoreHoursResponse(
+            new StoreHoursOutput(
                 1,
                 List.of(
-                    new StoreHourResponse(
+                    new StoreHourOutput(
                         DayOfWeek.MONDAY, LocalTime.of(10, 0), LocalTime.of(22, 0), false))));
 
     mockMvc

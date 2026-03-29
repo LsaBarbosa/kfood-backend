@@ -12,8 +12,10 @@ import com.kfood.identity.app.JwtTokenService;
 import com.kfood.identity.domain.UserRoleName;
 import com.kfood.identity.domain.UserStatus;
 import com.kfood.identity.persistence.IdentityUserEntity;
+import com.kfood.merchant.app.CreateDeliveryZoneCommand;
 import com.kfood.merchant.app.CreateDeliveryZoneUseCase;
 import com.kfood.merchant.app.DeliveryZoneAlreadyExistsException;
+import com.kfood.merchant.app.DeliveryZoneOutput;
 import com.kfood.merchant.app.GetDeliveryZoneUseCase;
 import com.kfood.merchant.app.ListDeliveryZonesUseCase;
 import java.math.BigDecimal;
@@ -50,9 +52,9 @@ class DeliveryZoneControllerWebMvcTest {
   @Test
   void shouldCreateZoneSuccessfully() throws Exception {
     var zoneId = UUID.randomUUID();
-    when(createDeliveryZoneUseCase.execute(any(CreateDeliveryZoneRequest.class)))
+    when(createDeliveryZoneUseCase.execute(any(CreateDeliveryZoneCommand.class)))
         .thenReturn(
-            new DeliveryZoneResponse(
+            new DeliveryZoneOutput(
                 zoneId, "Centro", new BigDecimal("6.50"), new BigDecimal("25.00"), true));
 
     mockMvc
@@ -96,7 +98,7 @@ class DeliveryZoneControllerWebMvcTest {
 
   @Test
   void shouldReturnConflictForDuplicateZone() throws Exception {
-    when(createDeliveryZoneUseCase.execute(any(CreateDeliveryZoneRequest.class)))
+    when(createDeliveryZoneUseCase.execute(any(CreateDeliveryZoneCommand.class)))
         .thenThrow(new DeliveryZoneAlreadyExistsException("Centro"));
 
     mockMvc
@@ -122,7 +124,7 @@ class DeliveryZoneControllerWebMvcTest {
     var zoneId = UUID.randomUUID();
     when(getDeliveryZoneUseCase.execute(zoneId))
         .thenReturn(
-            new DeliveryZoneResponse(
+            new DeliveryZoneOutput(
                 zoneId, "Centro", new BigDecimal("6.50"), new BigDecimal("25.00"), true));
 
     mockMvc
@@ -138,7 +140,7 @@ class DeliveryZoneControllerWebMvcTest {
     when(listDeliveryZonesUseCase.execute())
         .thenReturn(
             List.of(
-                new DeliveryZoneResponse(
+                new DeliveryZoneOutput(
                     UUID.randomUUID(),
                     "Centro",
                     new BigDecimal("6.50"),

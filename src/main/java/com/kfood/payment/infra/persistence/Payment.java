@@ -1,6 +1,8 @@
 package com.kfood.payment.infra.persistence;
 
 import com.kfood.order.infra.persistence.SalesOrder;
+import com.kfood.payment.app.port.PaymentOrder;
+import com.kfood.payment.app.port.PaymentRecord;
 import com.kfood.payment.domain.PaymentMethod;
 import com.kfood.payment.domain.PaymentStatus;
 import com.kfood.payment.domain.PaymentStatusTransitionException;
@@ -23,7 +25,7 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "payment")
-public class Payment extends AuditableEntity {
+public class Payment extends AuditableEntity implements PaymentRecord {
 
   @Id private UUID id;
 
@@ -96,7 +98,7 @@ public class Payment extends AuditableEntity {
     return id;
   }
 
-  public SalesOrder getOrder() {
+  public PaymentOrder getOrder() {
     return order;
   }
 

@@ -1,6 +1,5 @@
 package com.kfood.merchant.app;
 
-import com.kfood.merchant.api.PublicStoreResponse;
 import com.kfood.merchant.infra.persistence.DeliveryZoneRepository;
 import com.kfood.merchant.infra.persistence.StoreBusinessHourRepository;
 import com.kfood.merchant.infra.persistence.StoreRepository;
@@ -32,7 +31,7 @@ public class GetPublicStoreUseCase {
   }
 
   @Transactional(readOnly = true)
-  public PublicStoreResponse execute(String slug) {
+  public PublicStoreOutput execute(String slug) {
     var normalizedSlug = normalize(slug);
     var store =
         storeRepository
@@ -42,17 +41,17 @@ public class GetPublicStoreUseCase {
     var hours =
         storeBusinessHourRepository.findByStoreId(store.getId()).stream()
             .sorted(Comparator.comparingInt(item -> item.getDayOfWeek().getValue()))
-            .map(PublicStoreMapper::toHourResponse)
+            .map(PublicStoreMapper::toHourOutput)
             .toList();
 
     var deliveryZones =
         deliveryZoneRepository
             .findAllByStoreIdAndActiveTrueOrderByZoneNameAsc(store.getId())
             .stream()
-            .map(PublicStoreMapper::toDeliveryZoneResponse)
+            .map(PublicStoreMapper::toDeliveryZoneOutput)
             .toList();
 
-    return PublicStoreMapper.toResponse(store, hours, deliveryZones);
+    return PublicStoreMapper.toOutput(store, hours, deliveryZones);
   }
 
   private String normalize(String slug) {

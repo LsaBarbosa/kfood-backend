@@ -1,6 +1,5 @@
 package com.kfood.merchant.app;
 
-import com.kfood.merchant.api.StoreDetailsResponse;
 import com.kfood.merchant.infra.persistence.StoreRepository;
 import com.kfood.shared.tenancy.CurrentTenantProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -29,11 +28,19 @@ public class GetStoreDetailsUseCase {
   }
 
   @Transactional(readOnly = true)
-  public StoreDetailsResponse execute() {
+  public StoreDetailsOutput execute() {
     var storeId = currentTenantProvider.getRequiredStoreId();
     var store =
         storeRepository.findById(storeId).orElseThrow(() -> new StoreNotFoundException(storeId));
     var requirements = storeActivationRequirementsService.evaluate(storeId);
-    return StoreDetailsMapper.toResponse(store, requirements);
+    return new StoreDetailsOutput(
+        store.getId(),
+        store.getSlug(),
+        store.getName(),
+        store.getStatus(),
+        store.getPhone(),
+        store.getTimezone(),
+        requirements.hoursConfigured(),
+        requirements.deliveryZonesConfigured());
   }
 }

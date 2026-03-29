@@ -1,8 +1,5 @@
 package com.kfood.merchant.app;
 
-import com.kfood.merchant.api.StoreHourRequest;
-import com.kfood.merchant.api.UpdateStoreHoursRequest;
-import com.kfood.merchant.api.UpdateStoreHoursResponse;
 import com.kfood.merchant.infra.persistence.StoreBusinessHour;
 import com.kfood.merchant.infra.persistence.StoreBusinessHourRepository;
 import com.kfood.merchant.infra.persistence.StoreRepository;
@@ -40,27 +37,27 @@ public class UpdateStoreHoursUseCase {
   }
 
   @Transactional
-  public UpdateStoreHoursResponse execute(UpdateStoreHoursRequest request) {
+  public UpdateStoreHoursOutput execute(UpdateStoreHoursCommand command) {
     var storeId = currentTenantProvider.getRequiredStoreId();
     var store =
         storeRepository.findById(storeId).orElseThrow(() -> new StoreNotFoundException(storeId));
 
     storeOperationalGuard.ensureStoreIsNotSuspended(store);
 
-    validate(request.hours());
+    validate(command.hours());
 
     storeBusinessHourRepository.deleteAllByStoreId(storeId);
 
-    var newHours = request.hours().stream().map(hour -> toEntity(store, hour)).toList();
+    var newHours = command.hours().stream().map(hour -> toEntity(store, hour)).toList();
     storeBusinessHourRepository.saveAll(newHours);
 
     store.incrementHoursVersion();
     storeRepository.saveAndFlush(store);
 
-    return new UpdateStoreHoursResponse(true, store.getHoursVersion());
+    return new UpdateStoreHoursOutput(true, store.getHoursVersion());
   }
 
-  private void validate(List<StoreHourRequest> hours) {
+  private void validate(List<StoreHourCommand> hours) {
     var usedDays = EnumSet.noneOf(DayOfWeek.class);
 
     for (var hour : hours) {
@@ -89,7 +86,7 @@ public class UpdateStoreHoursUseCase {
   }
 
   private StoreBusinessHour toEntity(
-      com.kfood.merchant.infra.persistence.Store store, StoreHourRequest hour) {
+      com.kfood.merchant.infra.persistence.Store store, StoreHourCommand hour) {
     if (hour.closed()) {
       return StoreBusinessHour.closed(store, hour.dayOfWeek());
     }

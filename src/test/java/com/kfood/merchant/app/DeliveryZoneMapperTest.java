@@ -11,7 +11,7 @@ import org.junit.jupiter.api.Test;
 class DeliveryZoneMapperTest {
 
   @Test
-  void shouldMapZoneToResponse() {
+  void shouldMapZoneToOutput() {
     var zone =
         new DeliveryZone(
             UUID.randomUUID(),
@@ -27,7 +27,7 @@ class DeliveryZoneMapperTest {
             new BigDecimal("25.00"),
             true);
 
-    var response = DeliveryZoneMapper.toResponse(zone);
+    var response = DeliveryZoneMapper.toOutput(zone);
 
     assertThat(response.id()).isEqualTo(zone.getId());
     assertThat(response.zoneName()).isEqualTo("Centro");

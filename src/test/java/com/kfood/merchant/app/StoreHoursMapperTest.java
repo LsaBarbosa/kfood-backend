@@ -12,7 +12,7 @@ import org.junit.jupiter.api.Test;
 class StoreHoursMapperTest {
 
   @Test
-  void shouldMapStoreBusinessHourToResponse() {
+  void shouldMapStoreBusinessHourToOutput() {
     var store =
         new Store(
             UUID.randomUUID(),
@@ -24,11 +24,11 @@ class StoreHoursMapperTest {
     var entity =
         StoreBusinessHour.open(store, DayOfWeek.MONDAY, LocalTime.of(10, 0), LocalTime.of(22, 0));
 
-    var response = StoreHoursMapper.toResponse(entity);
+    var response = StoreHoursMapper.toOutput(entity);
 
     assertThat(response.dayOfWeek()).isEqualTo(DayOfWeek.MONDAY);
     assertThat(response.openTime()).isEqualTo(LocalTime.of(10, 0));
     assertThat(response.closeTime()).isEqualTo(LocalTime.of(22, 0));
-    assertThat(response.isClosed()).isFalse();
+    assertThat(response.closed()).isFalse();
   }
 }

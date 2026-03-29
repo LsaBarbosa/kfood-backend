@@ -20,8 +20,6 @@ import com.kfood.customer.infra.persistence.CustomerAddressRepository;
 import com.kfood.customer.infra.persistence.CustomerRepository;
 import com.kfood.merchant.infra.persistence.Store;
 import com.kfood.merchant.infra.persistence.StoreRepository;
-import com.kfood.order.api.CreatePublicOrderRequest;
-import com.kfood.order.api.CreatePublicOrderResponse;
 import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.domain.OrderStatus;
 import com.kfood.order.infra.persistence.SalesOrder;
@@ -109,7 +107,7 @@ class CreatePublicOrderServiceTest {
                             "Borda Catupiry", new BigDecimal("8.00"), 1)))),
             OffsetDateTime.now(fixedClock).plusMinutes(10));
     var request =
-        new CreatePublicOrderRequest(
+        new CreatePublicOrderCommand(
             quoteId,
             customerId,
             FulfillmentType.PICKUP,
@@ -192,7 +190,7 @@ class CreatePublicOrderServiceTest {
             List.of(),
             OffsetDateTime.now(fixedClock).plusMinutes(10));
     var request =
-        new CreatePublicOrderRequest(
+        new CreatePublicOrderCommand(
             quoteId, customerId, FulfillmentType.PICKUP, null, PaymentMethod.CASH, null, null);
     var saved = mock(SalesOrder.class);
     when(saved.getId()).thenReturn(orderId);
@@ -275,7 +273,7 @@ class CreatePublicOrderServiceTest {
             List.of(),
             OffsetDateTime.now(fixedClock).plusMinutes(10));
     var request =
-        new CreatePublicOrderRequest(
+        new CreatePublicOrderCommand(
             quoteId, customerId, FulfillmentType.PICKUP, null, PaymentMethod.PIX, null, null);
     var saved = mock(SalesOrder.class);
     when(saved.getId()).thenReturn(UUID.randomUUID());
@@ -345,7 +343,7 @@ class CreatePublicOrderServiceTest {
             List.of(),
             OffsetDateTime.now(fixedClock).plusMinutes(10));
     var request =
-        new CreatePublicOrderRequest(
+        new CreatePublicOrderCommand(
             quoteId,
             customerId,
             FulfillmentType.PICKUP,
@@ -441,7 +439,7 @@ class CreatePublicOrderServiceTest {
             List.of(),
             OffsetDateTime.now(fixedClock).plusMinutes(10));
     var request =
-        new CreatePublicOrderRequest(
+        new CreatePublicOrderCommand(
             quoteId,
             customerId,
             FulfillmentType.DELIVERY,
@@ -518,7 +516,7 @@ class CreatePublicOrderServiceTest {
             List.of(),
             OffsetDateTime.now(fixedClock).plusMinutes(10));
     var request =
-        new CreatePublicOrderRequest(
+        new CreatePublicOrderCommand(
             quoteId,
             customerId,
             FulfillmentType.PICKUP,
@@ -555,7 +553,7 @@ class CreatePublicOrderServiceTest {
     var store = mock(Store.class);
     var storeId = UUID.randomUUID();
     var request =
-        new CreatePublicOrderRequest(
+        new CreatePublicOrderCommand(
             UUID.randomUUID(),
             UUID.randomUUID(),
             FulfillmentType.PICKUP,
@@ -564,7 +562,7 @@ class CreatePublicOrderServiceTest {
             null,
             null);
     var expected =
-        new CreatePublicOrderResponse(
+        new CreatePublicOrderOutput(
             UUID.randomUUID(),
             "PED-20260321-000003",
             OrderStatus.NEW,
@@ -580,7 +578,7 @@ class CreatePublicOrderServiceTest {
             eq("public-order-create"),
             eq("idem-123"),
             eq(request),
-            eq(CreatePublicOrderResponse.class),
+            eq(CreatePublicOrderOutput.class),
             any()))
         .thenReturn(expected);
     var service =
@@ -664,17 +662,17 @@ class CreatePublicOrderServiceTest {
             eq("public-order-create"),
             eq("idem-123"),
             any(),
-            eq(CreatePublicOrderResponse.class),
+            eq(CreatePublicOrderOutput.class),
             any()))
         .thenAnswer(
             (InvocationOnMock invocation) ->
-                ((Supplier<CreatePublicOrderResponse>) invocation.getArgument(5)).get());
+                ((Supplier<CreatePublicOrderOutput>) invocation.getArgument(5)).get());
 
     var response =
         service.create(
             "loja-do-bairro",
             "idem-123",
-            new CreatePublicOrderRequest(
+            new CreatePublicOrderCommand(
                 quoteId, customerId, FulfillmentType.PICKUP, null, PaymentMethod.PIX, null, null));
 
     assertThat(response.orderNumber()).isEqualTo("PED-20260321-000004");
@@ -697,7 +695,7 @@ class CreatePublicOrderServiceTest {
             mock(IdempotencyService.class),
             fixedClock);
     var request =
-        new CreatePublicOrderRequest(
+        new CreatePublicOrderCommand(
             UUID.randomUUID(),
             UUID.randomUUID(),
             FulfillmentType.PICKUP,
@@ -741,7 +739,7 @@ class CreatePublicOrderServiceTest {
                 service.create(
                     "loja-do-bairro",
                     null,
-                    new CreatePublicOrderRequest(
+                    new CreatePublicOrderCommand(
                         UUID.randomUUID(),
                         UUID.randomUUID(),
                         FulfillmentType.PICKUP,
@@ -800,7 +798,7 @@ class CreatePublicOrderServiceTest {
                 service.create(
                     "loja-do-bairro",
                     null,
-                    new CreatePublicOrderRequest(
+                    new CreatePublicOrderCommand(
                         UUID.randomUUID(),
                         customerId,
                         FulfillmentType.PICKUP,
@@ -849,7 +847,7 @@ class CreatePublicOrderServiceTest {
                 service.create(
                     "loja-do-bairro",
                     null,
-                    new CreatePublicOrderRequest(
+                    new CreatePublicOrderCommand(
                         UUID.randomUUID(),
                         customerId,
                         FulfillmentType.DELIVERY,
@@ -896,7 +894,7 @@ class CreatePublicOrderServiceTest {
                 service.create(
                     "loja-do-bairro",
                     null,
-                    new CreatePublicOrderRequest(
+                    new CreatePublicOrderCommand(
                         UUID.randomUUID(),
                         customerId,
                         FulfillmentType.PICKUP,
@@ -962,7 +960,7 @@ class CreatePublicOrderServiceTest {
                 service.create(
                     "loja-do-bairro",
                     null,
-                    new CreatePublicOrderRequest(
+                    new CreatePublicOrderCommand(
                         UUID.randomUUID(),
                         customerId,
                         FulfillmentType.DELIVERY,
@@ -1021,7 +1019,7 @@ class CreatePublicOrderServiceTest {
                 service.create(
                     "loja-do-bairro",
                     null,
-                    new CreatePublicOrderRequest(
+                    new CreatePublicOrderCommand(
                         UUID.randomUUID(),
                         customerId,
                         FulfillmentType.PICKUP,
