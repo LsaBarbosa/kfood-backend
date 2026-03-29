@@ -36,7 +36,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.invocation.InvocationOnMock;
-import org.springframework.http.HttpStatus;
 
 class CreatePublicOrderServiceTest {
 
@@ -56,7 +55,12 @@ class CreatePublicOrderServiceTest {
     var idempotencyService = mock(IdempotencyService.class);
     var service =
         new CreatePublicOrderService(
-            commandPort, quoteGateway, validationService, publisher, idempotencyService, fixedClock);
+            commandPort,
+            quoteGateway,
+            validationService,
+            publisher,
+            idempotencyService,
+            fixedClock);
     var storeId = UUID.randomUUID();
     var quote = pickupQuote(storeId);
     var command =
@@ -93,7 +97,12 @@ class CreatePublicOrderServiceTest {
     var idempotencyService = mock(IdempotencyService.class);
     var service =
         new CreatePublicOrderService(
-            commandPort, quoteGateway, validationService, publisher, idempotencyService, fixedClock);
+            commandPort,
+            quoteGateway,
+            validationService,
+            publisher,
+            idempotencyService,
+            fixedClock);
     var storeId = UUID.randomUUID();
     var quote = pickupQuote(storeId);
     var command =
@@ -184,7 +193,8 @@ class CreatePublicOrderServiceTest {
 
     service.create("loja-do-bairro", null, command);
 
-    var cashCaptor = ArgumentCaptor.forClass(com.kfood.payment.app.RegisterCashPaymentCommand.class);
+    var cashCaptor =
+        ArgumentCaptor.forClass(com.kfood.payment.app.RegisterCashPaymentCommand.class);
     verify(registerCashPaymentUseCase).execute(cashCaptor.capture());
     assertThat(cashCaptor.getValue().orderId()).isEqualTo(orderId);
   }
@@ -409,12 +419,7 @@ class CreatePublicOrderServiceTest {
         new BigDecimal("50.00"),
         List.of(
             new CheckoutQuoteItemSnapshot(
-                UUID.randomUUID(),
-                "Pizza Calabresa",
-                new BigDecimal("50.00"),
-                1,
-                null,
-                List.of())),
+                UUID.randomUUID(), "Pizza Calabresa", new BigDecimal("50.00"), 1, null, List.of())),
         OffsetDateTime.now(fixedClock).plusMinutes(10));
   }
 
@@ -430,12 +435,7 @@ class CreatePublicOrderServiceTest {
         new BigDecimal("57.50"),
         List.of(
             new CheckoutQuoteItemSnapshot(
-                UUID.randomUUID(),
-                "Pizza Calabresa",
-                new BigDecimal("50.00"),
-                1,
-                null,
-                List.of())),
+                UUID.randomUUID(), "Pizza Calabresa", new BigDecimal("50.00"), 1, null, List.of())),
         OffsetDateTime.now(fixedClock).plusMinutes(10));
   }
 

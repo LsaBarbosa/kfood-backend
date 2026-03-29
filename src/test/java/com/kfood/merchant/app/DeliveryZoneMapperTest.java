@@ -12,11 +12,7 @@ class DeliveryZoneMapperTest {
   void shouldMapZoneToOutput() {
     var zone =
         new MerchantViews.DeliveryZoneView(
-            UUID.randomUUID(),
-            "Centro",
-            new BigDecimal("6.50"),
-            new BigDecimal("25.00"),
-            true);
+            UUID.randomUUID(), "Centro", new BigDecimal("6.50"), new BigDecimal("25.00"), true);
 
     var response = DeliveryZoneMapper.toOutput(zone);
 

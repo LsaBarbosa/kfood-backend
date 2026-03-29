@@ -41,7 +41,8 @@ class JpaPublicOrderCommandAdapterTest {
   private final CustomerAddressRepository customerAddressRepository =
       mock(CustomerAddressRepository.class);
   private final SalesOrderRepository salesOrderRepository = mock(SalesOrderRepository.class);
-  private final AssignOrderNumberService assignOrderNumberService = mock(AssignOrderNumberService.class);
+  private final AssignOrderNumberService assignOrderNumberService =
+      mock(AssignOrderNumberService.class);
   private final Clock clock = Clock.fixed(Instant.parse("2026-03-21T15:00:00Z"), ZoneOffset.UTC);
   private final JpaPublicOrderCommandAdapter adapter =
       new JpaPublicOrderCommandAdapter(
@@ -66,7 +67,9 @@ class JpaPublicOrderCommandAdapterTest {
     when(salesOrderRepository.save(any(SalesOrder.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 
-    assertThat(adapter.findStoreBySlug(store.getSlug())).contains(new com.kfood.order.app.port.PublicOrderCommandPort.StoreReference(store.getId()));
+    assertThat(adapter.findStoreBySlug(store.getSlug()))
+        .contains(
+            new com.kfood.order.app.port.PublicOrderCommandPort.StoreReference(store.getId()));
     var output = adapter.createOrder(store.getId(), command, quote);
 
     assertThat(output.status()).isEqualTo(OrderStatus.NEW);
@@ -246,8 +249,7 @@ class JpaPublicOrderCommandAdapterTest {
                 1,
                 "Sem cebola",
                 List.of(
-                    new CheckoutQuoteOptionSnapshot(
-                        "Borda Catupiry", new BigDecimal("8.00"), 1)))),
+                    new CheckoutQuoteOptionSnapshot("Borda Catupiry", new BigDecimal("8.00"), 1)))),
         OffsetDateTime.now(clock).plusMinutes(10));
   }
 

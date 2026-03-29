@@ -18,10 +18,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Component;
 
 @Component
-@ConditionalOnBean({
-  StoreCheckoutRulesValidator.class,
-  CatalogProductAvailabilityValidator.class
-})
+@ConditionalOnBean({StoreCheckoutRulesValidator.class, CatalogProductAvailabilityValidator.class})
 public class JpaCheckoutCriticalValidationAdapter implements OrderCheckoutValidationPort {
 
   private final StoreRepository storeRepository;

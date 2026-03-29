@@ -13,12 +13,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 class CreatePixPaymentResponseTest {
 
   @ParameterizedTest
-  @CsvSource({
-    "CONFIRMED,PAID",
-    "FAILED,FAILED",
-    "CANCELED,FAILED",
-    "EXPIRED,FAILED"
-  })
+  @CsvSource({"CONFIRMED,PAID", "FAILED,FAILED", "CANCELED,FAILED", "EXPIRED,FAILED"})
   void shouldMapTechnicalStatusToSnapshot(String technicalStatus, String snapshotStatus) {
     var response =
         new CreatePixPaymentResponse(

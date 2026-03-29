@@ -16,7 +16,9 @@ class PublicStoreMapperTest {
   @Test
   void shouldMapPublicStoreBoundaryObjects() {
     var store = store();
-    var hour = new MerchantViews.StoreHourView(DayOfWeek.MONDAY, LocalTime.of(10, 0), LocalTime.of(22, 0), false);
+    var hour =
+        new MerchantViews.StoreHourView(
+            DayOfWeek.MONDAY, LocalTime.of(10, 0), LocalTime.of(22, 0), false);
     var zone =
         new MerchantViews.DeliveryZoneView(
             UUID.randomUUID(), "Centro", new BigDecimal("6.50"), new BigDecimal("25.00"), true);
