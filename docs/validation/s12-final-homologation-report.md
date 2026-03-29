@@ -1,26 +1,18 @@
-# Homologação técnica final Sprint 12
+# Homologação final Sprint 12
 
-## 1. Estado funcional
-- A Sprint 12 permanece funcionalmente implementada no recorte validado neste repositório.
-- O fluxo de pagamentos continua cobrindo domínio de pagamento, dinheiro, abstração PSP, Pix sandbox e atualização de status.
-- Os módulos centrais `payment`, `order` e `merchant` seguem com comportamento preservado após os ajustes arquiteturais residuais.
-- Não houve alteração de contrato HTTP nesta etapa.
+## 1. Escopo funcional validado
+- Domínio de pagamento: validado por evidência estática no módulo `payment` e pela suíte `*Payment*` verde.
+- Dinheiro: validado por evidência estática dos fluxos de pagamento em dinheiro e pela suíte `*Payment*` verde.
+- Abstração PSP: validada por evidência estática no recorte de gateway/PSP e pela suíte `*Payment*` verde.
+- Pix sandbox: validado por evidência estática do endpoint/fluxo Pix e pela suíte `*Payment*` verde.
+- Status de pagamento: validado por evidência estática dos casos de uso e persistência relacionados, além das suítes `*Payment*` e `*Order*` verdes.
 
 ## 2. Estado arquitetural
-- Resultado do `ArchitectureTest`: verde.
-- O projeto continua usando majoritariamente `app` como camada de aplicação real, apesar do alvo documental seguir `api / application / domain / infra`.
-- Regras validadas em [ArchitectureTest.java](/home/kronos/Documentos/Codigin/kfood-backend/src/test/java/com/kfood/architecture/ArchitectureTest.java):
-  - `domain` não depende de `api` nem `infra`
-  - `payment.app`, `order.app` e `merchant.app` não dependem de `infra`
-  - `merchant.application.user` não depende de `infra`
-  - `app` e `application` não dependem de DTOs HTTP em `api`
-  - contracts de aplicação (`app.port`, `gateway`, comandos/outputs/results/queries) não dependem de `infra`
-  - `payment.app.gateway`, `catalog.app.availability` e `catalog.app.selection` mantêm o guardrail contra `infra`
-- Módulos validados: `payment`, `order`, `merchant`
-- Acoplamentos removidos nesta rodada:
-  - `merchant.app` não importa mais entidades nem repositórios de `merchant.infra` ou `catalog.infra`
-  - os mapeamentos concretos de `merchant` ficaram concentrados nos adapters JPA
-  - `StoreOperationalGuard` deixou de depender de entidade JPA de loja
+- Resultado do `ArchitectureTest`: `BUILD SUCCESSFUL`.
+- Situação de `payment`: `payment.app` está coberto explicitamente pela regra que proíbe dependência em `..infra..`; não houve violação na execução.
+- Situação de `order`: `order.app` está coberto explicitamente pela regra que proíbe dependência em `..infra..`; não houve violação na execução.
+- Situação de `merchant`: `merchant.app` e `merchant.application.user` estão cobertos explicitamente pela regra que proíbe dependência em `..infra..`; não houve violação na execução.
+- O `ArchitectureTest` atual valida a estrutura real do repositório, tratando `app` como camada de aplicação efetiva e preservando também as regras de `domain -> api/infra` e `app/application -> api`.
 
 ## 3. Build e testes
 - `./gradlew --no-daemon test --tests "*Architecture*"`: `BUILD SUCCESSFUL`
@@ -28,21 +20,21 @@
 - `./gradlew --no-daemon test --tests "*Order*"`: `BUILD SUCCESSFUL`
 - `./gradlew --no-daemon test --tests "*Merchant*"`: `BUILD SUCCESSFUL`
 - `./gradlew --no-daemon clean test`: `BUILD SUCCESSFUL`
-- Observação: houve uma falha espúria anterior em `*Order*` por execução concorrente manual de dois `gradlew test` no mesmo diretório de resultados, com `NoSuchFileException` em `build/test-results/test/binary/...`. O rerun sequencial passou; a causa raiz foi concorrência de execução, não falha de código.
+- `./gradlew --no-daemon jacocoTestReport jacocoTestCoverageVerification`: `BUILD SUCCESSFUL`
+- Primeira causa raiz real de qualquer falha: não houve falha nesta rodada final. As únicas ocorrências observadas foram warnings não bloqueantes da JVM/JNA durante a execução dos testes.
 
 ## 4. Cobertura e diff coverage
-- `./gradlew --no-daemon jacocoTestReport jacocoTestCoverageVerification`: `BUILD SUCCESSFUL`
-- JaCoCo ficou verde com a regra global do bundle e com a regra de cobertura por diff para classes alteradas.
-- `DiffCoverageSupport` está versionado em [DiffCoverageSupport.java](/home/kronos/Documentos/Codigin/kfood-backend/buildSrc/src/main/java/com/kfood/build/DiffCoverageSupport.java).
-- O `build.gradle` usa o helper para calcular classes alteradas a partir de `git diff`, com fallback entre `diffBase...HEAD` e `diffBase HEAD`, e falha explicitamente se não consegue calcular o diff.
-- O workflow de CI em [.github/workflows/ci.yml](/home/kronos/Documentos/Codigin/kfood-backend/.github/workflows/ci.yml) usa `fetch-depth: 0`, o que torna a validação por diff auditável no pipeline.
-- Resultado percebido: cobertura por diff homologável com a evidência disponível.
+- Estado do JaCoCo: `BUILD SUCCESSFUL`, com geração de relatório e verificação de cobertura concluídas.
+- Estado do `DiffCoverageSupport`: presente e versionado em `buildSrc/src/main/java/com/kfood/build/DiffCoverageSupport.java`.
+- O `build.gradle` usa `DiffCoverageSupport.changedMainClasses(...)` para calcular classes alteradas e aplicar regra de cobertura por classe no `jacocoTestCoverageVerification`.
+- O helper tenta `git diff diffBase...HEAD` e faz fallback para `git diff diffBase HEAD`; se ambos falharem, lança erro explícito (`IllegalStateException`), sem mascarar problema de cálculo de diff.
+- A cobertura por classes alteradas ficou validada como executável nesta branch, e o CI segue coerente com isso porque `.github/workflows/ci.yml` usa `fetch-depth: 0`.
 
 ## 5. Conclusão final
 Sprint 12 homologada
 
-Os guardrails arquiteturais dos módulos críticos ficaram verdes sobre a estrutura real do projeto, sem exigir rename em massa para `application`.
-Os acoplamentos mais graves de `order.app` e `merchant.app` com `infra` foram removidos.
-Os testes segmentados e a suíte `clean test` passaram.
-O JaCoCo e a verificação de cobertura por diff passaram com a configuração efetiva de CI.
-Não há pendência técnica bloqueante remanescente na evidência coletada desta etapa.
+A evidência dinâmica desta rodada final ficou toda verde.
+Os módulos críticos `payment`, `order` e `merchant` passaram pelo guardrail arquitetural com a estrutura real do projeto.
+O build completo executou sem falhas.
+O JaCoCo e a cobertura por diff executaram com sucesso usando o helper versionado e o CI compatível.
+Não houve conflito entre evidência estática e dinâmica nesta validação final.
