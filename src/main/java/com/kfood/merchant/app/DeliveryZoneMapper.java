@@ -1,17 +1,11 @@
 package com.kfood.merchant.app;
 
-import com.kfood.merchant.infra.persistence.DeliveryZone;
-
 public final class DeliveryZoneMapper {
 
   private DeliveryZoneMapper() {}
 
-  public static DeliveryZoneOutput toOutput(DeliveryZone zone) {
+  public static DeliveryZoneOutput toOutput(MerchantViews.DeliveryZoneView zone) {
     return new DeliveryZoneOutput(
-        zone.getId(),
-        zone.getZoneName(),
-        zone.getFeeAmount(),
-        zone.getMinOrderAmount(),
-        zone.isActive());
+        zone.id(), zone.zoneName(), zone.feeAmount(), zone.minOrderAmount(), zone.active());
   }
 }

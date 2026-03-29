@@ -1,19 +1,18 @@
 package com.kfood.merchant.app;
 
-import com.kfood.merchant.infra.persistence.Store;
-
 public final class StoreDetailsMapper {
 
   private StoreDetailsMapper() {}
 
-  public static StoreDetailsOutput toOutput(Store store, StoreActivationRequirements requirements) {
+  public static StoreDetailsOutput toOutput(
+      MerchantViews.StoreView store, StoreActivationRequirements requirements) {
     return new StoreDetailsOutput(
-        store.getId(),
-        store.getSlug(),
-        store.getName(),
-        store.getStatus(),
-        store.getPhone(),
-        store.getTimezone(),
+        store.id(),
+        store.slug(),
+        store.name(),
+        store.status(),
+        store.phone(),
+        store.timezone(),
         requirements.hoursConfigured(),
         requirements.deliveryZonesConfigured());
   }

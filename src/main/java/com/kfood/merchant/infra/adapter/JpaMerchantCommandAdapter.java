@@ -12,6 +12,7 @@ import com.kfood.merchant.app.DeliveryZoneAlreadyExistsException;
 import com.kfood.merchant.app.DeliveryZoneMapper;
 import com.kfood.merchant.app.DeliveryZoneOutput;
 import com.kfood.merchant.app.InvalidStoreHoursException;
+import com.kfood.merchant.app.MerchantViews;
 import com.kfood.merchant.app.OwnerAlreadyBoundToAnotherStoreException;
 import com.kfood.merchant.app.StoreActivationRequirements;
 import com.kfood.merchant.app.StoreActivationRequirementsNotMetException;
@@ -87,7 +88,14 @@ public class JpaMerchantCommandAdapter implements MerchantCommandPort {
             command.feeAmount(),
             command.minOrderAmount(),
             command.active());
-    return DeliveryZoneMapper.toOutput(deliveryZoneRepository.saveAndFlush(zone));
+    var savedZone = deliveryZoneRepository.saveAndFlush(zone);
+    return DeliveryZoneMapper.toOutput(
+        new MerchantViews.DeliveryZoneView(
+            savedZone.getId(),
+            savedZone.getZoneName(),
+            savedZone.getFeeAmount(),
+            savedZone.getMinOrderAmount(),
+            savedZone.isActive()));
   }
 
   @Override

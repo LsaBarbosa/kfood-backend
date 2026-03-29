@@ -8,6 +8,7 @@ import com.kfood.catalog.infra.persistence.CatalogProductRepository;
 import com.kfood.merchant.app.DeliveryZoneMapper;
 import com.kfood.merchant.app.DeliveryZoneNotFoundException;
 import com.kfood.merchant.app.DeliveryZoneOutput;
+import com.kfood.merchant.app.MerchantViews;
 import com.kfood.merchant.app.PublicStoreMapper;
 import com.kfood.merchant.app.PublicStoreMenuCategoryOutput;
 import com.kfood.merchant.app.PublicStoreMenuOutput;
@@ -83,12 +84,13 @@ public class JpaMerchantQueryAdapter implements MerchantQueryPort {
         deliveryZoneRepository
             .findByIdAndStoreId(zoneId, storeId)
             .orElseThrow(() -> new DeliveryZoneNotFoundException(zoneId));
-    return DeliveryZoneMapper.toOutput(zone);
+    return DeliveryZoneMapper.toOutput(toDeliveryZoneView(zone));
   }
 
   @Override
   public List<DeliveryZoneOutput> listDeliveryZones(UUID storeId) {
     return deliveryZoneRepository.findAllByStoreIdOrderByZoneNameAsc(storeId).stream()
+        .map(this::toDeliveryZoneView)
         .map(DeliveryZoneMapper::toOutput)
         .toList();
   }
@@ -100,6 +102,7 @@ public class JpaMerchantQueryAdapter implements MerchantQueryPort {
     var hours =
         storeBusinessHourRepository.findByStoreId(storeId).stream()
             .sorted(Comparator.comparingInt(item -> item.getDayOfWeek().getValue()))
+            .map(this::toStoreHourView)
             .map(StoreHoursMapper::toOutput)
             .toList();
     return new StoreHoursOutput(store.getHoursVersion(), hours);
@@ -112,15 +115,17 @@ public class JpaMerchantQueryAdapter implements MerchantQueryPort {
     var hours =
         storeBusinessHourRepository.findByStoreId(store.getId()).stream()
             .sorted(Comparator.comparingInt(item -> item.getDayOfWeek().getValue()))
+            .map(this::toStoreHourView)
             .map(PublicStoreMapper::toHourOutput)
             .toList();
     var deliveryZones =
         deliveryZoneRepository
             .findAllByStoreIdAndActiveTrueOrderByZoneNameAsc(store.getId())
             .stream()
+            .map(this::toDeliveryZoneView)
             .map(PublicStoreMapper::toDeliveryZoneOutput)
             .toList();
-    return PublicStoreMapper.toOutput(store, hours, deliveryZones);
+    return PublicStoreMapper.toOutput(toStoreView(store), hours, deliveryZones);
   }
 
   @Override
@@ -143,9 +148,9 @@ public class JpaMerchantQueryAdapter implements MerchantQueryPort {
               ignored ->
                   new PublicStoreMenuCategoryAccumulator(category.getId(), category.getName()))
           .products()
-          .add(
-              PublicStoreMapper.toMenuProductOutput(
-                  product, optionGroupsByProductId.getOrDefault(product.getId(), List.of())));
+          .add(PublicStoreMapper.toMenuProductOutput(
+              toPublicMenuProductView(
+                  product, optionGroupsByProductId.getOrDefault(product.getId(), List.of()))));
     }
 
     return new PublicStoreMenuOutput(
@@ -161,8 +166,82 @@ public class JpaMerchantQueryAdapter implements MerchantQueryPort {
   public List<StoreTermsAcceptanceHistoryItemOutput> getStoreTermsAcceptanceHistory(UUID storeId) {
     storeRepository.findById(storeId).orElseThrow(() -> new StoreNotFoundException(storeId));
     return storeTermsAcceptanceRepository.findAllByStoreIdOrderByAcceptedAtDesc(storeId).stream()
+        .map(this::toStoreTermsAcceptanceView)
         .map(StoreTermsAcceptanceMapper::toHistoryItemOutput)
         .toList();
+  }
+
+  private MerchantViews.StoreView toStoreView(com.kfood.merchant.infra.persistence.Store store) {
+    return new MerchantViews.StoreView(
+        store.getId(),
+        store.getName(),
+        store.getSlug(),
+        store.getCnpj(),
+        store.getPhone(),
+        store.getTimezone(),
+        store.getStatus(),
+        store.getCreatedAt());
+  }
+
+  private MerchantViews.DeliveryZoneView toDeliveryZoneView(
+      com.kfood.merchant.infra.persistence.DeliveryZone zone) {
+    return new MerchantViews.DeliveryZoneView(
+        zone.getId(),
+        zone.getZoneName(),
+        zone.getFeeAmount(),
+        zone.getMinOrderAmount(),
+        zone.isActive());
+  }
+
+  private MerchantViews.StoreHourView toStoreHourView(
+      com.kfood.merchant.infra.persistence.StoreBusinessHour hour) {
+    return new MerchantViews.StoreHourView(
+        hour.getDayOfWeek(), hour.getOpenTime(), hour.getCloseTime(), hour.isClosed());
+  }
+
+  private MerchantViews.StoreTermsAcceptanceView toStoreTermsAcceptanceView(
+      com.kfood.merchant.infra.persistence.StoreTermsAcceptance acceptance) {
+    return new MerchantViews.StoreTermsAcceptanceView(
+        acceptance.getId(),
+        acceptance.getAcceptedByUserId(),
+        acceptance.getDocumentType(),
+        acceptance.getDocumentVersion(),
+        acceptance.getAcceptedAt());
+  }
+
+  private MerchantViews.PublicStoreMenuProductView toPublicMenuProductView(
+      CatalogProduct product, List<CatalogOptionGroup> optionGroups) {
+    return new MerchantViews.PublicStoreMenuProductView(
+        product.getId(),
+        product.getName(),
+        product.getDescription(),
+        product.getBasePrice(),
+        product.getImageUrl(),
+        product.isPaused(),
+        optionGroups.stream()
+            .filter(CatalogOptionGroup::isActive)
+            .map(this::toPublicMenuOptionGroupView)
+            .toList());
+  }
+
+  private MerchantViews.PublicStoreMenuOptionGroupView toPublicMenuOptionGroupView(
+      CatalogOptionGroup group) {
+    return new MerchantViews.PublicStoreMenuOptionGroupView(
+        group.getId(),
+        group.getName(),
+        group.getMinSelect(),
+        group.getMaxSelect(),
+        group.isRequired(),
+        group.getItems().stream()
+            .filter(com.kfood.catalog.infra.persistence.CatalogOptionItem::isActive)
+            .map(this::toPublicMenuOptionItemView)
+            .toList());
+  }
+
+  private MerchantViews.PublicStoreMenuOptionItemView toPublicMenuOptionItemView(
+      com.kfood.catalog.infra.persistence.CatalogOptionItem item) {
+    return new MerchantViews.PublicStoreMenuOptionItemView(
+        item.getId(), item.getName(), item.getExtraPrice(), item.getSortOrder());
   }
 
   private java.util.Map<UUID, List<CatalogOptionGroup>> loadOptionGroupsByProductId(

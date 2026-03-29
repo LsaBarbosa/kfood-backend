@@ -2,27 +2,17 @@ package com.kfood.merchant.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.kfood.merchant.infra.persistence.Store;
-import com.kfood.merchant.infra.persistence.StoreBusinessHour;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
-import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class StoreHoursMapperTest {
 
   @Test
   void shouldMapStoreBusinessHourToOutput() {
-    var store =
-        new Store(
-            UUID.randomUUID(),
-            "Loja do Bairro",
-            "loja-do-bairro",
-            "45.723.174/0001-10",
-            "21999990000",
-            "America/Sao_Paulo");
     var entity =
-        StoreBusinessHour.open(store, DayOfWeek.MONDAY, LocalTime.of(10, 0), LocalTime.of(22, 0));
+        new MerchantViews.StoreHourView(
+            DayOfWeek.MONDAY, LocalTime.of(10, 0), LocalTime.of(22, 0), false);
 
     var response = StoreHoursMapper.toOutput(entity);
 

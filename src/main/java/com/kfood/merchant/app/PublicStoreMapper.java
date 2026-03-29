@@ -1,11 +1,5 @@
 package com.kfood.merchant.app;
 
-import com.kfood.catalog.infra.persistence.CatalogOptionGroup;
-import com.kfood.catalog.infra.persistence.CatalogOptionItem;
-import com.kfood.catalog.infra.persistence.CatalogProduct;
-import com.kfood.merchant.infra.persistence.DeliveryZone;
-import com.kfood.merchant.infra.persistence.Store;
-import com.kfood.merchant.infra.persistence.StoreBusinessHour;
 import java.util.List;
 
 public final class PublicStoreMapper {
@@ -13,62 +7,48 @@ public final class PublicStoreMapper {
   private PublicStoreMapper() {}
 
   public static PublicStoreOutput toOutput(
-      Store store,
+      MerchantViews.StoreView store,
       List<PublicStoreHourOutput> hours,
       List<PublicDeliveryZoneOutput> deliveryZones) {
     return new PublicStoreOutput(
-        store.getSlug(),
-        store.getName(),
-        store.getStatus(),
-        store.getPhone(),
-        hours,
-        deliveryZones);
+        store.slug(), store.name(), store.status(), store.phone(), hours, deliveryZones);
   }
 
-  public static PublicStoreHourOutput toHourOutput(StoreBusinessHour hour) {
+  public static PublicStoreHourOutput toHourOutput(MerchantViews.StoreHourView hour) {
     return new PublicStoreHourOutput(
-        hour.getDayOfWeek(), hour.getOpenTime(), hour.getCloseTime(), hour.isClosed());
+        hour.dayOfWeek(), hour.openTime(), hour.closeTime(), hour.closed());
   }
 
-  public static PublicDeliveryZoneOutput toDeliveryZoneOutput(DeliveryZone zone) {
-    return new PublicDeliveryZoneOutput(
-        zone.getZoneName(), zone.getFeeAmount(), zone.getMinOrderAmount());
-  }
-
-  public static PublicStoreMenuProductOutput toMenuProductOutput(CatalogProduct product) {
-    return toMenuProductOutput(product, product.getOptionGroups());
+  public static PublicDeliveryZoneOutput toDeliveryZoneOutput(MerchantViews.DeliveryZoneView zone) {
+    return new PublicDeliveryZoneOutput(zone.zoneName(), zone.feeAmount(), zone.minOrderAmount());
   }
 
   public static PublicStoreMenuProductOutput toMenuProductOutput(
-      CatalogProduct product, List<CatalogOptionGroup> optionGroups) {
+      MerchantViews.PublicStoreMenuProductView product) {
     return new PublicStoreMenuProductOutput(
-        product.getId(),
-        product.getName(),
-        product.getDescription(),
-        product.getBasePrice(),
-        product.getImageUrl(),
-        product.isPaused(),
-        optionGroups.stream()
-            .filter(CatalogOptionGroup::isActive)
-            .map(PublicStoreMapper::toMenuOptionGroupResponse)
-            .toList());
+        product.id(),
+        product.name(),
+        product.description(),
+        product.basePrice(),
+        product.imageUrl(),
+        product.paused(),
+        product.optionGroups().stream().map(PublicStoreMapper::toMenuOptionGroupResponse).toList());
   }
 
-  static PublicStoreMenuOptionGroupOutput toMenuOptionGroupResponse(CatalogOptionGroup group) {
+  static PublicStoreMenuOptionGroupOutput toMenuOptionGroupResponse(
+      MerchantViews.PublicStoreMenuOptionGroupView group) {
     return new PublicStoreMenuOptionGroupOutput(
-        group.getId(),
-        group.getName(),
-        group.getMinSelect(),
-        group.getMaxSelect(),
-        group.isRequired(),
-        group.getItems().stream()
-            .filter(CatalogOptionItem::isActive)
-            .map(PublicStoreMapper::toMenuOptionItemResponse)
-            .toList());
+        group.id(),
+        group.name(),
+        group.minSelect(),
+        group.maxSelect(),
+        group.required(),
+        group.items().stream().map(PublicStoreMapper::toMenuOptionItemResponse).toList());
   }
 
-  static PublicStoreMenuOptionItemOutput toMenuOptionItemResponse(CatalogOptionItem item) {
+  static PublicStoreMenuOptionItemOutput toMenuOptionItemResponse(
+      MerchantViews.PublicStoreMenuOptionItemView item) {
     return new PublicStoreMenuOptionItemOutput(
-        item.getId(), item.getName(), item.getExtraPrice(), item.getSortOrder());
+        item.id(), item.name(), item.extraPrice(), item.sortOrder());
   }
 }

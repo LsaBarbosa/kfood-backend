@@ -1,24 +1,21 @@
 package com.kfood.merchant.app;
 
-import com.kfood.merchant.infra.persistence.Store;
-
 public final class StoreMapper {
 
   private StoreMapper() {}
 
-  public static CreateStoreOutput toCreateOutput(Store store) {
-    return new CreateStoreOutput(
-        store.getId(), store.getSlug(), store.getStatus(), store.getCreatedAt());
+  public static CreateStoreOutput toCreateOutput(MerchantViews.StoreView store) {
+    return new CreateStoreOutput(store.id(), store.slug(), store.status(), store.createdAt());
   }
 
-  public static StoreOutput toOutput(Store store) {
+  public static StoreOutput toOutput(MerchantViews.StoreView store) {
     return new StoreOutput(
-        store.getId(),
-        store.getName(),
-        store.getSlug(),
-        store.getCnpj(),
-        store.getPhone(),
-        store.getTimezone(),
-        store.getStatus());
+        store.id(),
+        store.name(),
+        store.slug(),
+        store.cnpj(),
+        store.phone(),
+        store.timezone(),
+        store.status());
   }
 }

@@ -13,7 +13,7 @@ class ArchUnitCompatibilityTest {
     architectureTest.applicationContractsShouldNotDependOnInfraImplementations();
     architectureTest.paymentApplicationShouldNotDependOnInfraImplementations();
     architectureTest.orderUseCasesShouldNotDependOnInfraImplementations();
-    architectureTest.merchantUseCasesShouldNotDependOnInfraImplementations();
+    architectureTest.merchantApplicationShouldNotDependOnInfraImplementations();
     architectureTest.merchantUserApplicationShouldNotDependOnInfraImplementations();
     architectureTest.paymentGatewayApplicationShouldNotDependOnApiOrInfra();
     architectureTest.catalogAvailabilityShouldNotDependOnInfra();

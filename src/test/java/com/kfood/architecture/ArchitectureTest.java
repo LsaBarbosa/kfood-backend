@@ -97,12 +97,10 @@ class ArchitectureTest {
   }
 
   @Test
-  void merchantUseCasesShouldNotDependOnInfraImplementations() {
+  void merchantApplicationShouldNotDependOnInfraImplementations() {
     noClasses()
         .that()
         .resideInAPackage("com.kfood.merchant.app..")
-        .and()
-        .haveSimpleNameEndingWith("UseCase")
         .should()
         .dependOnClassesThat()
         .resideInAPackage("..infra..")
