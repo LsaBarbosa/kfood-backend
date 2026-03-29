@@ -1,6 +1,8 @@
 # Gradle
 .gradle/
 build/
+!buildSrc/src/
+!buildSrc/src/**
 out/
 
 # Java
