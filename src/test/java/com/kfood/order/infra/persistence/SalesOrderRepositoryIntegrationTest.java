@@ -84,7 +84,7 @@ class SalesOrderRepositoryIntegrationTest extends PostgreSqlContainerIT {
     assertThat(savedOrder.getSubtotalAmount()).isEqualByComparingTo("50.00");
     assertThat(savedOrder.getDeliveryFeeAmount()).isEqualByComparingTo("7.50");
     assertThat(savedOrder.getTotalAmount()).isEqualByComparingTo("57.50");
-    assertThat(salesOrderRepository.findByIdAndStoreId(savedOrder.getId(), store.getId()))
+    assertThat(salesOrderRepository.findByIdAndStore_Id(savedOrder.getId(), store.getId()))
         .isPresent();
   }
 
@@ -346,7 +346,7 @@ class SalesOrderRepositoryIntegrationTest extends PostgreSqlContainerIT {
 
     var detailedOrder =
         salesOrderRepository
-            .findDetailedByIdAndStoreId(savedOrder.getId(), store.getId())
+            .findDetailedByIdAndStore_Id(savedOrder.getId(), store.getId())
             .orElseThrow();
 
     assertThat(detailedOrder.getCustomer().getName()).isEqualTo("Maria Silva");

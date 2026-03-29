@@ -61,7 +61,7 @@ public class JpaOrderQueryAdapter implements OrderQueryPort {
   public OrderDetailOutput getOrderDetail(UUID storeId, UUID orderId) {
     var order =
         salesOrderRepository
-            .findDetailedByIdAndStoreId(orderId, storeId)
+            .findDetailedByIdAndStore_Id(orderId, storeId)
             .orElseThrow(() -> new OrderNotFoundException(orderId));
     return toOrderDetail(order);
   }
@@ -72,7 +72,7 @@ public class JpaOrderQueryAdapter implements OrderQueryPort {
         storeRepository.findBySlug(slug).orElseThrow(() -> new StoreSlugNotFoundException(slug));
     var order =
         salesOrderRepository
-            .findByStoreIdAndOrderNumber(store.getId(), orderNumber)
+            .findByStore_IdAndOrderNumber(store.getId(), orderNumber)
             .orElseThrow(() -> new OrderNotFoundException(orderNumber));
 
     return new PublicOrderLookupOutput(

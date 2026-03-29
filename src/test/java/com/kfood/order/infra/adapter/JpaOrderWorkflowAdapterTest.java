@@ -39,7 +39,7 @@ class JpaOrderWorkflowAdapterTest {
     var actorUserId = UUID.randomUUID();
     var order = order(storeId, FulfillmentType.DELIVERY);
 
-    when(salesOrderRepository.findByIdAndStoreId(order.getId(), storeId))
+    when(salesOrderRepository.findByIdAndStore_Id(order.getId(), storeId))
         .thenReturn(Optional.of(order));
 
     var response =
@@ -75,7 +75,7 @@ class JpaOrderWorkflowAdapterTest {
     var actorUserId = UUID.randomUUID();
     var order = order(storeId, FulfillmentType.PICKUP);
 
-    when(salesOrderRepository.findByIdAndStoreId(order.getId(), storeId))
+    when(salesOrderRepository.findByIdAndStore_Id(order.getId(), storeId))
         .thenReturn(Optional.of(order));
 
     var response =

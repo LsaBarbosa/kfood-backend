@@ -62,7 +62,7 @@ class JpaOrderQueryAdapterTest {
     var storeId = UUID.randomUUID();
     var order = detailedOrder(storeId);
 
-    when(salesOrderRepository.findDetailedByIdAndStoreId(order.getId(), storeId))
+    when(salesOrderRepository.findDetailedByIdAndStore_Id(order.getId(), storeId))
         .thenReturn(Optional.of(order));
 
     var response = adapter.getOrderDetail(storeId, order.getId());
@@ -78,7 +78,7 @@ class JpaOrderQueryAdapterTest {
     var storeId = UUID.randomUUID();
     var orderId = UUID.randomUUID();
 
-    when(salesOrderRepository.findDetailedByIdAndStoreId(orderId, storeId))
+    when(salesOrderRepository.findDetailedByIdAndStore_Id(orderId, storeId))
         .thenReturn(Optional.empty());
 
     assertThatThrownBy(() -> adapter.getOrderDetail(storeId, orderId))
@@ -91,7 +91,7 @@ class JpaOrderQueryAdapterTest {
     var order = order(store.getId(), "PED-20260326-000123");
 
     when(storeRepository.findBySlug("loja-do-bairro")).thenReturn(Optional.of(store));
-    when(salesOrderRepository.findByStoreIdAndOrderNumber(store.getId(), "PED-20260326-000123"))
+    when(salesOrderRepository.findByStore_IdAndOrderNumber(store.getId(), "PED-20260326-000123"))
         .thenReturn(Optional.of(order));
 
     var response = adapter.getPublicOrderLookup("loja-do-bairro", "PED-20260326-000123");
