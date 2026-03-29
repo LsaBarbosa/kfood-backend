@@ -1,46 +1,27 @@
 package com.kfood.merchant.app;
 
-import com.kfood.merchant.infra.persistence.StoreBusinessHourRepository;
-import com.kfood.merchant.infra.persistence.StoreRepository;
+import com.kfood.merchant.app.port.MerchantQueryPort;
 import com.kfood.shared.tenancy.CurrentTenantProvider;
-import java.util.Comparator;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
-@ConditionalOnBean({
-  StoreRepository.class,
-  StoreBusinessHourRepository.class,
-  CurrentTenantProvider.class
-})
+@ConditionalOnBean({MerchantQueryPort.class, CurrentTenantProvider.class})
 public class GetStoreHoursUseCase {
 
-  private final StoreRepository storeRepository;
-  private final StoreBusinessHourRepository storeBusinessHourRepository;
+  private final MerchantQueryPort merchantQueryPort;
   private final CurrentTenantProvider currentTenantProvider;
 
   public GetStoreHoursUseCase(
-      StoreRepository storeRepository,
-      StoreBusinessHourRepository storeBusinessHourRepository,
-      CurrentTenantProvider currentTenantProvider) {
-    this.storeRepository = storeRepository;
-    this.storeBusinessHourRepository = storeBusinessHourRepository;
+      MerchantQueryPort merchantQueryPort, CurrentTenantProvider currentTenantProvider) {
+    this.merchantQueryPort = merchantQueryPort;
     this.currentTenantProvider = currentTenantProvider;
   }
 
   @Transactional(readOnly = true)
   public StoreHoursOutput execute() {
     var storeId = currentTenantProvider.getRequiredStoreId();
-    var store =
-        storeRepository.findById(storeId).orElseThrow(() -> new StoreNotFoundException(storeId));
-
-    var hours =
-        storeBusinessHourRepository.findByStoreId(storeId).stream()
-            .sorted(Comparator.comparingInt(item -> item.getDayOfWeek().getValue()))
-            .map(StoreHoursMapper::toOutput)
-            .toList();
-
-    return new StoreHoursOutput(store.getHoursVersion(), hours);
+    return merchantQueryPort.getStoreHours(storeId);
   }
 }

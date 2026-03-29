@@ -1,32 +1,28 @@
 package com.kfood.merchant.app;
 
-import com.kfood.merchant.domain.StoreStatus;
-import com.kfood.merchant.infra.persistence.StoreRepository;
-import com.kfood.shared.exceptions.BusinessException;
-import com.kfood.shared.exceptions.ErrorCode;
+import com.kfood.merchant.app.port.MerchantCommandPort;
 import com.kfood.shared.tenancy.CurrentTenantProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
-import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @ConditionalOnBean({
-  StoreRepository.class,
+  MerchantCommandPort.class,
   CurrentTenantProvider.class,
   StoreActivationRequirementsService.class
 })
 public class ChangeStoreStatusUseCase {
 
-  private final StoreRepository storeRepository;
+  private final MerchantCommandPort merchantCommandPort;
   private final CurrentTenantProvider currentTenantProvider;
   private final StoreActivationRequirementsService storeActivationRequirementsService;
 
   public ChangeStoreStatusUseCase(
-      StoreRepository storeRepository,
+      MerchantCommandPort merchantCommandPort,
       CurrentTenantProvider currentTenantProvider,
       StoreActivationRequirementsService storeActivationRequirementsService) {
-    this.storeRepository = storeRepository;
+    this.merchantCommandPort = merchantCommandPort;
     this.currentTenantProvider = currentTenantProvider;
     this.storeActivationRequirementsService = storeActivationRequirementsService;
   }
@@ -34,33 +30,7 @@ public class ChangeStoreStatusUseCase {
   @Transactional
   public StoreDetailsOutput execute(ChangeStoreStatusCommand command) {
     var storeId = currentTenantProvider.getRequiredStoreId();
-    var store =
-        storeRepository.findById(storeId).orElseThrow(() -> new StoreNotFoundException(storeId));
     var requirements = storeActivationRequirementsService.evaluate(storeId);
-
-    if (command.targetStatus() == StoreStatus.ACTIVE) {
-      if (!requirements.canActivate()) {
-        throw new StoreActivationRequirementsNotMetException(requirements.missingRequirements());
-      }
-      store.activate();
-    } else if (command.targetStatus() == StoreStatus.SUSPENDED) {
-      store.suspend();
-    } else {
-      throw new BusinessException(
-          ErrorCode.VALIDATION_ERROR,
-          "Changing status to SETUP is not allowed",
-          HttpStatus.BAD_REQUEST);
-    }
-
-    var savedStore = storeRepository.saveAndFlush(store);
-    return new StoreDetailsOutput(
-        savedStore.getId(),
-        savedStore.getSlug(),
-        savedStore.getName(),
-        savedStore.getStatus(),
-        savedStore.getPhone(),
-        savedStore.getTimezone(),
-        requirements.hoursConfigured(),
-        requirements.deliveryZonesConfigured());
+    return merchantCommandPort.changeStoreStatus(storeId, command, requirements);
   }
 }

@@ -25,6 +25,8 @@ class ArchitectureTest {
           var name = input.getSimpleName();
           return input.getPackageName().startsWith("com.kfood.payment.app.port")
               || input.getPackageName().startsWith("com.kfood.payment.app.gateway")
+              || input.getPackageName().startsWith("com.kfood.order.app.port")
+              || input.getPackageName().startsWith("com.kfood.merchant.app.port")
               || input.getPackageName().startsWith("com.kfood.merchant.application")
               || ((input.getPackageName().startsWith("com.kfood.payment.app")
                       || input.getPackageName().startsWith("com.kfood.order.app")
@@ -77,6 +79,32 @@ class ArchitectureTest {
     noClasses()
         .that()
         .resideInAPackage("com.kfood.payment.app..")
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage("..infra..")
+        .check(importedClasses);
+  }
+
+  @Test
+  void orderUseCasesShouldNotDependOnInfraImplementations() {
+    noClasses()
+        .that()
+        .resideInAPackage("com.kfood.order.app..")
+        .and()
+        .haveSimpleNameEndingWith("UseCase")
+        .should()
+        .dependOnClassesThat()
+        .resideInAPackage("..infra..")
+        .check(importedClasses);
+  }
+
+  @Test
+  void merchantUseCasesShouldNotDependOnInfraImplementations() {
+    noClasses()
+        .that()
+        .resideInAPackage("com.kfood.merchant.app..")
+        .and()
+        .haveSimpleNameEndingWith("UseCase")
         .should()
         .dependOnClassesThat()
         .resideInAPackage("..infra..")

@@ -5,43 +5,29 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.kfood.merchant.domain.LegalDocumentType;
-import com.kfood.merchant.infra.persistence.DeliveryZoneRepository;
-import com.kfood.merchant.infra.persistence.StoreBusinessHourRepository;
-import com.kfood.merchant.infra.persistence.StoreTermsAcceptanceRepository;
+import com.kfood.merchant.app.port.MerchantActivationRequirementsPort;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class StoreActivationRequirementsServiceTest {
 
-  private final StoreBusinessHourRepository storeBusinessHourRepository =
-      mock(StoreBusinessHourRepository.class);
-  private final DeliveryZoneRepository deliveryZoneRepository = mock(DeliveryZoneRepository.class);
-  private final StoreTermsAcceptanceRepository storeTermsAcceptanceRepository =
-      mock(StoreTermsAcceptanceRepository.class);
-  private final StoreActivationRequirementsService storeActivationRequirementsService =
-      new StoreActivationRequirementsService(
-          storeBusinessHourRepository, deliveryZoneRepository, storeTermsAcceptanceRepository);
+  private final MerchantActivationRequirementsPort merchantActivationRequirementsPort =
+      mock(MerchantActivationRequirementsPort.class);
+  private final StoreActivationRequirementsService service =
+      new StoreActivationRequirementsService(merchantActivationRequirementsPort);
 
   @Test
-  void shouldEvaluateTermsOfUseAsActivationRequirement() {
+  void shouldReturnRequirementsFromPort() {
     var storeId = UUID.randomUUID();
+    var requirements = new StoreActivationRequirements(true, false, true);
 
-    when(storeBusinessHourRepository.existsByStoreId(storeId)).thenReturn(true);
-    when(deliveryZoneRepository.existsByStoreIdAndActiveTrue(storeId)).thenReturn(true);
-    when(storeTermsAcceptanceRepository.existsByStoreIdAndDocumentType(
-            storeId, LegalDocumentType.TERMS_OF_USE))
-        .thenReturn(false);
+    when(merchantActivationRequirementsPort.evaluate(storeId)).thenReturn(requirements);
 
-    var requirements = storeActivationRequirementsService.evaluate(storeId);
+    var response = service.evaluate(storeId);
 
-    assertThat(requirements.hoursConfigured()).isTrue();
-    assertThat(requirements.deliveryZonesConfigured()).isTrue();
-    assertThat(requirements.termsAccepted()).isFalse();
-    assertThat(requirements.canActivate()).isFalse();
-    assertThat(requirements.missingRequirements()).containsExactly("termsAccepted");
-
-    verify(storeTermsAcceptanceRepository)
-        .existsByStoreIdAndDocumentType(storeId, LegalDocumentType.TERMS_OF_USE);
+    assertThat(response.hoursConfigured()).isTrue();
+    assertThat(response.deliveryZonesConfigured()).isFalse();
+    assertThat(response.termsAccepted()).isTrue();
+    verify(merchantActivationRequirementsPort).evaluate(storeId);
   }
 }

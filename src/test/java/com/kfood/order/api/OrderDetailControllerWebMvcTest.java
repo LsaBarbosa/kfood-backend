@@ -100,6 +100,40 @@ class OrderDetailControllerWebMvcTest {
   }
 
   @Test
+  void shouldReturnOrderDetailWithoutAddressSnapshot() throws Exception {
+    var orderId = UUID.randomUUID();
+
+    when(getOrderDetailUseCase.execute(eq(orderId)))
+        .thenReturn(
+            new OrderDetailOutput(
+                orderId,
+                "PED-20260322-000124",
+                OrderStatus.NEW,
+                FulfillmentType.PICKUP,
+                new BigDecimal("42.00"),
+                BigDecimal.ZERO,
+                new BigDecimal("42.00"),
+                null,
+                null,
+                Instant.parse("2026-03-22T18:26:00Z"),
+                Instant.parse("2026-03-22T18:26:00Z"),
+                new OrderDetailOutput.Customer(
+                    UUID.randomUUID(), "Lucas Santana", "21999990000", "lucas@email.com"),
+                null,
+                new OrderDetailOutput.Payment(PaymentMethod.PIX, PaymentStatusSnapshot.PENDING),
+                List.of()));
+
+    mockMvc
+        .perform(
+            get("/v1/orders/{orderId}", orderId)
+                .header("Authorization", "Bearer " + tokenOf(UserRoleName.ATTENDANT)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.orderNumber").value("PED-20260322-000124"))
+        .andExpect(jsonPath("$.address").doesNotExist())
+        .andExpect(jsonPath("$.payment.paymentMethodSnapshot").value("PIX"));
+  }
+
+  @Test
   void shouldRequireAuthentication() throws Exception {
     mockMvc
         .perform(get("/v1/orders/{orderId}", UUID.randomUUID()))

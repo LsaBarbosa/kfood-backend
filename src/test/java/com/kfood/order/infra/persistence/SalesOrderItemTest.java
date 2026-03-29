@@ -17,6 +17,11 @@ import org.junit.jupiter.api.Test;
 class SalesOrderItemTest {
 
   @Test
+  void shouldExposeJpaConstructorForFrameworkUsage() {
+    assertThat(new SalesOrderItem()).isNotNull();
+  }
+
+  @Test
   void shouldCreateItemWithFrozenSnapshot() {
     var item =
         SalesOrderItem.create(

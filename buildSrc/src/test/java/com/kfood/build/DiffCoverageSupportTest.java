@@ -4,9 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.io.File;
+import java.nio.file.Files;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 class DiffCoverageSupportTest {
 
@@ -100,5 +102,74 @@ class DiffCoverageSupportTest {
             """);
 
     assertThat(changedClasses).isEmpty();
+  }
+
+  @Test
+  void shouldExcludeInterfacesFromChangedClassCoverageEnforcement(@TempDir java.nio.file.Path tempDir)
+      throws Exception {
+    var sourceRoot = tempDir.resolve("src/main/java/com/kfood/payment/app/port");
+    Files.createDirectories(sourceRoot);
+    Files.writeString(
+        sourceRoot.resolve("PaymentPersistencePort.java"),
+        """
+        package com.kfood.payment.app.port;
+
+        public interface PaymentPersistencePort {}
+        """);
+
+    var changedClasses =
+        DiffCoverageSupport.changedMainClasses(
+            tempDir.toFile(),
+            "origin/main",
+            (workingDirectory, command) ->
+                new DiffCoverageSupport.CommandResult(
+                    0,
+                    "src/main/java/com/kfood/payment/app/port/PaymentPersistencePort.java\n",
+                    ""));
+
+    assertThat(changedClasses).isEmpty();
+  }
+
+  @Test
+  void shouldKeepConcreteClassesInChangedCoverageEnforcement(@TempDir java.nio.file.Path tempDir)
+      throws Exception {
+    var sourceRoot = tempDir.resolve("src/main/java/com/kfood/order/api");
+    Files.createDirectories(sourceRoot);
+    Files.writeString(
+        sourceRoot.resolve("OrderController.java"),
+        """
+        package com.kfood.order.api;
+
+        public class OrderController {}
+        """);
+
+    var changedClasses =
+        DiffCoverageSupport.changedMainClasses(
+            tempDir.toFile(),
+            "origin/main",
+            (workingDirectory, command) ->
+                new DiffCoverageSupport.CommandResult(
+                    0, "src/main/java/com/kfood/order/api/OrderController.java\n", ""));
+
+    assertThat(changedClasses).containsExactly("com.kfood.order.api.OrderController");
+  }
+
+  @Test
+  void shouldReturnFalseWhenCoverageShouldNotBeEnforcedForAnnotationInterface(
+      @TempDir java.nio.file.Path tempDir) throws Exception {
+    var sourceRoot = tempDir.resolve("src/main/java/com/kfood/shared");
+    Files.createDirectories(sourceRoot);
+    Files.writeString(
+        sourceRoot.resolve("ExampleAnnotation.java"),
+        """
+        package com.kfood.shared;
+
+        public @interface ExampleAnnotation {}
+        """);
+
+    assertThat(
+            DiffCoverageSupport.shouldEnforceCoverage(
+                tempDir.toFile(), "com.kfood.shared.ExampleAnnotation"))
+        .isFalse();
   }
 }

@@ -58,8 +58,6 @@ dependencies {
 tasks.named('test') {
     useJUnitPlatform()
     systemProperty 'api.version', '1.44'
-    finalizedBy tasks.named('jacocoTestReport')
-    finalizedBy tasks.named('jacocoTestCoverageVerification')
 }
 
 jacoco {

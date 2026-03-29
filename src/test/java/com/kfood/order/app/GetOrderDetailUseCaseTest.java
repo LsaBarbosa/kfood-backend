@@ -5,44 +5,72 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.kfood.customer.infra.persistence.Customer;
-import com.kfood.customer.infra.persistence.CustomerAddress;
-import com.kfood.merchant.infra.persistence.Store;
+import com.kfood.order.app.port.OrderQueryPort;
 import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.domain.OrderStatus;
-import com.kfood.order.infra.persistence.SalesOrder;
-import com.kfood.order.infra.persistence.SalesOrderItem;
-import com.kfood.order.infra.persistence.SalesOrderItemOption;
-import com.kfood.order.infra.persistence.SalesOrderRepository;
 import com.kfood.payment.domain.PaymentMethod;
 import com.kfood.payment.domain.PaymentStatusSnapshot;
 import com.kfood.shared.exceptions.BusinessException;
 import com.kfood.shared.exceptions.ErrorCode;
 import com.kfood.shared.tenancy.CurrentTenantProvider;
 import java.math.BigDecimal;
-import java.util.Optional;
+import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class GetOrderDetailUseCaseTest {
 
-  private final SalesOrderRepository salesOrderRepository = mock(SalesOrderRepository.class);
+  private final OrderQueryPort orderQueryPort = mock(OrderQueryPort.class);
   private final CurrentTenantProvider currentTenantProvider = mock(CurrentTenantProvider.class);
   private final GetOrderDetailUseCase useCase =
-      new GetOrderDetailUseCase(salesOrderRepository, currentTenantProvider);
+      new GetOrderDetailUseCase(orderQueryPort, currentTenantProvider);
 
   @Test
   void shouldReturnCompleteOrderDetail() {
     var storeId = UUID.randomUUID();
-    var order = newDeliveryOrder(storeId);
+    var orderId = UUID.randomUUID();
+    var responseOutput =
+        new OrderDetailOutput(
+            orderId,
+            "PED-20260322-000123",
+            OrderStatus.NEW,
+            FulfillmentType.DELIVERY,
+            new BigDecimal("50.00"),
+            new BigDecimal("6.50"),
+            new BigDecimal("56.50"),
+            "Tocar campainha",
+            null,
+            Instant.parse("2026-03-22T15:00:00Z"),
+            Instant.parse("2026-03-22T15:00:00Z"),
+            new OrderDetailOutput.Customer(
+                UUID.randomUUID(), "Lucas Santana", "21999990000", "lucas@email.com"),
+            new OrderDetailOutput.Address(
+                "Casa", "25000000", "Rua das Flores", "45", "Centro", "Mage", "RJ", "Ap 101"),
+            new OrderDetailOutput.Payment(PaymentMethod.PIX, PaymentStatusSnapshot.PENDING),
+            List.of(
+                new OrderDetailOutput.Item(
+                    UUID.randomUUID(),
+                    UUID.randomUUID(),
+                    "Pizza Calabresa",
+                    new BigDecimal("42.00"),
+                    1,
+                    new BigDecimal("50.00"),
+                    "Sem cebola",
+                    List.of(
+                        new OrderDetailOutput.ItemOption(
+                            UUID.randomUUID(),
+                            "Borda Catupiry",
+                            new BigDecimal("8.00"),
+                            1,
+                            new BigDecimal("8.00"))))));
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
-    when(salesOrderRepository.findDetailedByIdAndStoreId(order.getId(), storeId))
-        .thenReturn(Optional.of(order));
+    when(orderQueryPort.getOrderDetail(storeId, orderId)).thenReturn(responseOutput);
 
-    OrderDetailOutput response = useCase.execute(order.getId());
+    var response = useCase.execute(orderId);
 
-    assertThat(response.id()).isEqualTo(order.getId());
+    assertThat(response.id()).isEqualTo(orderId);
     assertThat(response.orderNumber()).isEqualTo("PED-20260322-000123");
     assertThat(response.status()).isEqualTo(OrderStatus.NEW);
     assertThat(response.payment().paymentMethodSnapshot()).isEqualTo(PaymentMethod.PIX);
@@ -61,13 +89,30 @@ class GetOrderDetailUseCaseTest {
   @Test
   void shouldReturnNullAddressForPickupOrder() {
     var storeId = UUID.randomUUID();
-    var order = newPickupOrder(storeId);
+    var orderId = UUID.randomUUID();
+    var responseOutput =
+        new OrderDetailOutput(
+            orderId,
+            "PED-20260322-000124",
+            OrderStatus.NEW,
+            FulfillmentType.PICKUP,
+            new BigDecimal("50.00"),
+            BigDecimal.ZERO,
+            new BigDecimal("50.00"),
+            null,
+            null,
+            Instant.parse("2026-03-22T15:00:00Z"),
+            Instant.parse("2026-03-22T15:00:00Z"),
+            new OrderDetailOutput.Customer(
+                UUID.randomUUID(), "Lucas Santana", "21999990000", "lucas@email.com"),
+            null,
+            new OrderDetailOutput.Payment(PaymentMethod.PIX, PaymentStatusSnapshot.PENDING),
+            List.of());
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
-    when(salesOrderRepository.findDetailedByIdAndStoreId(order.getId(), storeId))
-        .thenReturn(Optional.of(order));
+    when(orderQueryPort.getOrderDetail(storeId, orderId)).thenReturn(responseOutput);
 
-    var response = useCase.execute(order.getId());
+    var response = useCase.execute(orderId);
 
     assertThat(response.address()).isNull();
   }
@@ -78,8 +123,8 @@ class GetOrderDetailUseCaseTest {
     var orderId = UUID.randomUUID();
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
-    when(salesOrderRepository.findDetailedByIdAndStoreId(orderId, storeId))
-        .thenReturn(Optional.empty());
+    when(orderQueryPort.getOrderDetail(storeId, orderId))
+        .thenThrow(new OrderNotFoundException(orderId));
 
     assertThatThrownBy(() -> useCase.execute(orderId))
         .isInstanceOf(BusinessException.class)
@@ -95,8 +140,8 @@ class GetOrderDetailUseCaseTest {
     var otherStoreOrderId = UUID.randomUUID();
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(authenticatedStoreId);
-    when(salesOrderRepository.findDetailedByIdAndStoreId(otherStoreOrderId, authenticatedStoreId))
-        .thenReturn(Optional.empty());
+    when(orderQueryPort.getOrderDetail(authenticatedStoreId, otherStoreOrderId))
+        .thenThrow(new OrderNotFoundException(otherStoreOrderId));
 
     assertThatThrownBy(() -> useCase.execute(otherStoreOrderId))
         .isInstanceOf(BusinessException.class)
@@ -104,88 +149,5 @@ class GetOrderDetailUseCaseTest {
             throwable ->
                 assertThat(((BusinessException) throwable).getErrorCode())
                     .isEqualTo(ErrorCode.RESOURCE_NOT_FOUND));
-  }
-
-  private SalesOrder newDeliveryOrder(UUID storeId) {
-    var store =
-        new Store(
-            storeId,
-            "Loja do Bairro",
-            "loja-do-bairro",
-            "45.723.174/0001-10",
-            "21999990000",
-            "America/Sao_Paulo");
-    var customer =
-        new Customer(UUID.randomUUID(), store, "Lucas Santana", "21999990000", "lucas@email.com");
-    var address =
-        new CustomerAddress(
-            UUID.randomUUID(),
-            customer,
-            "Casa",
-            "25000000",
-            "Rua das Flores",
-            "45",
-            "Centro",
-            "Mage",
-            "RJ",
-            "Ap 101",
-            true);
-    var order =
-        SalesOrder.create(
-            UUID.randomUUID(),
-            store,
-            customer,
-            FulfillmentType.DELIVERY,
-            PaymentMethod.PIX,
-            new BigDecimal("50.00"),
-            new BigDecimal("6.50"),
-            new BigDecimal("56.50"),
-            null,
-            "Tocar campainha");
-
-    order.assignOrderNumber("PED-20260322-000123");
-    order.defineDeliveryAddressSnapshot(address);
-
-    var item =
-        SalesOrderItem.create(
-            UUID.randomUUID(),
-            UUID.randomUUID(),
-            "Pizza Calabresa",
-            new BigDecimal("42.00"),
-            1,
-            "Sem cebola");
-    item.addOption(
-        SalesOrderItemOption.create(
-            UUID.randomUUID(), "Borda Catupiry", new BigDecimal("8.00"), 1));
-    order.addItem(item);
-    return order;
-  }
-
-  private SalesOrder newPickupOrder(UUID storeId) {
-    var store =
-        new Store(
-            storeId,
-            "Loja do Bairro",
-            "loja-do-bairro",
-            "45.723.174/0001-10",
-            "21999990000",
-            "America/Sao_Paulo");
-    var customer =
-        new Customer(UUID.randomUUID(), store, "Lucas Santana", "21999990000", "lucas@email.com");
-    var order =
-        SalesOrder.create(
-            UUID.randomUUID(),
-            store,
-            customer,
-            FulfillmentType.PICKUP,
-            PaymentMethod.PIX,
-            new BigDecimal("50.00"),
-            BigDecimal.ZERO,
-            new BigDecimal("50.00"),
-            null,
-            null);
-
-    order.assignOrderNumber("PED-20260322-000124");
-    return order;
   }
 }

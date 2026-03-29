@@ -3,84 +3,72 @@ package com.kfood.order.app;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.kfood.customer.infra.persistence.Customer;
-import com.kfood.merchant.infra.persistence.Store;
-import com.kfood.order.domain.FulfillmentType;
+import com.kfood.order.app.port.OrderWorkflowPort;
 import com.kfood.order.domain.OrderStatus;
-import com.kfood.order.infra.persistence.OrderStatusHistory;
-import com.kfood.order.infra.persistence.OrderStatusHistoryRepository;
-import com.kfood.order.infra.persistence.SalesOrder;
-import com.kfood.order.infra.persistence.SalesOrderRepository;
-import com.kfood.payment.domain.PaymentMethod;
 import com.kfood.shared.exceptions.BusinessException;
 import com.kfood.shared.exceptions.ErrorCode;
 import com.kfood.shared.security.CurrentAuthenticatedUserProvider;
 import com.kfood.shared.tenancy.CurrentTenantProvider;
-import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
-import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
+import org.springframework.http.HttpStatus;
 
 class CancelOrderUseCaseTest {
 
-  private final SalesOrderRepository salesOrderRepository = mock(SalesOrderRepository.class);
-  private final OrderStatusHistoryRepository orderStatusHistoryRepository =
-      mock(OrderStatusHistoryRepository.class);
+  private final OrderWorkflowPort orderWorkflowPort = mock(OrderWorkflowPort.class);
   private final CurrentTenantProvider currentTenantProvider = mock(CurrentTenantProvider.class);
   private final CurrentAuthenticatedUserProvider currentAuthenticatedUserProvider =
       mock(CurrentAuthenticatedUserProvider.class);
   private final Clock clock = Clock.fixed(Instant.parse("2026-03-22T19:10:00Z"), ZoneOffset.UTC);
   private final CancelOrderUseCase useCase =
       new CancelOrderUseCase(
-          salesOrderRepository,
-          orderStatusHistoryRepository,
-          currentTenantProvider,
-          currentAuthenticatedUserProvider,
-          clock);
+          orderWorkflowPort, currentTenantProvider, currentAuthenticatedUserProvider, clock);
 
   @Test
   void shouldCancelOrderWithReasonAndPersistAudit() {
     var storeId = UUID.randomUUID();
     var actorUserId = UUID.randomUUID();
-    var order = newOrder(storeId, FulfillmentType.DELIVERY);
+    var orderId = UUID.randomUUID();
+    var command = new CancelOrderCommand("  Customer gave up on the order  ");
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
     when(currentAuthenticatedUserProvider.getRequiredUserId()).thenReturn(actorUserId);
-    when(salesOrderRepository.findByIdAndStoreId(order.getId(), storeId))
-        .thenReturn(Optional.of(order));
-    when(salesOrderRepository.saveAndFlush(order)).thenReturn(order);
-    when(orderStatusHistoryRepository.saveAndFlush(any(OrderStatusHistory.class)))
-        .thenAnswer(invocation -> invocation.getArgument(0));
+    when(orderWorkflowPort.cancel(
+            eq(storeId),
+            eq(actorUserId),
+            eq(orderId),
+            eq(new CancelOrderCommand("Customer gave up on the order")),
+            eq(Instant.parse("2026-03-22T19:10:00Z"))))
+        .thenReturn(
+            new CancelOrderOutput(
+                orderId,
+                OrderStatus.CANCELED,
+                Instant.parse("2026-03-22T19:10:00Z"),
+                "Customer gave up on the order"));
 
-    var response =
-        useCase.execute(order.getId(), new CancelOrderCommand("  Customer gave up on the order  "));
+    var response = useCase.execute(orderId, command);
 
-    assertThat(response.id()).isEqualTo(order.getId());
+    assertThat(response.id()).isEqualTo(orderId);
     assertThat(response.status()).isEqualTo(OrderStatus.CANCELED);
     assertThat(response.canceledAt()).isEqualTo(Instant.parse("2026-03-22T19:10:00Z"));
     assertThat(response.reason()).isEqualTo("Customer gave up on the order");
-    assertThat(order.getStatus()).isEqualTo(OrderStatus.CANCELED);
 
-    var historyCaptor = ArgumentCaptor.forClass(OrderStatusHistory.class);
-    verify(orderStatusHistoryRepository).saveAndFlush(historyCaptor.capture());
-
-    var history = historyCaptor.getValue();
-    assertThat(history.getStoreId()).isEqualTo(storeId);
-    assertThat(history.getOrderId()).isEqualTo(order.getId());
-    assertThat(history.getPreviousStatus()).isEqualTo(OrderStatus.NEW);
-    assertThat(history.getNewStatus()).isEqualTo(OrderStatus.CANCELED);
-    assertThat(history.getActorUserId()).isEqualTo(actorUserId);
-    assertThat(history.getChangedAt()).isEqualTo(Instant.parse("2026-03-22T19:10:00Z"));
-    assertThat(history.getReason()).isEqualTo("Customer gave up on the order");
+    verify(orderWorkflowPort)
+        .cancel(
+            storeId,
+            actorUserId,
+            orderId,
+            new CancelOrderCommand("Customer gave up on the order"),
+            Instant.parse("2026-03-22T19:10:00Z"));
   }
 
   @Test
@@ -97,27 +85,26 @@ class CancelOrderUseCaseTest {
             })
         .hasMessage("Cancellation reason must not be blank.");
 
-    verifyNoInteractions(salesOrderRepository);
-    verifyNoInteractions(orderStatusHistoryRepository);
+    verifyNoInteractions(orderWorkflowPort);
   }
 
   @Test
   void shouldRejectCancellationOfCompletedOrder() {
     var storeId = UUID.randomUUID();
     var actorUserId = UUID.randomUUID();
-    var order = newOrder(storeId, FulfillmentType.PICKUP);
-    order.changeStatus(OrderStatus.PREPARING);
-    order.changeStatus(OrderStatus.READY);
-    order.changeStatus(OrderStatus.COMPLETED);
+    var orderId = UUID.randomUUID();
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
     when(currentAuthenticatedUserProvider.getRequiredUserId()).thenReturn(actorUserId);
-    when(salesOrderRepository.findByIdAndStoreId(order.getId(), storeId))
-        .thenReturn(Optional.of(order));
+    when(orderWorkflowPort.cancel(any(), any(), any(), any(), any()))
+        .thenThrow(
+            new BusinessException(
+                ErrorCode.ORDER_STATUS_TRANSITION_INVALID,
+                "Invalid order status transition from COMPLETED to CANCELED",
+                HttpStatus.CONFLICT));
 
     assertThatThrownBy(
-            () ->
-                useCase.execute(order.getId(), new CancelOrderCommand("Customer called too late")))
+            () -> useCase.execute(orderId, new CancelOrderCommand("Customer called too late")))
         .isInstanceOf(BusinessException.class)
         .satisfies(
             throwable -> {
@@ -127,9 +114,6 @@ class CancelOrderUseCaseTest {
               assertThat(businessException.getStatus().value()).isEqualTo(409);
             })
         .hasMessage("Invalid order status transition from COMPLETED to CANCELED");
-
-    assertThat(order.getStatus()).isEqualTo(OrderStatus.COMPLETED);
-    verifyNoInteractions(orderStatusHistoryRepository);
   }
 
   @Test
@@ -140,7 +124,8 @@ class CancelOrderUseCaseTest {
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
     when(currentAuthenticatedUserProvider.getRequiredUserId()).thenReturn(actorUserId);
-    when(salesOrderRepository.findByIdAndStoreId(orderId, storeId)).thenReturn(Optional.empty());
+    when(orderWorkflowPort.cancel(any(), any(), any(), any(), any()))
+        .thenThrow(new OrderNotFoundException(orderId));
 
     assertThatThrownBy(() -> useCase.execute(orderId, new CancelOrderCommand("Customer request")))
         .isInstanceOf(OrderNotFoundException.class)
@@ -155,32 +140,5 @@ class CancelOrderUseCaseTest {
     assertThatThrownBy(() -> useCase.execute(UUID.randomUUID(), null))
         .isInstanceOf(NullPointerException.class)
         .hasMessage("command must not be null");
-  }
-
-  private SalesOrder newOrder(UUID storeId, FulfillmentType fulfillmentType) {
-    var store =
-        new Store(
-            storeId,
-            "Loja do Bairro",
-            "loja-do-bairro",
-            "45.723.174/0001-10",
-            "21999990000",
-            "America/Sao_Paulo");
-    var customer =
-        new Customer(UUID.randomUUID(), store, "Lucas Santana", "21999990000", "lucas@email.com");
-
-    return SalesOrder.create(
-        UUID.randomUUID(),
-        store,
-        customer,
-        fulfillmentType,
-        PaymentMethod.PIX,
-        new BigDecimal("50.00"),
-        fulfillmentType == FulfillmentType.DELIVERY ? new BigDecimal("6.50") : BigDecimal.ZERO,
-        fulfillmentType == FulfillmentType.DELIVERY
-            ? new BigDecimal("56.50")
-            : new BigDecimal("50.00"),
-        null,
-        null);
   }
 }

@@ -2,128 +2,57 @@ package com.kfood.merchant.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.kfood.merchant.infra.persistence.DeliveryZone;
-import com.kfood.merchant.infra.persistence.DeliveryZoneRepository;
-import com.kfood.merchant.infra.persistence.Store;
-import com.kfood.merchant.infra.persistence.StoreRepository;
+import com.kfood.merchant.app.port.MerchantCommandPort;
 import com.kfood.shared.tenancy.CurrentTenantProvider;
 import java.math.BigDecimal;
-import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class CreateDeliveryZoneUseCaseTest {
 
-  private final StoreRepository storeRepository = mock(StoreRepository.class);
-  private final DeliveryZoneRepository deliveryZoneRepository = mock(DeliveryZoneRepository.class);
+  private final MerchantCommandPort merchantCommandPort = mock(MerchantCommandPort.class);
   private final CurrentTenantProvider currentTenantProvider = mock(CurrentTenantProvider.class);
-  private final StoreOperationalGuard storeOperationalGuard = new StoreOperationalGuard();
   private final CreateDeliveryZoneUseCase createDeliveryZoneUseCase =
-      new CreateDeliveryZoneUseCase(
-          storeRepository, deliveryZoneRepository, currentTenantProvider, storeOperationalGuard);
+      new CreateDeliveryZoneUseCase(merchantCommandPort, currentTenantProvider);
 
   @Test
   void shouldCreateValidZone() {
     var storeId = UUID.randomUUID();
-    var store =
-        new Store(
-            storeId,
-            "Loja do Bairro",
-            "loja-do-bairro",
-            "45.723.174/0001-10",
-            "21999990000",
-            "America/Sao_Paulo");
     var command =
         new CreateDeliveryZoneCommand(
             "Centro", new BigDecimal("6.50"), new BigDecimal("25.00"), true);
-    var savedZone =
-        new DeliveryZone(
-            UUID.randomUUID(),
-            store,
-            "Centro",
-            new BigDecimal("6.50"),
-            new BigDecimal("25.00"),
-            true);
+    var output =
+        new DeliveryZoneOutput(
+            UUID.randomUUID(), "Centro", new BigDecimal("6.50"), new BigDecimal("25.00"), true);
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
-    when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
-    when(deliveryZoneRepository.existsByStoreIdAndZoneName(storeId, "Centro")).thenReturn(false);
-    when(deliveryZoneRepository.saveAndFlush(any(DeliveryZone.class))).thenReturn(savedZone);
+    when(merchantCommandPort.createDeliveryZone(storeId, command)).thenReturn(output);
 
     var response = createDeliveryZoneUseCase.execute(command);
 
-    assertThat(response.id()).isEqualTo(savedZone.getId());
     assertThat(response.zoneName()).isEqualTo("Centro");
     assertThat(response.feeAmount()).isEqualByComparingTo("6.50");
     assertThat(response.minOrderAmount()).isEqualByComparingTo("25.00");
-    assertThat(response.active()).isTrue();
+    verify(merchantCommandPort).createDeliveryZone(storeId, command);
   }
 
   @Test
-  void shouldRejectDuplicateZoneNameWithinSameStore() {
+  void shouldPropagateDuplicateZoneNameError() {
     var storeId = UUID.randomUUID();
-    var store =
-        new Store(
-            storeId,
-            "Loja do Bairro",
-            "loja-do-bairro",
-            "45.723.174/0001-10",
-            "21999990000",
-            "America/Sao_Paulo");
     var command =
         new CreateDeliveryZoneCommand(
             "Centro", new BigDecimal("6.50"), new BigDecimal("25.00"), true);
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
-    when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
-    when(deliveryZoneRepository.existsByStoreIdAndZoneName(storeId, "Centro")).thenReturn(true);
+    when(merchantCommandPort.createDeliveryZone(storeId, command))
+        .thenThrow(new DeliveryZoneAlreadyExistsException("Centro"));
 
     assertThatThrownBy(() -> createDeliveryZoneUseCase.execute(command))
         .isInstanceOf(DeliveryZoneAlreadyExistsException.class)
         .hasMessageContaining("Centro");
-  }
-
-  @Test
-  void shouldThrowWhenStoreDoesNotExist() {
-    var storeId = UUID.randomUUID();
-    var command =
-        new CreateDeliveryZoneCommand(
-            "Centro", new BigDecimal("6.50"), new BigDecimal("25.00"), true);
-
-    when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
-    when(storeRepository.findById(storeId)).thenReturn(Optional.empty());
-
-    assertThatThrownBy(() -> createDeliveryZoneUseCase.execute(command))
-        .isInstanceOf(StoreNotFoundException.class)
-        .hasMessageContaining(storeId.toString());
-  }
-
-  @Test
-  void shouldBlockZoneCreationWhenStoreIsSuspended() {
-    var storeId = UUID.randomUUID();
-    var store =
-        new Store(
-            storeId,
-            "Loja do Bairro",
-            "loja-do-bairro",
-            "45.723.174/0001-10",
-            "21999990000",
-            "America/Sao_Paulo");
-    store.activate();
-    store.suspend();
-    var command =
-        new CreateDeliveryZoneCommand(
-            "Centro", new BigDecimal("6.50"), new BigDecimal("25.00"), true);
-
-    when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
-    when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
-
-    assertThatThrownBy(() -> createDeliveryZoneUseCase.execute(command))
-        .isInstanceOf(StoreNotActiveException.class)
-        .hasMessageContaining("SUSPENDED");
   }
 }

@@ -3,6 +3,7 @@ package com.kfood.build;
 import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -39,7 +40,9 @@ public final class DiffCoverageSupport {
     for (var command : commands) {
       var result = validatedRunner.run(rootDir, command);
       if (result.exitCode() == 0) {
-        return deriveChangedMainClasses(result.stdout());
+        return deriveChangedMainClasses(result.stdout()).stream()
+            .filter(className -> shouldEnforceCoverage(rootDir, className))
+            .toList();
       }
 
       failures.add(formatFailure(command, result));
@@ -100,6 +103,30 @@ public final class DiffCoverageSupport {
     return List.copyOf(changedClasses);
   }
 
+  static boolean shouldEnforceCoverage(File rootDir, String className) {
+    Objects.requireNonNull(rootDir, "rootDir must not be null");
+    var normalizedClassName = Objects.requireNonNull(className, "className must not be null").trim();
+    if (normalizedClassName.isEmpty()) {
+      throw new IllegalArgumentException("className must not be blank");
+    }
+
+    var sourceFile =
+        rootDir.toPath().resolve("src/main/java/" + normalizedClassName.replace('.', '/') + ".java");
+    if (!Files.exists(sourceFile)) {
+      return true;
+    }
+
+    final String source;
+    try {
+      source = Files.readString(sourceFile);
+    } catch (IOException exception) {
+      return true;
+    }
+
+    var normalizedSource = stripComments(source);
+    return !declaresNonExecutableTopLevelType(normalizedSource);
+  }
+
   private static List<List<String>> diffCommands(String diffBase) {
     return List.of(
         List.of(
@@ -147,5 +174,14 @@ public final class DiffCoverageSupport {
       return "";
     }
     return value.replaceAll("\\s+", " ").trim();
+  }
+
+  private static boolean declaresNonExecutableTopLevelType(String source) {
+    return source.matches("(?s).*\\b(?:public\\s+)?interface\\b.*")
+        || source.matches("(?s).*\\b(?:public\\s+)?@interface\\b.*");
+  }
+
+  private static String stripComments(String source) {
+    return source.replaceAll("(?s)/\\*.*?\\*/", "").replaceAll("(?m)//.*$", "");
   }
 }

@@ -6,12 +6,45 @@ import com.kfood.catalog.infra.persistence.CatalogCategory;
 import com.kfood.catalog.infra.persistence.CatalogOptionGroup;
 import com.kfood.catalog.infra.persistence.CatalogOptionItem;
 import com.kfood.catalog.infra.persistence.CatalogProduct;
+import com.kfood.merchant.domain.StoreStatus;
+import com.kfood.merchant.infra.persistence.DeliveryZone;
 import com.kfood.merchant.infra.persistence.Store;
+import com.kfood.merchant.infra.persistence.StoreBusinessHour;
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
+import java.time.LocalTime;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class PublicStoreMapperTest {
+
+  @Test
+  void shouldMapPublicStoreBoundaryObjects() {
+    var store = store();
+    store.activate();
+    var hour =
+        StoreBusinessHour.open(store, DayOfWeek.MONDAY, LocalTime.of(10, 0), LocalTime.of(22, 0));
+    var zone =
+        new DeliveryZone(
+            UUID.randomUUID(),
+            store,
+            "Centro",
+            new BigDecimal("6.50"),
+            new BigDecimal("25.00"),
+            true);
+
+    var mappedHour = PublicStoreMapper.toHourOutput(hour);
+    var mappedZone = PublicStoreMapper.toDeliveryZoneOutput(zone);
+    var output = PublicStoreMapper.toOutput(store, List.of(mappedHour), List.of(mappedZone));
+
+    assertThat(mappedHour.dayOfWeek()).isEqualTo(DayOfWeek.MONDAY);
+    assertThat(mappedHour.openTime()).isEqualTo(LocalTime.of(10, 0));
+    assertThat(mappedZone.zoneName()).isEqualTo("Centro");
+    assertThat(output.slug()).isEqualTo("loja-do-bairro");
+    assertThat(output.status()).isEqualTo(StoreStatus.ACTIVE);
+    assertThat(output.deliveryZones()).containsExactly(mappedZone);
+  }
 
   @Test
   void shouldMapOptionGroupAndItem() {
