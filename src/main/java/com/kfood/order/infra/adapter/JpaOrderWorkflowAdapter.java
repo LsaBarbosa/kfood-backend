@@ -51,7 +51,7 @@ public class JpaOrderWorkflowAdapter implements OrderWorkflowPort {
 
     var order =
         salesOrderRepository
-            .findByIdAndStoreId(orderId, storeId)
+            .findByIdAndStore_Id(orderId, storeId)
             .orElseThrow(() -> new OrderNotFoundException(orderId));
     var previousStatus = order.getStatus();
 
@@ -88,7 +88,7 @@ public class JpaOrderWorkflowAdapter implements OrderWorkflowPort {
     var reason = normalizeRequiredReason(command.reason());
     var order =
         salesOrderRepository
-            .findByIdAndStoreId(orderId, storeId)
+            .findByIdAndStore_Id(orderId, storeId)
             .orElseThrow(() -> new OrderNotFoundException(orderId));
     var previousStatus = order.getStatus();
 

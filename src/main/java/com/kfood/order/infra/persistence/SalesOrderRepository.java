@@ -28,17 +28,17 @@ public interface SalesOrderRepository
 
   @Override
   default Optional<PaymentOrder> findOrderByIdAndStoreId(UUID orderId, UUID storeId) {
-    return findByIdAndStoreId(orderId, storeId).map(order -> order);
+    return findByIdAndStore_Id(orderId, storeId).map(order -> order);
   }
 
-  Optional<SalesOrder> findByIdAndStoreId(UUID id, UUID storeId);
+  Optional<SalesOrder> findByIdAndStore_Id(UUID id, UUID storeId);
 
   @EntityGraph(attributePaths = {"customer", "items"})
-  Optional<SalesOrder> findDetailedByIdAndStoreId(UUID id, UUID storeId);
+  Optional<SalesOrder> findDetailedByIdAndStore_Id(UUID id, UUID storeId);
 
   Optional<SalesOrder> findByOrderNumber(String orderNumber);
 
-  Optional<SalesOrder> findByStoreIdAndOrderNumber(UUID storeId, String orderNumber);
+  Optional<SalesOrder> findByStore_IdAndOrderNumber(UUID storeId, String orderNumber);
 
   @Override
   @EntityGraph(attributePaths = "customer")
