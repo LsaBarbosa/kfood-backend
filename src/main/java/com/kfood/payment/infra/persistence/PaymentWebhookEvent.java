@@ -1,5 +1,6 @@
 package com.kfood.payment.infra.persistence;
 
+import com.kfood.payment.app.port.PaymentWebhookEventRecord;
 import com.kfood.payment.domain.PaymentWebhookProcessingStatus;
 import com.kfood.shared.infra.persistence.AuditableEntity;
 import jakarta.persistence.Column;
@@ -26,7 +27,7 @@ import java.util.UUID;
           name = "uk_payment_webhook_event_provider_external_event",
           columnNames = {"provider_name", "external_event_id"})
     })
-public class PaymentWebhookEvent extends AuditableEntity {
+public class PaymentWebhookEvent extends AuditableEntity implements PaymentWebhookEventRecord {
 
   @Id private UUID id;
 

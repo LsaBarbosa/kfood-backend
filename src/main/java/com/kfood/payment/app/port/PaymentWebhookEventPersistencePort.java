@@ -1,0 +1,20 @@
+package com.kfood.payment.app.port;
+
+import java.time.Instant;
+import java.util.Optional;
+import java.util.UUID;
+
+public interface PaymentWebhookEventPersistencePort {
+
+  Optional<PaymentWebhookEventRecord> findByProviderNameAndExternalEventId(
+      String providerName, String externalEventId);
+
+  PaymentWebhookEventRecord saveReceivedEvent(
+      UUID eventId,
+      String providerName,
+      String externalEventId,
+      String eventType,
+      boolean signatureValid,
+      String rawPayload,
+      Instant receivedAt);
+}
