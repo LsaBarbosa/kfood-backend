@@ -49,6 +49,7 @@ class FlywayMigrationTest {
     assertThat(tableExists("sales_order_item")).isTrue();
     assertThat(tableExists("sales_order_item_option")).isTrue();
     assertThat(tableExists("payment")).isTrue();
+    assertThat(tableExists("payment_webhook_event")).isTrue();
     assertThat(tableExists("checkout_quote")).isTrue();
     assertThat(tableExists("checkout_quote_item")).isTrue();
     assertThat(tableExists("checkout_quote_item_option")).isTrue();
@@ -281,6 +282,24 @@ class FlywayMigrationTest {
                      select count(*)
                      from flyway_schema_history
                      where version = '25'
+                       and success = true
+                     """)) {
+
+      assertThat(resultSet.next()).isTrue();
+      assertThat(resultSet.getInt(1)).isEqualTo(1);
+    }
+  }
+
+  @Test
+  void shouldRegisterVersionTwentySixInFlywayHistory() throws Exception {
+    try (Connection connection = dataSource.getConnection();
+        Statement statement = connection.createStatement();
+        ResultSet resultSet =
+            statement.executeQuery(
+                """
+                     select count(*)
+                     from flyway_schema_history
+                     where version = '26'
                        and success = true
                      """)) {
 
@@ -852,6 +871,28 @@ class FlywayMigrationTest {
     assertThat(indexExists("sales_order", "ix_sales_order_status_scheduled_for")).isTrue();
   }
 
+  @Test
+  void shouldApplyPaymentWebhookEventMigrationAfterApplyingMigrations() throws Exception {
+    assertThat(columnExists("payment_webhook_event", "id")).isTrue();
+    assertThat(columnExists("payment_webhook_event", "payment_id")).isTrue();
+    assertThat(columnExists("payment_webhook_event", "provider_name")).isTrue();
+    assertThat(columnExists("payment_webhook_event", "external_event_id")).isTrue();
+    assertThat(columnExists("payment_webhook_event", "event_type")).isTrue();
+    assertThat(columnExists("payment_webhook_event", "signature_valid")).isTrue();
+    assertThat(columnExists("payment_webhook_event", "raw_payload")).isTrue();
+    assertThat(columnExists("payment_webhook_event", "processing_status")).isTrue();
+    assertThat(columnExists("payment_webhook_event", "received_at")).isTrue();
+    assertThat(columnExists("payment_webhook_event", "processed_at")).isTrue();
+    assertThat(indexExists("payment_webhook_event", "ix_payment_webhook_event_status_received_at"))
+        .isTrue();
+    assertThat(indexExists("payment_webhook_event", "ix_payment_webhook_event_payment_id"))
+        .isTrue();
+    assertThat(
+            constraintExists(
+                "payment_webhook_event", "uk_payment_webhook_event_provider_external_event"))
+        .isTrue();
+  }
+
   private boolean tableExists(String tableName) throws Exception {
     try (Connection connection = dataSource.getConnection();
         ResultSet resultSet = connection.getMetaData().getTables(null, null, tableName, null)) {
@@ -878,6 +919,23 @@ class FlywayMigrationTest {
         }
       }
       return false;
+    }
+  }
+
+  private boolean constraintExists(String tableName, String constraintName) throws Exception {
+    try (Connection connection = dataSource.getConnection();
+        Statement statement = connection.createStatement();
+        ResultSet resultSet =
+            statement.executeQuery(
+                """
+                select count(*)
+                from information_schema.table_constraints
+                where table_name = '%s'
+                  and constraint_name = '%s'
+                """
+                    .formatted(tableName, constraintName))) {
+      assertThat(resultSet.next()).isTrue();
+      return resultSet.getInt(1) == 1;
     }
   }
 }
