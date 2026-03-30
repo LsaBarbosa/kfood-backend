@@ -3,7 +3,7 @@ package com.kfood.merchant.app;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.kfood.merchant.infra.persistence.Store;
+import com.kfood.merchant.domain.StoreStatus;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
@@ -13,50 +13,27 @@ class StoreOperationalGuardTest {
 
   @Test
   void shouldAllowCriticalOperationWhenStoreIsActive() {
-    var store =
-        new Store(
-            UUID.randomUUID(),
-            "Loja do Bairro",
-            "loja-do-bairro",
-            "45.723.174/0001-10",
-            "21999990000",
-            "America/Sao_Paulo");
-    store.activate();
+    var storeId = UUID.randomUUID();
 
-    assertThatCode(() -> storeOperationalGuard.ensureStoreIsActive(store))
+    assertThatCode(() -> storeOperationalGuard.ensureStoreIsActive(storeId, StoreStatus.ACTIVE))
         .doesNotThrowAnyException();
   }
 
   @Test
   void shouldBlockCriticalOperationWhenStoreIsSuspended() {
-    var store =
-        new Store(
-            UUID.randomUUID(),
-            "Loja do Bairro",
-            "loja-do-bairro",
-            "45.723.174/0001-10",
-            "21999990000",
-            "America/Sao_Paulo");
-    store.activate();
-    store.suspend();
+    var storeId = UUID.randomUUID();
 
-    assertThatThrownBy(() -> storeOperationalGuard.ensureStoreIsActive(store))
+    assertThatThrownBy(
+            () -> storeOperationalGuard.ensureStoreIsActive(storeId, StoreStatus.SUSPENDED))
         .isInstanceOf(StoreNotActiveException.class)
         .hasMessageContaining("SUSPENDED");
   }
 
   @Test
   void shouldBlockCriticalOperationWhenStoreIsSetup() {
-    var store =
-        new Store(
-            UUID.randomUUID(),
-            "Loja do Bairro",
-            "loja-do-bairro",
-            "45.723.174/0001-10",
-            "21999990000",
-            "America/Sao_Paulo");
+    var storeId = UUID.randomUUID();
 
-    assertThatThrownBy(() -> storeOperationalGuard.ensureStoreIsActive(store))
+    assertThatThrownBy(() -> storeOperationalGuard.ensureStoreIsActive(storeId, StoreStatus.SETUP))
         .isInstanceOf(StoreNotActiveException.class)
         .hasMessageContaining("SETUP");
   }

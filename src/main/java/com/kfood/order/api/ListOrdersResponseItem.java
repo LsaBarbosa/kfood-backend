@@ -1,5 +1,6 @@
 package com.kfood.order.api;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.kfood.order.domain.OrderStatus;
 import com.kfood.payment.domain.PaymentStatusSnapshot;
 import java.math.BigDecimal;
@@ -13,4 +14,10 @@ public record ListOrdersResponseItem(
     PaymentStatusSnapshot paymentStatus,
     String customerName,
     BigDecimal totalAmount,
-    Instant createdAt) {}
+    Instant createdAt) {
+
+  @JsonProperty("paymentStatusSnapshot")
+  public PaymentStatusSnapshot paymentStatusSnapshot() {
+    return paymentStatus;
+  }
+}

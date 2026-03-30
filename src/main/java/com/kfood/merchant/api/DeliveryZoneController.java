@@ -1,7 +1,9 @@
 package com.kfood.merchant.api;
 
 import com.kfood.identity.app.Roles;
+import com.kfood.merchant.app.CreateDeliveryZoneCommand;
 import com.kfood.merchant.app.CreateDeliveryZoneUseCase;
+import com.kfood.merchant.app.DeliveryZoneOutput;
 import com.kfood.merchant.app.GetDeliveryZoneUseCase;
 import com.kfood.merchant.app.ListDeliveryZonesUseCase;
 import jakarta.validation.Valid;
@@ -39,19 +41,26 @@ public class DeliveryZoneController {
   @ResponseStatus(HttpStatus.CREATED)
   @PreAuthorize(Roles.OWNER_OR_MANAGER)
   public DeliveryZoneResponse create(@Valid @RequestBody CreateDeliveryZoneRequest request) {
-    return createDeliveryZoneUseCase().execute(request);
+    return toResponse(
+        createDeliveryZoneUseCase()
+            .execute(
+                new CreateDeliveryZoneCommand(
+                    request.zoneName(),
+                    request.feeAmount(),
+                    request.minOrderAmount(),
+                    request.active())));
   }
 
   @GetMapping("/{zoneId}")
   @PreAuthorize(Roles.OWNER_MANAGER_ATTENDANT)
   public DeliveryZoneResponse getById(@PathVariable UUID zoneId) {
-    return getDeliveryZoneUseCase().execute(zoneId);
+    return toResponse(getDeliveryZoneUseCase().execute(zoneId));
   }
 
   @GetMapping
   @PreAuthorize(Roles.OWNER_MANAGER_ATTENDANT)
   public List<DeliveryZoneResponse> list() {
-    return listDeliveryZonesUseCase().execute();
+    return listDeliveryZonesUseCase().execute().stream().map(this::toResponse).toList();
   }
 
   private CreateDeliveryZoneUseCase createDeliveryZoneUseCase() {
@@ -64,5 +73,14 @@ public class DeliveryZoneController {
 
   private ListDeliveryZonesUseCase listDeliveryZonesUseCase() {
     return listDeliveryZonesUseCaseProvider.getObject();
+  }
+
+  private DeliveryZoneResponse toResponse(DeliveryZoneOutput output) {
+    return new DeliveryZoneResponse(
+        output.id(),
+        output.zoneName(),
+        output.feeAmount(),
+        output.minOrderAmount(),
+        output.active());
   }
 }

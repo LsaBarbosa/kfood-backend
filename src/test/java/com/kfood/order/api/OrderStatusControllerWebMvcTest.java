@@ -12,6 +12,8 @@ import com.kfood.identity.app.JwtTokenService;
 import com.kfood.identity.domain.UserRoleName;
 import com.kfood.identity.domain.UserStatus;
 import com.kfood.identity.persistence.IdentityUserEntity;
+import com.kfood.order.app.UpdateOrderStatusCommand;
+import com.kfood.order.app.UpdateOrderStatusOutput;
 import com.kfood.order.app.UpdateOrderStatusUseCase;
 import com.kfood.order.domain.OrderStatus;
 import com.kfood.shared.exceptions.BusinessException;
@@ -48,9 +50,9 @@ class OrderStatusControllerWebMvcTest {
     var orderId = UUID.randomUUID();
     var actorUserId = UUID.randomUUID();
 
-    when(updateOrderStatusUseCase.execute(eq(orderId), any(UpdateOrderStatusRequest.class)))
+    when(updateOrderStatusUseCase.execute(eq(orderId), any(UpdateOrderStatusCommand.class)))
         .thenReturn(
-            new UpdateOrderStatusResponse(
+            new UpdateOrderStatusOutput(
                 orderId,
                 OrderStatus.NEW,
                 OrderStatus.PREPARING,
@@ -114,7 +116,7 @@ class OrderStatusControllerWebMvcTest {
   void shouldReturnConflictWhenTransitionIsInvalid() throws Exception {
     var orderId = UUID.randomUUID();
 
-    when(updateOrderStatusUseCase.execute(eq(orderId), any(UpdateOrderStatusRequest.class)))
+    when(updateOrderStatusUseCase.execute(eq(orderId), any(UpdateOrderStatusCommand.class)))
         .thenThrow(
             new BusinessException(
                 ErrorCode.ORDER_STATUS_TRANSITION_INVALID,

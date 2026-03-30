@@ -8,6 +8,7 @@ import com.kfood.customer.infra.persistence.Customer;
 import com.kfood.merchant.infra.persistence.Store;
 import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.domain.OrderStatus;
+import com.kfood.order.domain.OrderStatusTransitionException;
 import com.kfood.payment.domain.PaymentMethod;
 import java.math.BigDecimal;
 import java.util.UUID;

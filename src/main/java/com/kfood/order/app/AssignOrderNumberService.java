@@ -1,6 +1,6 @@
 package com.kfood.order.app;
 
-import com.kfood.order.infra.persistence.SalesOrder;
+import com.kfood.order.app.port.OrderNumberTarget;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -14,7 +14,7 @@ public class AssignOrderNumberService {
   }
 
   @Transactional
-  public void assignIfMissing(SalesOrder order) {
+  public void assignIfMissing(OrderNumberTarget order) {
     if (order.getOrderNumber() != null && !order.getOrderNumber().isBlank()) {
       return;
     }

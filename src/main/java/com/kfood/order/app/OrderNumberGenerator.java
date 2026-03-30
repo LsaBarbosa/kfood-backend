@@ -1,8 +1,8 @@
 package com.kfood.order.app;
 
-import com.kfood.order.infra.persistence.SalesOrder;
+import com.kfood.order.app.port.OrderNumberTarget;
 
 public interface OrderNumberGenerator {
 
-  String next(SalesOrder order);
+  String next(OrderNumberTarget order);
 }

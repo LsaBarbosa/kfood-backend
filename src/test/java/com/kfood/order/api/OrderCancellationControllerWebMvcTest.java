@@ -12,6 +12,8 @@ import com.kfood.identity.app.JwtTokenService;
 import com.kfood.identity.domain.UserRoleName;
 import com.kfood.identity.domain.UserStatus;
 import com.kfood.identity.persistence.IdentityUserEntity;
+import com.kfood.order.app.CancelOrderCommand;
+import com.kfood.order.app.CancelOrderOutput;
 import com.kfood.order.app.CancelOrderUseCase;
 import com.kfood.order.domain.OrderStatus;
 import java.time.Instant;
@@ -44,9 +46,9 @@ class OrderCancellationControllerWebMvcTest {
   void shouldCancelOrderSuccessfully() throws Exception {
     var orderId = UUID.randomUUID();
 
-    when(cancelOrderUseCase.execute(eq(orderId), any(CancelOrderRequest.class)))
+    when(cancelOrderUseCase.execute(eq(orderId), any(CancelOrderCommand.class)))
         .thenReturn(
-            new CancelOrderResponse(
+            new CancelOrderOutput(
                 orderId,
                 OrderStatus.CANCELED,
                 Instant.parse("2026-03-22T19:10:00Z"),

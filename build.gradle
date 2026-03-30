@@ -1,4 +1,4 @@
-import java.io.ByteArrayOutputStream
+import com.kfood.build.DiffCoverageSupport
 
 plugins {
     id 'java'
@@ -58,8 +58,6 @@ dependencies {
 tasks.named('test') {
     useJUnitPlatform()
     systemProperty 'api.version', '1.44'
-    finalizedBy tasks.named('jacocoTestReport')
-    finalizedBy tasks.named('jacocoTestCoverageVerification')
 }
 
 jacoco {
@@ -74,49 +72,13 @@ def filteredJacocoClassDirectories = sourceSets.main.output.asFileTree.matching 
     exclude jacocoCoverageExclusions
 }
 
-def runGitDiff = { List<String> gitArgs ->
-    try {
-        def process = new ProcessBuilder(gitArgs)
-            .directory(rootDir)
-            .redirectErrorStream(true)
-            .start()
-        def output = new StringBuffer()
-        process.inputStream.eachLine { output.append(it).append('\n') }
-        def exitCode = process.waitFor()
-
-        if (exitCode != 0) {
-            return []
-        }
-
-        return output
-            .toString()
-            .readLines()
-            .collect { it.trim() }
-            .findAll { !it.isEmpty() }
-    } catch (IOException ignored) {
-        return []
-    }
-}
-
 def changedMainClasses = providers.provider {
-    def workingTreeChanges = runGitDiff([
-        'git', 'diff', '--name-only', '--diff-filter=ACMRTUXB', 'HEAD', '--', 'src/main/java'
-    ])
-
     def diffBase = providers.gradleProperty('jacocoDiffBase').orElse('HEAD~1').get()
-    def committedChanges = workingTreeChanges.isEmpty()
-        ? runGitDiff([
-            'git', 'diff', '--name-only', '--diff-filter=ACMRTUXB', diffBase, 'HEAD', '--', 'src/main/java'
-        ])
-        : []
-
-    (workingTreeChanges + committedChanges)
-        .findAll { it.endsWith('.java') }
-        .collect { it - 'src/main/java/' }
-        .collect { it[0..-6] }
-        .collect { it.replace(File.separatorChar, '/' as char) }
-        .unique()
-        .findAll { it != 'com/kfood/KfoodBackendApplication' }
+    DiffCoverageSupport.changedMainClasses(
+        rootDir,
+        diffBase,
+        DiffCoverageSupport.processBuilderRunner()
+    )
 }
 
 def minimumCoverage = providers

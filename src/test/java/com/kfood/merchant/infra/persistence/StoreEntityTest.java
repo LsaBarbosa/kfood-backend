@@ -32,6 +32,7 @@ class StoreEntityTest {
     assertThat(store.getTimezone()).isEqualTo("America/Sao_Paulo");
     assertThat(store.getStatus()).isEqualTo(StoreStatus.SETUP);
     assertThat(store.getHoursVersion()).isZero();
+    assertThat(store.isCashPaymentEnabled()).isFalse();
 
     store.changeName("Loja Centro");
     store.changeSlug("loja-centro");
@@ -53,6 +54,12 @@ class StoreEntityTest {
 
     store.incrementHoursVersion();
     assertThat(store.getHoursVersion()).isEqualTo(1);
+
+    store.enableCashPayment();
+    assertThat(store.isCashPaymentEnabled()).isTrue();
+
+    store.disableCashPayment();
+    assertThat(store.isCashPaymentEnabled()).isFalse();
   }
 
   @Test

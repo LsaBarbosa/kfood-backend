@@ -5,50 +5,36 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-import com.kfood.merchant.infra.persistence.Store;
-import com.kfood.merchant.infra.persistence.StoreBusinessHour;
-import com.kfood.merchant.infra.persistence.StoreBusinessHourRepository;
-import com.kfood.merchant.infra.persistence.StoreRepository;
+import com.kfood.merchant.app.port.MerchantQueryPort;
 import com.kfood.shared.tenancy.CurrentTenantProvider;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 
 class GetStoreHoursUseCaseTest {
 
-  private final StoreRepository storeRepository = mock(StoreRepository.class);
-  private final StoreBusinessHourRepository storeBusinessHourRepository =
-      mock(StoreBusinessHourRepository.class);
+  private final MerchantQueryPort merchantQueryPort = mock(MerchantQueryPort.class);
   private final CurrentTenantProvider currentTenantProvider = mock(CurrentTenantProvider.class);
   private final GetStoreHoursUseCase getStoreHoursUseCase =
-      new GetStoreHoursUseCase(storeRepository, storeBusinessHourRepository, currentTenantProvider);
+      new GetStoreHoursUseCase(merchantQueryPort, currentTenantProvider);
 
   @Test
   void shouldReturnHoursOrderedByDayOfWeek() {
     var storeId = UUID.randomUUID();
-    var store =
-        new Store(
-            storeId,
-            "Loja do Bairro",
-            "loja-do-bairro",
-            "45.723.174/0001-10",
-            "21999990000",
-            "America/Sao_Paulo");
-    store.incrementHoursVersion();
+    var output =
+        new StoreHoursOutput(
+            1,
+            List.of(
+                new StoreHourOutput(
+                    DayOfWeek.MONDAY, LocalTime.of(10, 0), LocalTime.of(22, 0), false),
+                new StoreHourOutput(
+                    DayOfWeek.WEDNESDAY, LocalTime.of(10, 0), LocalTime.of(22, 0), false),
+                new StoreHourOutput(DayOfWeek.SUNDAY, null, null, true)));
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
-    when(storeRepository.findById(storeId)).thenReturn(Optional.of(store));
-    when(storeBusinessHourRepository.findByStoreId(storeId))
-        .thenReturn(
-            List.of(
-                StoreBusinessHour.closed(store, DayOfWeek.SUNDAY),
-                StoreBusinessHour.open(
-                    store, DayOfWeek.WEDNESDAY, LocalTime.of(10, 0), LocalTime.of(22, 0)),
-                StoreBusinessHour.open(
-                    store, DayOfWeek.MONDAY, LocalTime.of(10, 0), LocalTime.of(22, 0))));
+    when(merchantQueryPort.getStoreHours(storeId)).thenReturn(output);
 
     var response = getStoreHoursUseCase.execute();
 
@@ -63,7 +49,7 @@ class GetStoreHoursUseCaseTest {
     var storeId = UUID.randomUUID();
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
-    when(storeRepository.findById(storeId)).thenReturn(Optional.empty());
+    when(merchantQueryPort.getStoreHours(storeId)).thenThrow(new StoreNotFoundException(storeId));
 
     assertThatThrownBy(() -> getStoreHoursUseCase.execute())
         .isInstanceOf(StoreNotFoundException.class)

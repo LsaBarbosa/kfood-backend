@@ -1,6 +1,4 @@
-package com.kfood.order.infra.persistence;
-
-import com.kfood.order.domain.OrderStatus;
+package com.kfood.order.domain;
 
 public class OrderStatusTransitionException extends RuntimeException {
 
