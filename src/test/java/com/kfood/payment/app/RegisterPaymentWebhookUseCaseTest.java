@@ -115,6 +115,39 @@ class RegisterPaymentWebhookUseCaseTest {
   }
 
   @Test
+  void shouldAcceptReplayIdempotentlyAcrossConsecutiveReceipts() {
+    var firstEvent =
+        new PaymentWebhookEvent(
+            UUID.randomUUID(),
+            null,
+            "mock",
+            "evt-123",
+            "PAYMENT_CONFIRMED",
+            false,
+            "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_CONFIRMED\"}",
+            Instant.now(clock));
+    when(paymentWebhookEventPersistencePort.findByProviderNameAndExternalEventId("mock", "evt-123"))
+        .thenReturn(Optional.empty())
+        .thenReturn(Optional.of(firstEvent));
+    when(paymentWebhookEventPersistencePort.saveReceivedEvent(
+            any(), eq("mock"), eq("evt-123"), eq("PAYMENT_CONFIRMED"), eq(false), any(), any()))
+        .thenReturn(firstEvent);
+
+    var command =
+        new RegisterPaymentWebhookCommand(
+            "mock", "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_CONFIRMED\"}");
+
+    var firstResult = useCase.execute(command);
+    var replayResult = useCase.execute(command);
+
+    assertThat(firstResult).isSameAs(firstEvent);
+    assertThat(replayResult).isSameAs(firstEvent);
+    verify(paymentWebhookEventPersistencePort)
+        .saveReceivedEvent(
+            any(), eq("mock"), eq("evt-123"), eq("PAYMENT_CONFIRMED"), eq(false), any(), any());
+  }
+
+  @Test
   void shouldRecoverExistingEventWhenRaceConditionHitsUniqueConstraint() {
     var existingEvent =
         new PaymentWebhookEvent(
