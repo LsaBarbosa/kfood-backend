@@ -20,13 +20,19 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class RegisterPaymentWebhookUseCase {
 
+  private static final String CONFIRMED_EVENT_TYPE = "PAYMENT_CONFIRMED";
+
   private final PaymentWebhookEventPersistencePort paymentWebhookEventPersistencePort;
+  private final ProcessConfirmedPaymentWebhookUseCase processConfirmedPaymentWebhookUseCase;
   private final ObjectMapper objectMapper;
   private final Clock clock;
 
   public RegisterPaymentWebhookUseCase(
-      PaymentWebhookEventPersistencePort paymentWebhookEventPersistencePort, Clock clock) {
+      PaymentWebhookEventPersistencePort paymentWebhookEventPersistencePort,
+      ProcessConfirmedPaymentWebhookUseCase processConfirmedPaymentWebhookUseCase,
+      Clock clock) {
     this.paymentWebhookEventPersistencePort = paymentWebhookEventPersistencePort;
+    this.processConfirmedPaymentWebhookUseCase = processConfirmedPaymentWebhookUseCase;
     this.objectMapper = new ObjectMapper().findAndRegisterModules();
     this.clock = clock;
   }
@@ -37,6 +43,7 @@ public class RegisterPaymentWebhookUseCase {
     var payload = parse(command.rawPayload());
     var externalEventId = readRequiredText(payload, "externalEventId");
     var eventType = readRequiredText(payload, "eventType");
+    var providerReference = readOptionalText(payload, "providerReference");
 
     var existingEvent =
         paymentWebhookEventPersistencePort.findByProviderNameAndExternalEventId(
@@ -46,19 +53,33 @@ public class RegisterPaymentWebhookUseCase {
     }
 
     try {
-      return paymentWebhookEventPersistencePort.saveReceivedEvent(
-          UUID.randomUUID(),
-          normalizedProvider,
-          externalEventId,
-          eventType,
-          false,
-          command.rawPayload(),
-          Instant.now(clock));
+      var savedEvent =
+          paymentWebhookEventPersistencePort.saveReceivedEvent(
+              UUID.randomUUID(),
+              normalizedProvider,
+              externalEventId,
+              eventType,
+              false,
+              command.rawPayload(),
+              Instant.now(clock));
+      if (!CONFIRMED_EVENT_TYPE.equals(eventType)) {
+        return savedEvent;
+      }
+      return processConfirmedPaymentWebhookUseCase.execute(savedEvent, providerReference);
     } catch (DataIntegrityViolationException exception) {
       return paymentWebhookEventPersistencePort
           .findByProviderNameAndExternalEventId(normalizedProvider, externalEventId)
           .orElseThrow(() -> exception);
     }
+  }
+
+  private String readOptionalText(JsonNode payload, String fieldName) {
+    var fieldNode = payload.get(fieldName);
+    if (fieldNode == null || fieldNode.isNull()) {
+      return null;
+    }
+    var value = fieldNode.asText();
+    return value.isBlank() ? null : value.trim();
   }
 
   private JsonNode parse(String rawPayload) {

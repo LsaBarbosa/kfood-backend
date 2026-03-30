@@ -168,6 +168,48 @@ class PaymentWebhookEventTest {
   }
 
   @Test
+  void shouldMarkEventAsFailedProcessing() {
+    var event =
+        new PaymentWebhookEvent(
+            UUID.randomUUID(),
+            null,
+            "provider",
+            "evt-123",
+            null,
+            true,
+            "{\"ok\":true}",
+            Instant.parse("2026-03-30T10:15:00Z"));
+    var processedAt = Instant.parse("2026-03-30T10:20:00Z");
+
+    event.markFailedProcessing(processedAt);
+
+    assertThat(event.getProcessingStatus())
+        .isEqualTo(PaymentWebhookProcessingStatus.FAILED_PROCESSING);
+    assertThat(event.getProcessedAt()).isEqualTo(processedAt);
+  }
+
+  @Test
+  void shouldAttachPayment() {
+    var event = validEvent();
+    var payment =
+        new Payment(
+            UUID.randomUUID(),
+            validOrder(),
+            com.kfood.payment.domain.PaymentMethod.PIX,
+            "mock",
+            "charge-123",
+            com.kfood.payment.domain.PaymentStatus.PENDING,
+            new java.math.BigDecimal("57.50"),
+            "000201...",
+            null,
+            null);
+
+    event.attachPayment(payment);
+
+    assertThat(event.getPayment()).isSameAs(payment);
+  }
+
+  @Test
   void shouldRejectNullProcessedAtWhenMarkingProcessed() {
     var event =
         new PaymentWebhookEvent(
@@ -267,6 +309,18 @@ class PaymentWebhookEventTest {
   }
 
   @Test
+  void shouldAllowFailedProcessingStatusWithProcessedAtOnLifecycle() throws Exception {
+    var event = validEvent();
+    setField(event, "processingStatus", PaymentWebhookProcessingStatus.FAILED_PROCESSING);
+    setField(event, "processedAt", Instant.parse("2026-03-30T10:20:00Z"));
+
+    invokeValidateLifecycle(event);
+
+    assertThat(event.getProcessingStatus())
+        .isEqualTo(PaymentWebhookProcessingStatus.FAILED_PROCESSING);
+  }
+
+  @Test
   void shouldRejectReceivedStatusWithProcessedAtOnLifecycle() throws Exception {
     var event = validEvent();
     setField(event, "processingStatus", PaymentWebhookProcessingStatus.RECEIVED);
@@ -311,5 +365,30 @@ class PaymentWebhookEventTest {
     Field field = PaymentWebhookEvent.class.getDeclaredField(fieldName);
     field.setAccessible(true);
     field.set(event, value);
+  }
+
+  private com.kfood.order.infra.persistence.SalesOrder validOrder() {
+    var store =
+        new com.kfood.merchant.infra.persistence.Store(
+            UUID.randomUUID(),
+            "Loja do Bairro",
+            "loja-do-bairro",
+            "45.723.174/0001-10",
+            "21999990000",
+            "America/Sao_Paulo");
+    var customer =
+        new com.kfood.customer.infra.persistence.Customer(
+            UUID.randomUUID(), store, "Maria Silva", "21999990000", "maria@email.com");
+    return com.kfood.order.infra.persistence.SalesOrder.create(
+        UUID.randomUUID(),
+        store,
+        customer,
+        com.kfood.order.domain.FulfillmentType.DELIVERY,
+        com.kfood.payment.domain.PaymentMethod.PIX,
+        new java.math.BigDecimal("50.00"),
+        new java.math.BigDecimal("7.50"),
+        new java.math.BigDecimal("57.50"),
+        null,
+        null);
   }
 }

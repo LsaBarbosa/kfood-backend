@@ -270,6 +270,35 @@ class PaymentWebhookEventRepositoryIntegrationTest extends PostgreSqlContainerIT
     assertThat(row).isEqualTo("PROCESSED");
   }
 
+  @Test
+  @DisplayName("should persist failed processing status enum as string")
+  void shouldPersistFailedProcessingStatusEnumAsString() {
+    var event =
+        new PaymentWebhookEvent(
+            UUID.randomUUID(),
+            null,
+            "mock",
+            "evt-failed-processing",
+            null,
+            true,
+            "{\"id\":\"evt-failed-processing\"}",
+            Instant.parse("2026-03-30T10:15:00Z"));
+    event.markFailedProcessing(Instant.parse("2026-03-30T10:16:00Z"));
+    paymentWebhookEventRepository.saveAndFlush(event);
+
+    var row =
+        jdbcTemplate.queryForObject(
+            """
+            select processing_status
+            from payment_webhook_event
+            where id = ?
+            """,
+            String.class,
+            event.getId());
+
+    assertThat(row).isEqualTo("FAILED_PROCESSING");
+  }
+
   private SalesOrder order() {
     var store =
         storeRepository.saveAndFlush(

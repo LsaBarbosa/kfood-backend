@@ -11,10 +11,13 @@ import org.springframework.stereotype.Component;
 public class PaymentWebhookEventPersistenceAdapter implements PaymentWebhookEventPersistencePort {
 
   private final PaymentWebhookEventRepository paymentWebhookEventRepository;
+  private final PaymentRepository paymentRepository;
 
   public PaymentWebhookEventPersistenceAdapter(
-      PaymentWebhookEventRepository paymentWebhookEventRepository) {
+      PaymentWebhookEventRepository paymentWebhookEventRepository,
+      PaymentRepository paymentRepository) {
     this.paymentWebhookEventRepository = paymentWebhookEventRepository;
+    this.paymentRepository = paymentRepository;
   }
 
   @Override
@@ -44,5 +47,21 @@ public class PaymentWebhookEventPersistenceAdapter implements PaymentWebhookEven
             signatureValid,
             rawPayload,
             receivedAt));
+  }
+
+  @Override
+  public PaymentWebhookEventRecord markProcessed(
+      UUID eventId, UUID paymentId, Instant processedAt) {
+    var event = paymentWebhookEventRepository.findById(eventId).orElseThrow();
+    event.attachPayment(paymentRepository.getReferenceById(paymentId));
+    event.markProcessed(processedAt);
+    return event;
+  }
+
+  @Override
+  public PaymentWebhookEventRecord markFailedProcessing(UUID eventId, Instant processedAt) {
+    var event = paymentWebhookEventRepository.findById(eventId).orElseThrow();
+    event.markFailedProcessing(processedAt);
+    return event;
   }
 }

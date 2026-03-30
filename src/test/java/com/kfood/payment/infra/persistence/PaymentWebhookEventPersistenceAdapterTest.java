@@ -16,8 +16,9 @@ class PaymentWebhookEventPersistenceAdapterTest {
 
   private final PaymentWebhookEventRepository paymentWebhookEventRepository =
       mock(PaymentWebhookEventRepository.class);
+  private final PaymentRepository paymentRepository = mock(PaymentRepository.class);
   private final PaymentWebhookEventPersistenceAdapter adapter =
-      new PaymentWebhookEventPersistenceAdapter(paymentWebhookEventRepository);
+      new PaymentWebhookEventPersistenceAdapter(paymentWebhookEventRepository, paymentRepository);
 
   @Test
   void shouldFindExistingWebhookEvent() {
@@ -66,5 +67,55 @@ class PaymentWebhookEventPersistenceAdapterTest {
         .isEqualTo("{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_CONFIRMED\"}");
     assertThat(captor.getValue().getReceivedAt()).isEqualTo(receivedAt);
     assertThat(result).isSameAs(captor.getValue());
+  }
+
+  @Test
+  void shouldMarkWebhookEventAsProcessedAndAttachPayment() {
+    var payment = mock(Payment.class);
+    var event =
+        new PaymentWebhookEvent(
+            UUID.randomUUID(),
+            null,
+            "mock",
+            "evt-123",
+            "PAYMENT_CONFIRMED",
+            false,
+            "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_CONFIRMED\"}",
+            Instant.parse("2026-03-30T15:00:00Z"));
+    when(paymentWebhookEventRepository.findById(event.getId())).thenReturn(Optional.of(event));
+    when(paymentRepository.getReferenceById(
+            UUID.fromString("11111111-1111-1111-1111-111111111111")))
+        .thenReturn(payment);
+
+    var result =
+        adapter.markProcessed(
+            event.getId(),
+            UUID.fromString("11111111-1111-1111-1111-111111111111"),
+            Instant.parse("2026-03-30T16:00:00Z"));
+
+    assertThat(result.getProcessingStatus())
+        .isEqualTo(com.kfood.payment.domain.PaymentWebhookProcessingStatus.PROCESSED);
+    assertThat(((PaymentWebhookEvent) result).getPayment()).isSameAs(payment);
+  }
+
+  @Test
+  void shouldMarkWebhookEventAsFailedProcessing() {
+    var event =
+        new PaymentWebhookEvent(
+            UUID.randomUUID(),
+            null,
+            "mock",
+            "evt-123",
+            "PAYMENT_CONFIRMED",
+            false,
+            "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_CONFIRMED\"}",
+            Instant.parse("2026-03-30T15:00:00Z"));
+    when(paymentWebhookEventRepository.findById(event.getId())).thenReturn(Optional.of(event));
+
+    var result = adapter.markFailedProcessing(event.getId(), Instant.parse("2026-03-30T16:00:00Z"));
+
+    assertThat(result.getProcessingStatus())
+        .isEqualTo(com.kfood.payment.domain.PaymentWebhookProcessingStatus.FAILED_PROCESSING);
+    assertThat(result.getProcessedAt()).isEqualTo(Instant.parse("2026-03-30T16:00:00Z"));
   }
 }

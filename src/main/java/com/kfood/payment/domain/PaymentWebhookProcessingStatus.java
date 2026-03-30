@@ -2,5 +2,6 @@ package com.kfood.payment.domain;
 
 public enum PaymentWebhookProcessingStatus {
   RECEIVED,
-  PROCESSED
+  PROCESSED,
+  FAILED_PROCESSING
 }
