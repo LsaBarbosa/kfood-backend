@@ -62,6 +62,20 @@ class PaymentWebhookEventTest {
     assertThatThrownBy(
             () ->
                 new PaymentWebhookEvent(
+                    null,
+                    null,
+                    "provider",
+                    "evt-123",
+                    null,
+                    true,
+                    "{\"ok\":true}",
+                    Instant.parse("2026-03-30T10:15:00Z")))
+        .isInstanceOf(NullPointerException.class)
+        .hasMessage("id is required");
+
+    assertThatThrownBy(
+            () ->
+                new PaymentWebhookEvent(
                     UUID.randomUUID(),
                     null,
                     "   ",
@@ -100,6 +114,20 @@ class PaymentWebhookEventTest {
                     Instant.parse("2026-03-30T10:15:00Z")))
         .isInstanceOf(IllegalArgumentException.class)
         .hasMessage("rawPayload must not be blank");
+
+    assertThatThrownBy(
+            () ->
+                new PaymentWebhookEvent(
+                    UUID.randomUUID(),
+                    null,
+                    "provider",
+                    "evt-123",
+                    null,
+                    true,
+                    "{\"ok\":true}",
+                    null))
+        .isInstanceOf(NullPointerException.class)
+        .hasMessage("receivedAt is required");
   }
 
   @Test

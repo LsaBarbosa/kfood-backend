@@ -891,6 +891,76 @@ class FlywayMigrationTest {
             constraintExists(
                 "payment_webhook_event", "uk_payment_webhook_event_provider_external_event"))
         .isTrue();
+
+    try (Connection connection = dataSource.getConnection();
+        Statement statement = connection.createStatement()) {
+      statement.executeUpdate(
+          """
+          insert into payment_webhook_event (
+              id,
+              payment_id,
+              provider_name,
+              external_event_id,
+              event_type,
+              signature_valid,
+              raw_payload,
+              processing_status,
+              received_at,
+              processed_at,
+              created_at,
+              updated_at
+          )
+          values (
+              '17171717-1717-1717-1717-171717171717',
+              null,
+              'mock',
+              'evt-received',
+              'PAYMENT_CONFIRMED',
+              true,
+              '{"id":"evt-received"}',
+              'RECEIVED',
+              current_timestamp,
+              null,
+              current_timestamp,
+              current_timestamp
+          )
+          """);
+
+      org.assertj.core.api.Assertions.assertThatThrownBy(
+              () ->
+                  statement.executeUpdate(
+                      """
+                      insert into payment_webhook_event (
+                          id,
+                          payment_id,
+                          provider_name,
+                          external_event_id,
+                          event_type,
+                          signature_valid,
+                          raw_payload,
+                          processing_status,
+                          received_at,
+                          processed_at,
+                          created_at,
+                          updated_at
+                      )
+                      values (
+                          '18181818-1818-1818-1818-181818181818',
+                          null,
+                          'mock',
+                          'evt-invalid',
+                          'PAYMENT_CONFIRMED',
+                          true,
+                          '{"id":"evt-invalid"}',
+                          'PROCESSED',
+                          current_timestamp,
+                          null,
+                          current_timestamp,
+                          current_timestamp
+                      )
+                      """))
+          .isInstanceOf(Exception.class);
+    }
   }
 
   private boolean tableExists(String tableName) throws Exception {

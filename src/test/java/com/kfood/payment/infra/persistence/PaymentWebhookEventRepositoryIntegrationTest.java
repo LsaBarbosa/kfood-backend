@@ -3,9 +3,19 @@ package com.kfood.payment.infra.persistence;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.kfood.customer.infra.persistence.Customer;
+import com.kfood.customer.infra.persistence.CustomerRepository;
+import com.kfood.merchant.infra.persistence.Store;
+import com.kfood.merchant.infra.persistence.StoreRepository;
+import com.kfood.order.domain.FulfillmentType;
+import com.kfood.order.infra.persistence.SalesOrder;
+import com.kfood.order.infra.persistence.SalesOrderRepository;
+import com.kfood.payment.domain.PaymentMethod;
+import com.kfood.payment.domain.PaymentStatus;
 import com.kfood.payment.domain.PaymentWebhookProcessingStatus;
 import com.kfood.shared.persistence.TestJpaAuditingConfig;
 import com.kfood.support.PostgreSqlContainerIT;
+import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.DisplayName;
@@ -27,6 +37,10 @@ import org.springframework.test.context.TestPropertySource;
 class PaymentWebhookEventRepositoryIntegrationTest extends PostgreSqlContainerIT {
 
   @Autowired private PaymentWebhookEventRepository paymentWebhookEventRepository;
+  @Autowired private PaymentRepository paymentRepository;
+  @Autowired private SalesOrderRepository salesOrderRepository;
+  @Autowired private StoreRepository storeRepository;
+  @Autowired private CustomerRepository customerRepository;
   @Autowired private JdbcTemplate jdbcTemplate;
 
   @Test
@@ -53,6 +67,54 @@ class PaymentWebhookEventRepositoryIntegrationTest extends PostgreSqlContainerIT
         .get()
         .extracting(PaymentWebhookEvent::getId)
         .isEqualTo(savedEvent.getId());
+  }
+
+  @Test
+  @DisplayName("should persist webhook event linked to payment when correlation already exists")
+  void shouldPersistWebhookEventLinkedToPaymentWhenCorrelationAlreadyExists() {
+    var savedOrder = salesOrderRepository.saveAndFlush(order());
+    var payment =
+        paymentRepository.saveAndFlush(
+            new Payment(
+                UUID.randomUUID(),
+                savedOrder,
+                PaymentMethod.PIX,
+                "mock",
+                "charge-123",
+                PaymentStatus.PENDING,
+                new BigDecimal("57.50"),
+                "000201...",
+                null,
+                Instant.parse("2026-03-30T10:45:00Z")));
+    var event =
+        paymentWebhookEventRepository.saveAndFlush(
+            new PaymentWebhookEvent(
+                UUID.randomUUID(),
+                payment,
+                "mock",
+                "evt-linked",
+                "PAYMENT_CONFIRMED",
+                true,
+                "{\"id\":\"evt-linked\"}",
+                Instant.parse("2026-03-30T10:15:00Z")));
+
+    assertThat(
+            paymentWebhookEventRepository.findByProviderNameAndExternalEventId(
+                "mock", "evt-linked"))
+        .isPresent()
+        .get()
+        .extracting(found -> found.getPayment().getId())
+        .isEqualTo(payment.getId());
+    assertThat(
+            jdbcTemplate.queryForObject(
+                """
+                select payment_id
+                from payment_webhook_event
+                where id = ?
+                """,
+                UUID.class,
+                event.getId()))
+        .isEqualTo(payment.getId());
   }
 
   @Test
@@ -165,5 +227,32 @@ class PaymentWebhookEventRepositoryIntegrationTest extends PostgreSqlContainerIT
             event.getId());
 
     assertThat(row).isEqualTo("PROCESSED");
+  }
+
+  private SalesOrder order() {
+    var store =
+        storeRepository.saveAndFlush(
+            new Store(
+                UUID.randomUUID(),
+                "Loja do Bairro",
+                "loja-webhook-" + UUID.randomUUID(),
+                "45.723.174/0001-10",
+                "21999990000",
+                "America/Sao_Paulo"));
+    var customer =
+        customerRepository.saveAndFlush(
+            new Customer(
+                UUID.randomUUID(), store, "Maria Silva", "21999990000", "maria@email.com"));
+    return SalesOrder.create(
+        UUID.randomUUID(),
+        store,
+        customer,
+        FulfillmentType.DELIVERY,
+        PaymentMethod.PIX,
+        new BigDecimal("50.00"),
+        new BigDecimal("7.50"),
+        new BigDecimal("57.50"),
+        null,
+        null);
   }
 }
