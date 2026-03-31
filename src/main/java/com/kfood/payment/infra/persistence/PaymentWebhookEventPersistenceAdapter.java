@@ -12,6 +12,10 @@ import org.springframework.stereotype.Component;
 @Component
 public class PaymentWebhookEventPersistenceAdapter implements PaymentWebhookEventPersistencePort {
 
+  private static final String UNIQUE_VIOLATION_SQL_STATE = "23505";
+  private static final String WEBHOOK_EVENT_UNIQUE_CONSTRAINT =
+      "uk_payment_webhook_event_provider_external_event";
+
   private final PaymentWebhookEventRepository paymentWebhookEventRepository;
   private final PaymentRepository paymentRepository;
 
@@ -86,18 +90,21 @@ public class PaymentWebhookEventPersistenceAdapter implements PaymentWebhookEven
 
   private boolean isDuplicateWebhookEvent(Throwable exception) {
     for (Throwable current = exception; current != null; current = current.getCause()) {
-      if (current instanceof DataIntegrityViolationException) {
+      if (current instanceof DataIntegrityViolationException
+          && hasWebhookConstraintMessage(current)) {
         return true;
       }
       if (current instanceof SQLException sqlException
-          && "23505".equals(sqlException.getSQLState())
-          && sqlException.getMessage() != null
-          && sqlException
-              .getMessage()
-              .contains("uk_payment_webhook_event_provider_external_event")) {
+          && UNIQUE_VIOLATION_SQL_STATE.equals(sqlException.getSQLState())
+          && hasWebhookConstraintMessage(sqlException)) {
         return true;
       }
     }
     return false;
+  }
+
+  private boolean hasWebhookConstraintMessage(Throwable throwable) {
+    return throwable.getMessage() != null
+        && throwable.getMessage().contains(WEBHOOK_EVENT_UNIQUE_CONSTRAINT);
   }
 }

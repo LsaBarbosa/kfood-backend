@@ -125,7 +125,10 @@ class PaymentWebhookEventPersistenceAdapterTest {
   @Test
   void shouldKeepStableDataIntegrityViolationWhenRepositoryAlreadyTranslatesDuplicate() {
     when(paymentWebhookEventRepository.saveAndFlush(any(PaymentWebhookEvent.class)))
-        .thenThrow(new DataIntegrityViolationException("duplicate"));
+        .thenThrow(
+            new DataIntegrityViolationException(
+                "duplicate key value violates unique constraint"
+                    + " \"uk_payment_webhook_event_provider_external_event\""));
 
     assertThatThrownBy(
             () ->
@@ -143,11 +146,58 @@ class PaymentWebhookEventPersistenceAdapterTest {
   }
 
   @Test
+  void shouldNotTranslateDataIntegrityViolationExceptionWhenConstraintIsDifferent() {
+    var exception =
+        new DataIntegrityViolationException(
+            "duplicate key value violates unique constraint \"uk_other_constraint\"");
+    when(paymentWebhookEventRepository.saveAndFlush(any(PaymentWebhookEvent.class)))
+        .thenThrow(exception);
+
+    assertThatThrownBy(
+            () ->
+                adapter.saveReceivedEvent(
+                    UUID.randomUUID(),
+                    "mock",
+                    "evt-123",
+                    "PAYMENT_CONFIRMED",
+                    true,
+                    "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_CONFIRMED\"}",
+                    Instant.parse("2026-03-30T16:00:00Z")))
+        .isSameAs(exception);
+  }
+
+  @Test
   void shouldNotTranslateJpaSystemExceptionWhenCauseIsNotUniqueViolation() {
     var exception =
         new JpaSystemException(
             new GenericJDBCException(
                 "could not execute statement", new SQLException("generic failure", "08006")));
+    when(paymentWebhookEventRepository.saveAndFlush(any(PaymentWebhookEvent.class)))
+        .thenThrow(exception);
+
+    assertThatThrownBy(
+            () ->
+                adapter.saveReceivedEvent(
+                    UUID.randomUUID(),
+                    "mock",
+                    "evt-123",
+                    "PAYMENT_CONFIRMED",
+                    true,
+                    "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_CONFIRMED\"}",
+                    Instant.parse("2026-03-30T16:00:00Z")))
+        .isSameAs(exception);
+  }
+
+  @Test
+  void shouldNotTranslateJpaSystemExceptionWhenUniqueViolationTargetsDifferentConstraint() {
+    var exception =
+        new JpaSystemException(
+            new GenericJDBCException(
+                "could not execute statement",
+                new SQLException(
+                    "ERROR: duplicate key value violates unique constraint"
+                        + " \"uk_other_constraint\"",
+                    "23505")));
     when(paymentWebhookEventRepository.saveAndFlush(any(PaymentWebhookEvent.class)))
         .thenThrow(exception);
 
