@@ -1,16 +1,21 @@
 package com.kfood.payment.infra.persistence;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import java.sql.SQLException;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
+import org.hibernate.exception.GenericJDBCException;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.orm.jpa.JpaSystemException;
 
 class PaymentWebhookEventPersistenceAdapterTest {
 
@@ -88,6 +93,75 @@ class PaymentWebhookEventPersistenceAdapterTest {
         .isEqualTo("{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_CONFIRMED\"}");
     assertThat(captor.getValue().getReceivedAt()).isEqualTo(receivedAt);
     assertThat(result).isSameAs(captor.getValue());
+  }
+
+  @Test
+  void shouldTranslateJpaSystemExceptionWrappingUniqueViolation() {
+    when(paymentWebhookEventRepository.saveAndFlush(any(PaymentWebhookEvent.class)))
+        .thenThrow(
+            new JpaSystemException(
+                new GenericJDBCException(
+                    "could not execute statement",
+                    new SQLException(
+                        "ERROR: duplicate key value violates unique constraint"
+                            + " \"uk_payment_webhook_event_provider_external_event\"",
+                        "23505"))));
+
+    assertThatThrownBy(
+            () ->
+                adapter.saveReceivedEvent(
+                    UUID.randomUUID(),
+                    "mock",
+                    "evt-123",
+                    "PAYMENT_CONFIRMED",
+                    true,
+                    "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_CONFIRMED\"}",
+                    Instant.parse("2026-03-30T16:00:00Z")))
+        .isInstanceOf(DataIntegrityViolationException.class)
+        .hasMessage("Duplicate payment webhook event for provider and external event id")
+        .hasCauseInstanceOf(JpaSystemException.class);
+  }
+
+  @Test
+  void shouldKeepStableDataIntegrityViolationWhenRepositoryAlreadyTranslatesDuplicate() {
+    when(paymentWebhookEventRepository.saveAndFlush(any(PaymentWebhookEvent.class)))
+        .thenThrow(new DataIntegrityViolationException("duplicate"));
+
+    assertThatThrownBy(
+            () ->
+                adapter.saveReceivedEvent(
+                    UUID.randomUUID(),
+                    "mock",
+                    "evt-123",
+                    "PAYMENT_CONFIRMED",
+                    true,
+                    "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_CONFIRMED\"}",
+                    Instant.parse("2026-03-30T16:00:00Z")))
+        .isInstanceOf(DataIntegrityViolationException.class)
+        .hasMessage("Duplicate payment webhook event for provider and external event id")
+        .hasCauseInstanceOf(DataIntegrityViolationException.class);
+  }
+
+  @Test
+  void shouldNotTranslateJpaSystemExceptionWhenCauseIsNotUniqueViolation() {
+    var exception =
+        new JpaSystemException(
+            new GenericJDBCException(
+                "could not execute statement", new SQLException("generic failure", "08006")));
+    when(paymentWebhookEventRepository.saveAndFlush(any(PaymentWebhookEvent.class)))
+        .thenThrow(exception);
+
+    assertThatThrownBy(
+            () ->
+                adapter.saveReceivedEvent(
+                    UUID.randomUUID(),
+                    "mock",
+                    "evt-123",
+                    "PAYMENT_CONFIRMED",
+                    true,
+                    "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_CONFIRMED\"}",
+                    Instant.parse("2026-03-30T16:00:00Z")))
+        .isSameAs(exception);
   }
 
   @Test

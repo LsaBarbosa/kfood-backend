@@ -73,7 +73,7 @@ class PaymentWebhookAsyncProcessingIntegrationTest extends PostgreSqlContainerIT
   @Test
   @DisplayName("should register first and process payment confirmation after commit")
   void shouldRegisterFirstAndProcessPaymentConfirmationAfterCommit() {
-    var payment = paymentRepository.saveAndFlush(paymentFor("charge-123"));
+    var fixture = inNewTransaction(status -> persistPaymentFixture("charge-123"));
     var command =
         new RegisterPaymentWebhookCommand(
             "mock",
@@ -95,17 +95,21 @@ class PaymentWebhookAsyncProcessingIntegrationTest extends PostgreSqlContainerIT
     awaitUntilProcessed("evt-async-123");
 
     var processedEvent =
-        paymentWebhookEventRepository
-            .findByProviderNameAndExternalEventId("mock", "evt-async-123")
-            .orElseThrow();
-    var confirmedPayment = paymentRepository.findById(payment.getId()).orElseThrow();
-    var refreshedOrder = salesOrderRepository.findById(payment.getOrder().getId()).orElseThrow();
+        inNewTransaction(
+            status ->
+                paymentWebhookEventRepository
+                    .findByProviderNameAndExternalEventId("mock", "evt-async-123")
+                    .orElseThrow());
+    var confirmedPayment =
+        inNewTransaction(status -> paymentRepository.findById(fixture.paymentId()).orElseThrow());
+    var refreshedOrder =
+        inNewTransaction(status -> salesOrderRepository.findById(fixture.orderId()).orElseThrow());
 
     assertThat(processedEvent.getProcessingStatus())
         .isEqualTo(PaymentWebhookProcessingStatus.PROCESSED);
     assertThat(processedEvent.getProcessedAt()).isNotNull();
     assertThat(processedEvent.getPayment()).isNotNull();
-    assertThat(processedEvent.getPayment().getId()).isEqualTo(payment.getId());
+    assertThat(processedEvent.getPayment().getId()).isEqualTo(fixture.paymentId());
     assertThat(confirmedPayment.getStatus()).isEqualTo(PaymentStatus.CONFIRMED);
     assertThat(confirmedPayment.getConfirmedAt()).isNotNull();
     assertThat(refreshedOrder.getPaymentStatusSnapshot()).isEqualTo(PaymentStatusSnapshot.PAID);
@@ -114,7 +118,7 @@ class PaymentWebhookAsyncProcessingIntegrationTest extends PostgreSqlContainerIT
   @Test
   @DisplayName("should keep confirmed webhook replay idempotent after asynchronous processing")
   void shouldKeepConfirmedWebhookReplayIdempotentAfterAsynchronousProcessing() {
-    var payment = paymentRepository.saveAndFlush(paymentFor("charge-replay"));
+    var fixture = inNewTransaction(status -> persistPaymentFixture("charge-replay"));
     var command =
         new RegisterPaymentWebhookCommand(
             "mock",
@@ -131,9 +135,11 @@ class PaymentWebhookAsyncProcessingIntegrationTest extends PostgreSqlContainerIT
     awaitUntilProcessed("evt-async-replay");
 
     var processedEventBeforeReplay =
-        paymentWebhookEventRepository
-            .findByProviderNameAndExternalEventId("mock", "evt-async-replay")
-            .orElseThrow();
+        inNewTransaction(
+            status ->
+                paymentWebhookEventRepository
+                    .findByProviderNameAndExternalEventId("mock", "evt-async-replay")
+                    .orElseThrow());
     var processedAt = processedEventBeforeReplay.getProcessedAt();
 
     var replayResult = inNewTransaction(status -> registerPaymentWebhookUseCase.execute(command));
@@ -143,12 +149,17 @@ class PaymentWebhookAsyncProcessingIntegrationTest extends PostgreSqlContainerIT
         .isEqualTo(PaymentWebhookProcessingStatus.PROCESSED);
     assertThat(countRows("evt-async-replay")).isEqualTo(1);
     assertThat(
-            paymentWebhookEventRepository
-                .findByProviderNameAndExternalEventId("mock", "evt-async-replay")
-                .orElseThrow()
+            inNewTransaction(
+                    status ->
+                        paymentWebhookEventRepository
+                            .findByProviderNameAndExternalEventId("mock", "evt-async-replay")
+                            .orElseThrow())
                 .getProcessedAt())
         .isEqualTo(processedAt);
-    assertThat(paymentRepository.findById(payment.getId()).orElseThrow().getStatus())
+    assertThat(
+            inNewTransaction(
+                    status -> paymentRepository.findById(fixture.paymentId()).orElseThrow())
+                .getStatus())
         .isEqualTo(PaymentStatus.CONFIRMED);
   }
 
@@ -156,8 +167,10 @@ class PaymentWebhookAsyncProcessingIntegrationTest extends PostgreSqlContainerIT
     Instant deadline = Instant.now().plusSeconds(5);
     while (Instant.now().isBefore(deadline)) {
       var current =
-          paymentWebhookEventRepository.findByProviderNameAndExternalEventId(
-              "mock", externalEventId);
+          inNewTransaction(
+              status ->
+                  paymentWebhookEventRepository.findByProviderNameAndExternalEventId(
+                      "mock", externalEventId));
       if (current.isPresent()
           && current.get().getProcessingStatus() == PaymentWebhookProcessingStatus.PROCESSED) {
         return;
@@ -195,19 +208,22 @@ class PaymentWebhookAsyncProcessingIntegrationTest extends PostgreSqlContainerIT
     }
   }
 
-  private Payment paymentFor(String providerReference) {
+  private PaymentFixture persistPaymentFixture(String providerReference) {
     var order = salesOrderRepository.saveAndFlush(order(providerReference));
-    return new Payment(
-        UUID.randomUUID(),
-        order,
-        PaymentMethod.PIX,
-        "mock",
-        providerReference,
-        PaymentStatus.PENDING,
-        new BigDecimal("57.50"),
-        "000201...",
-        null,
-        Instant.parse("2026-03-30T10:45:00Z"));
+    var payment =
+        paymentRepository.saveAndFlush(
+            new Payment(
+                UUID.randomUUID(),
+                order,
+                PaymentMethod.PIX,
+                "mock",
+                providerReference,
+                PaymentStatus.PENDING,
+                new BigDecimal("57.50"),
+                "000201...",
+                null,
+                Instant.parse("2026-03-30T10:45:00Z")));
+    return new PaymentFixture(payment.getId(), order.getId());
   }
 
   private SalesOrder order(String suffix) {
@@ -240,6 +256,8 @@ class PaymentWebhookAsyncProcessingIntegrationTest extends PostgreSqlContainerIT
         null,
         null);
   }
+
+  private record PaymentFixture(UUID paymentId, UUID orderId) {}
 
   @TestConfiguration
   static class TestConfig {
