@@ -12,9 +12,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kfood.identity.app.JwtTokenReader;
+import com.kfood.payment.app.MockPaymentWebhookAuthenticator;
+import com.kfood.payment.app.PaymentWebhookAuthenticationService;
 import com.kfood.payment.app.ProcessConfirmedPaymentWebhookUseCase;
 import com.kfood.payment.app.RegisterPaymentWebhookUseCase;
 import com.kfood.payment.app.port.PaymentWebhookEventPersistencePort;
+import com.kfood.shared.config.AppProperties;
 import com.kfood.shared.exceptions.ApiErrorResponseFactory;
 import com.kfood.shared.exceptions.GlobalExceptionHandler;
 import java.time.Clock;
@@ -38,6 +41,8 @@ import org.springframework.test.web.servlet.MockMvc;
 @WebMvcTest(controllers = PaymentWebhookController.class)
 @AutoConfigureMockMvc(addFilters = false)
 @Import({
+  PaymentWebhookAuthenticationService.class,
+  MockPaymentWebhookAuthenticator.class,
   RegisterPaymentWebhookUseCase.class,
   GlobalExceptionHandler.class,
   ApiErrorResponseFactory.class,
@@ -66,14 +71,19 @@ class PaymentWebhookControllerWebMvcTest {
     when(processConfirmedPaymentWebhookUseCase.execute(savedEvent, "charge-123"))
         .thenReturn(savedEvent);
 
-    var rawPayload =
-        "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_CONFIRMED\",\"providerReference\":\"charge-123\"}";
-
     mockMvc
         .perform(
             post("/v1/payments/webhooks/{provider}", "mock")
+                .header("X-Webhook-Token", "mock-token")
                 .contentType(APPLICATION_JSON)
-                .content(rawPayload))
+                .content(
+                    """
+                    {
+                      "externalEventId": "evt-123",
+                      "eventType": "PAYMENT_CONFIRMED",
+                      "providerReference": "charge-123"
+                    }
+                    """))
         .andExpect(status().isAccepted());
 
     verify(processConfirmedPaymentWebhookUseCase).execute(savedEvent, "charge-123");
@@ -90,6 +100,7 @@ class PaymentWebhookControllerWebMvcTest {
     mockMvc
         .perform(
             post("/v1/payments/webhooks/{provider}", "mock")
+                .header("X-Webhook-Token", "mock-token")
                 .contentType(APPLICATION_JSON)
                 .content(
                     """
@@ -106,11 +117,86 @@ class PaymentWebhookControllerWebMvcTest {
   }
 
   @Test
+  @DisplayName("should return unauthorized when webhook token is missing")
+  void shouldReturnUnauthorizedWhenWebhookTokenIsMissing() throws Exception {
+    mockMvc
+        .perform(
+            post("/v1/payments/webhooks/{provider}", "mock")
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "externalEventId": "evt-123",
+                      "eventType": "PAYMENT_CONFIRMED"
+                    }
+                    """))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.code").value("WEBHOOK_SIGNATURE_INVALID"));
+
+    verify(paymentWebhookEventPersistencePort, never())
+        .findByProviderNameAndExternalEventId(any(), any());
+    verify(paymentWebhookEventPersistencePort, never())
+        .saveReceivedEvent(any(), any(), any(), any(), anyBoolean(), any(), any());
+    verify(processConfirmedPaymentWebhookUseCase, never()).execute(any(), any());
+  }
+
+  @Test
+  @DisplayName("should return unauthorized when webhook token is blank")
+  void shouldReturnUnauthorizedWhenWebhookTokenIsBlank() throws Exception {
+    mockMvc
+        .perform(
+            post("/v1/payments/webhooks/{provider}", "mock")
+                .header("X-Webhook-Token", "   ")
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "externalEventId": "evt-123",
+                      "eventType": "PAYMENT_CONFIRMED"
+                    }
+                    """))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.code").value("WEBHOOK_SIGNATURE_INVALID"));
+
+    verify(paymentWebhookEventPersistencePort, never())
+        .findByProviderNameAndExternalEventId(any(), any());
+    verify(paymentWebhookEventPersistencePort, never())
+        .saveReceivedEvent(any(), any(), any(), any(), anyBoolean(), any(), any());
+    verify(processConfirmedPaymentWebhookUseCase, never()).execute(any(), any());
+  }
+
+  @Test
+  @DisplayName("should return unauthorized when webhook token is invalid")
+  void shouldReturnUnauthorizedWhenWebhookTokenIsInvalid() throws Exception {
+    mockMvc
+        .perform(
+            post("/v1/payments/webhooks/{provider}", "mock")
+                .header("X-Webhook-Token", "wrong-token")
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "externalEventId": "evt-123",
+                      "eventType": "PAYMENT_CONFIRMED"
+                    }
+                    """))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.code").value("WEBHOOK_SIGNATURE_INVALID"));
+
+    verify(paymentWebhookEventPersistencePort, never())
+        .findByProviderNameAndExternalEventId(any(), any());
+    verify(paymentWebhookEventPersistencePort, never())
+        .saveReceivedEvent(any(), any(), any(), any(), anyBoolean(), any(), any());
+    verify(processConfirmedPaymentWebhookUseCase, never()).execute(any(), any());
+  }
+
+  @Test
   @DisplayName("should return bad request when json is malformed")
   void shouldReturnBadRequestWhenJsonIsMalformed() throws Exception {
     mockMvc
         .perform(
             post("/v1/payments/webhooks/{provider}", "mock")
+                .header("X-Webhook-Token", "mock-token")
                 .contentType(APPLICATION_JSON)
                 .content("{"))
         .andExpect(status().isBadRequest())
@@ -128,6 +214,7 @@ class PaymentWebhookControllerWebMvcTest {
     mockMvc
         .perform(
             post("/v1/payments/webhooks/{provider}", "mock")
+                .header("X-Webhook-Token", "mock-token")
                 .contentType(APPLICATION_JSON)
                 .content(
                     """
@@ -147,6 +234,7 @@ class PaymentWebhookControllerWebMvcTest {
     mockMvc
         .perform(
             post("/v1/payments/webhooks/{provider}", "mock")
+                .header("X-Webhook-Token", "mock-token")
                 .contentType(APPLICATION_JSON)
                 .content(
                     """
@@ -166,6 +254,7 @@ class PaymentWebhookControllerWebMvcTest {
     mockMvc
         .perform(
             post("/v1/payments/webhooks/{provider}", "mock")
+                .header("X-Webhook-Token", "mock-token")
                 .contentType(APPLICATION_JSON)
                 .content(
                     """
@@ -199,6 +288,7 @@ class PaymentWebhookControllerWebMvcTest {
     mockMvc
         .perform(
             post("/v1/payments/webhooks/{provider}", "mock")
+                .header("X-Webhook-Token", "mock-token")
                 .contentType(APPLICATION_JSON)
                 .content(
                     """
@@ -214,6 +304,13 @@ class PaymentWebhookControllerWebMvcTest {
 
   @TestConfiguration
   static class TestConfig {
+
+    @Bean
+    AppProperties appProperties() {
+      var properties = new AppProperties();
+      properties.getPayment().getWebhook().getProviders().getMock().setToken("mock-token");
+      return properties;
+    }
 
     @Bean
     Clock clock() {
