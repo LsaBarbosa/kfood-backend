@@ -27,6 +27,10 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionCallback;
+import org.springframework.transaction.support.TransactionTemplate;
 
 @DataJpaTest
 @ActiveProfiles("test")
@@ -42,6 +46,7 @@ class PaymentWebhookEventRepositoryIntegrationTest extends PostgreSqlContainerIT
   @Autowired private StoreRepository storeRepository;
   @Autowired private CustomerRepository customerRepository;
   @Autowired private JdbcTemplate jdbcTemplate;
+  @Autowired private PlatformTransactionManager transactionManager;
 
   @Test
   @DisplayName("should persist and find webhook event by provider and external event id")
@@ -203,42 +208,59 @@ class PaymentWebhookEventRepositoryIntegrationTest extends PostgreSqlContainerIT
   @Test
   @DisplayName("should keep a single row after equivalent duplicate attempts")
   void shouldKeepSingleRowAfterEquivalentDuplicateAttempts() {
-    paymentWebhookEventRepository.saveAndFlush(
-        new PaymentWebhookEvent(
-            UUID.randomUUID(),
-            null,
-            "mock",
-            "evt-single-row",
-            null,
-            true,
-            "{\"id\":\"evt-single-row\"}",
-            Instant.parse("2026-03-30T10:15:00Z")));
+    inNewTransaction(
+        status -> {
+          paymentWebhookEventRepository.saveAndFlush(
+              new PaymentWebhookEvent(
+                  UUID.randomUUID(),
+                  null,
+                  "mock",
+                  "evt-single-row",
+                  null,
+                  true,
+                  "{\"id\":\"evt-single-row\"}",
+                  Instant.parse("2026-03-30T10:15:00Z")));
+          return null;
+        });
 
     assertThatThrownBy(
             () ->
-                paymentWebhookEventRepository.saveAndFlush(
-                    new PaymentWebhookEvent(
-                        UUID.randomUUID(),
-                        null,
-                        "mock",
-                        "evt-single-row",
-                        null,
-                        false,
-                        "{\"id\":\"evt-single-row\",\"retry\":true}",
-                        Instant.parse("2026-03-30T10:16:00Z"))))
+                inNewTransaction(
+                    status -> {
+                      paymentWebhookEventRepository.saveAndFlush(
+                          new PaymentWebhookEvent(
+                              UUID.randomUUID(),
+                              null,
+                              "mock",
+                              "evt-single-row",
+                              null,
+                              false,
+                              "{\"id\":\"evt-single-row\",\"retry\":true}",
+                              Instant.parse("2026-03-30T10:16:00Z")));
+                      return null;
+                    }))
         .isInstanceOf(Exception.class);
 
-    assertThat(
-            jdbcTemplate.queryForObject(
-                """
-                select count(*)
-                from payment_webhook_event
-                where provider_name = ? and external_event_id = ?
-                """,
-                Integer.class,
-                "mock",
-                "evt-single-row"))
-        .isEqualTo(1);
+    Integer persistedRows =
+        inNewTransaction(
+            status ->
+                jdbcTemplate.queryForObject(
+                    """
+                    select count(*)
+                    from payment_webhook_event
+                    where provider_name = ? and external_event_id = ?
+                    """,
+                    Integer.class,
+                    "mock",
+                    "evt-single-row"));
+
+    assertThat(persistedRows).isEqualTo(1);
+  }
+
+  private <T> T inNewTransaction(TransactionCallback<T> action) {
+    var template = new TransactionTemplate(transactionManager);
+    template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+    return template.execute(action);
   }
 
   @Test
