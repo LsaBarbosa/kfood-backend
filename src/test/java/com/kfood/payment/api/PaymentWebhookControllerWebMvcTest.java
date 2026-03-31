@@ -2,6 +2,7 @@ package com.kfood.payment.api;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -14,7 +15,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kfood.identity.app.JwtTokenReader;
 import com.kfood.payment.app.MockPaymentWebhookAuthenticator;
 import com.kfood.payment.app.PaymentWebhookAuthenticationService;
-import com.kfood.payment.app.ProcessConfirmedPaymentWebhookUseCase;
+import com.kfood.payment.app.PaymentWebhookRegisteredEvent;
+import com.kfood.payment.app.PaymentWebhookRegisteredPublisher;
 import com.kfood.payment.app.RegisterPaymentWebhookUseCase;
 import com.kfood.payment.app.port.PaymentWebhookEventPersistencePort;
 import com.kfood.shared.config.AppProperties;
@@ -53,7 +55,7 @@ class PaymentWebhookControllerWebMvcTest {
   @Autowired private MockMvc mockMvc;
 
   @MockitoBean private PaymentWebhookEventPersistencePort paymentWebhookEventPersistencePort;
-  @MockitoBean private ProcessConfirmedPaymentWebhookUseCase processConfirmedPaymentWebhookUseCase;
+  @MockitoBean private PaymentWebhookRegisteredPublisher paymentWebhookRegisteredPublisher;
   @MockitoBean private JwtTokenReader jwtTokenReader;
   @MockitoBean private AuthenticationEntryPoint authenticationEntryPoint;
   @MockitoBean private AccessDeniedHandler accessDeniedHandler;
@@ -64,11 +66,8 @@ class PaymentWebhookControllerWebMvcTest {
     when(paymentWebhookEventPersistencePort.findByProviderNameAndExternalEventId("mock", "evt-123"))
         .thenReturn(Optional.empty());
     var savedEvent = savedEvent();
-    savedEvent.markProcessed(Instant.parse("2026-03-30T16:01:00Z"));
     when(paymentWebhookEventPersistencePort.saveReceivedEvent(
             any(), any(), any(), any(), anyBoolean(), any(), any()))
-        .thenReturn(savedEvent);
-    when(processConfirmedPaymentWebhookUseCase.execute(savedEvent, "charge-123"))
         .thenReturn(savedEvent);
 
     mockMvc
@@ -86,7 +85,13 @@ class PaymentWebhookControllerWebMvcTest {
                     """))
         .andExpect(status().isAccepted());
 
-    verify(processConfirmedPaymentWebhookUseCase).execute(savedEvent, "charge-123");
+    verify(paymentWebhookEventPersistencePort)
+        .saveReceivedEvent(
+            any(), eq("mock"), eq("evt-123"), eq("PAYMENT_CONFIRMED"), eq(true), any(), any());
+    verify(paymentWebhookRegisteredPublisher)
+        .publish(
+            new PaymentWebhookRegisteredEvent(
+                savedEvent.getId(), "charge-123", "PAYMENT_CONFIRMED"));
   }
 
   @Test
@@ -113,7 +118,7 @@ class PaymentWebhookControllerWebMvcTest {
 
     verify(paymentWebhookEventPersistencePort, never())
         .saveReceivedEvent(any(), any(), any(), any(), anyBoolean(), any(), any());
-    verify(processConfirmedPaymentWebhookUseCase, never()).execute(any(), any());
+    verify(paymentWebhookRegisteredPublisher, never()).publish(any());
   }
 
   @Test
@@ -137,7 +142,7 @@ class PaymentWebhookControllerWebMvcTest {
         .findByProviderNameAndExternalEventId(any(), any());
     verify(paymentWebhookEventPersistencePort, never())
         .saveReceivedEvent(any(), any(), any(), any(), anyBoolean(), any(), any());
-    verify(processConfirmedPaymentWebhookUseCase, never()).execute(any(), any());
+    verify(paymentWebhookRegisteredPublisher, never()).publish(any());
   }
 
   @Test
@@ -162,7 +167,7 @@ class PaymentWebhookControllerWebMvcTest {
         .findByProviderNameAndExternalEventId(any(), any());
     verify(paymentWebhookEventPersistencePort, never())
         .saveReceivedEvent(any(), any(), any(), any(), anyBoolean(), any(), any());
-    verify(processConfirmedPaymentWebhookUseCase, never()).execute(any(), any());
+    verify(paymentWebhookRegisteredPublisher, never()).publish(any());
   }
 
   @Test
@@ -187,7 +192,7 @@ class PaymentWebhookControllerWebMvcTest {
         .findByProviderNameAndExternalEventId(any(), any());
     verify(paymentWebhookEventPersistencePort, never())
         .saveReceivedEvent(any(), any(), any(), any(), anyBoolean(), any(), any());
-    verify(processConfirmedPaymentWebhookUseCase, never()).execute(any(), any());
+    verify(paymentWebhookRegisteredPublisher, never()).publish(any());
   }
 
   @Test
@@ -275,15 +280,11 @@ class PaymentWebhookControllerWebMvcTest {
   void shouldAcceptConfirmedWebhookWithMissingProviderReferenceWithoutConfirmingPayment()
       throws Exception {
     var receivedEvent = savedEvent();
-    var failedEvent = savedEvent();
-    failedEvent.markFailedProcessing(Instant.parse("2026-03-30T16:01:00Z"));
     when(paymentWebhookEventPersistencePort.findByProviderNameAndExternalEventId("mock", "evt-999"))
         .thenReturn(Optional.empty());
     when(paymentWebhookEventPersistencePort.saveReceivedEvent(
             any(), any(), any(), any(), anyBoolean(), any(), any()))
         .thenReturn(receivedEvent);
-    when(processConfirmedPaymentWebhookUseCase.execute(receivedEvent, null))
-        .thenReturn(failedEvent);
 
     mockMvc
         .perform(
@@ -299,7 +300,9 @@ class PaymentWebhookControllerWebMvcTest {
                     """))
         .andExpect(status().isAccepted());
 
-    verify(processConfirmedPaymentWebhookUseCase).execute(receivedEvent, null);
+    verify(paymentWebhookRegisteredPublisher)
+        .publish(
+            new PaymentWebhookRegisteredEvent(receivedEvent.getId(), null, "PAYMENT_CONFIRMED"));
   }
 
   @TestConfiguration

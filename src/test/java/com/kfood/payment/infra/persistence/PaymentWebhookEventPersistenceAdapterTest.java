@@ -41,8 +41,28 @@ class PaymentWebhookEventPersistenceAdapterTest {
   }
 
   @Test
+  void shouldFindWebhookEventById() {
+    var existingEvent =
+        new PaymentWebhookEvent(
+            UUID.randomUUID(),
+            null,
+            "mock",
+            "evt-123",
+            "PAYMENT_CONFIRMED",
+            false,
+            "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_CONFIRMED\"}",
+            Instant.parse("2026-03-30T15:00:00Z"));
+    when(paymentWebhookEventRepository.findById(existingEvent.getId()))
+        .thenReturn(Optional.of(existingEvent));
+
+    var result = adapter.findById(existingEvent.getId());
+
+    assertThat(result).containsSame(existingEvent);
+  }
+
+  @Test
   void shouldSaveReceivedWebhookEvent() {
-    when(paymentWebhookEventRepository.save(any(PaymentWebhookEvent.class)))
+    when(paymentWebhookEventRepository.saveAndFlush(any(PaymentWebhookEvent.class)))
         .thenAnswer(invocation -> invocation.getArgument(0));
 
     var eventId = UUID.randomUUID();
@@ -53,16 +73,17 @@ class PaymentWebhookEventPersistenceAdapterTest {
             "mock",
             "evt-123",
             "PAYMENT_CONFIRMED",
-            false,
+            true,
             "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_CONFIRMED\"}",
             receivedAt);
 
     ArgumentCaptor<PaymentWebhookEvent> captor = ArgumentCaptor.forClass(PaymentWebhookEvent.class);
-    verify(paymentWebhookEventRepository).save(captor.capture());
+    verify(paymentWebhookEventRepository).saveAndFlush(captor.capture());
     assertThat(captor.getValue().getId()).isEqualTo(eventId);
     assertThat(captor.getValue().getProviderName()).isEqualTo("mock");
     assertThat(captor.getValue().getExternalEventId()).isEqualTo("evt-123");
     assertThat(captor.getValue().getEventType()).isEqualTo("PAYMENT_CONFIRMED");
+    assertThat(captor.getValue().isSignatureValid()).isTrue();
     assertThat(captor.getValue().getRawPayload())
         .isEqualTo("{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_CONFIRMED\"}");
     assertThat(captor.getValue().getReceivedAt()).isEqualTo(receivedAt);
@@ -96,6 +117,28 @@ class PaymentWebhookEventPersistenceAdapterTest {
     assertThat(result.getProcessingStatus())
         .isEqualTo(com.kfood.payment.domain.PaymentWebhookProcessingStatus.PROCESSED);
     assertThat(((PaymentWebhookEvent) result).getPayment()).isSameAs(payment);
+  }
+
+  @Test
+  void shouldMarkWebhookEventAsProcessedWithoutPayment() {
+    var event =
+        new PaymentWebhookEvent(
+            UUID.randomUUID(),
+            null,
+            "mock",
+            "evt-123",
+            "PAYMENT_PENDING",
+            false,
+            "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_PENDING\"}",
+            Instant.parse("2026-03-30T15:00:00Z"));
+    when(paymentWebhookEventRepository.findById(event.getId())).thenReturn(Optional.of(event));
+
+    var result = adapter.markProcessed(event.getId(), null, Instant.parse("2026-03-30T16:00:00Z"));
+
+    assertThat(result.getProcessingStatus())
+        .isEqualTo(com.kfood.payment.domain.PaymentWebhookProcessingStatus.PROCESSED);
+    assertThat(((PaymentWebhookEvent) result).getPayment()).isNull();
+    assertThat(result.getProcessedAt()).isEqualTo(Instant.parse("2026-03-30T16:00:00Z"));
   }
 
   @Test

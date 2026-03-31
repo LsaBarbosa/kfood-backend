@@ -29,6 +29,13 @@ public class PaymentWebhookEventPersistenceAdapter implements PaymentWebhookEven
   }
 
   @Override
+  public Optional<PaymentWebhookEventRecord> findById(UUID eventId) {
+    return paymentWebhookEventRepository
+        .findById(eventId)
+        .map(PaymentWebhookEventRecord.class::cast);
+  }
+
+  @Override
   public PaymentWebhookEventRecord saveReceivedEvent(
       UUID eventId,
       String providerName,
@@ -37,7 +44,7 @@ public class PaymentWebhookEventPersistenceAdapter implements PaymentWebhookEven
       boolean signatureValid,
       String rawPayload,
       Instant receivedAt) {
-    return paymentWebhookEventRepository.save(
+    return paymentWebhookEventRepository.saveAndFlush(
         new PaymentWebhookEvent(
             eventId,
             null,
@@ -53,7 +60,9 @@ public class PaymentWebhookEventPersistenceAdapter implements PaymentWebhookEven
   public PaymentWebhookEventRecord markProcessed(
       UUID eventId, UUID paymentId, Instant processedAt) {
     var event = paymentWebhookEventRepository.findById(eventId).orElseThrow();
-    event.attachPayment(paymentRepository.getReferenceById(paymentId));
+    if (paymentId != null) {
+      event.attachPayment(paymentRepository.getReferenceById(paymentId));
+    }
     event.markProcessed(processedAt);
     return event;
   }

@@ -23,16 +23,16 @@ public class RegisterPaymentWebhookUseCase {
   private static final String CONFIRMED_EVENT_TYPE = "PAYMENT_CONFIRMED";
 
   private final PaymentWebhookEventPersistencePort paymentWebhookEventPersistencePort;
-  private final ProcessConfirmedPaymentWebhookUseCase processConfirmedPaymentWebhookUseCase;
+  private final PaymentWebhookRegisteredPublisher paymentWebhookRegisteredPublisher;
   private final ObjectMapper objectMapper;
   private final Clock clock;
 
   public RegisterPaymentWebhookUseCase(
       PaymentWebhookEventPersistencePort paymentWebhookEventPersistencePort,
-      ProcessConfirmedPaymentWebhookUseCase processConfirmedPaymentWebhookUseCase,
+      PaymentWebhookRegisteredPublisher paymentWebhookRegisteredPublisher,
       Clock clock) {
     this.paymentWebhookEventPersistencePort = paymentWebhookEventPersistencePort;
-    this.processConfirmedPaymentWebhookUseCase = processConfirmedPaymentWebhookUseCase;
+    this.paymentWebhookRegisteredPublisher = paymentWebhookRegisteredPublisher;
     this.objectMapper = new ObjectMapper().findAndRegisterModules();
     this.clock = clock;
   }
@@ -59,13 +59,16 @@ public class RegisterPaymentWebhookUseCase {
               normalizedProvider,
               externalEventId,
               eventType,
-              false,
+              command.signatureValid(),
               command.rawPayload(),
               Instant.now(clock));
       if (!CONFIRMED_EVENT_TYPE.equals(eventType)) {
-        return savedEvent;
+        return paymentWebhookEventPersistencePort.markProcessed(
+            savedEvent.getId(), null, Instant.now(clock));
       }
-      return processConfirmedPaymentWebhookUseCase.execute(savedEvent, providerReference);
+      paymentWebhookRegisteredPublisher.publish(
+          new PaymentWebhookRegisteredEvent(savedEvent.getId(), providerReference, eventType));
+      return savedEvent;
     } catch (DataIntegrityViolationException exception) {
       return paymentWebhookEventPersistencePort
           .findByProviderNameAndExternalEventId(normalizedProvider, externalEventId)

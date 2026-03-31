@@ -57,4 +57,9 @@ class ConfigurationCoverageTest {
   void shouldInstantiatePasswordSecurityConfig() {
     assertThat(new PasswordSecurityConfig()).isNotNull();
   }
+
+  @Test
+  void shouldInstantiateAsyncConfig() {
+    assertThat(new AsyncConfig()).isNotNull();
+  }
 }

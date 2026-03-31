@@ -9,6 +9,8 @@ public interface PaymentWebhookEventPersistencePort {
   Optional<PaymentWebhookEventRecord> findByProviderNameAndExternalEventId(
       String providerName, String externalEventId);
 
+  Optional<PaymentWebhookEventRecord> findById(UUID eventId);
+
   PaymentWebhookEventRecord saveReceivedEvent(
       UUID eventId,
       String providerName,

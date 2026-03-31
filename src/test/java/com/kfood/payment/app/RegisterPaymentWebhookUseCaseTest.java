@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -27,22 +28,22 @@ class RegisterPaymentWebhookUseCaseTest {
 
   private final PaymentWebhookEventPersistencePort paymentWebhookEventPersistencePort =
       mock(PaymentWebhookEventPersistencePort.class);
-  private final ProcessConfirmedPaymentWebhookUseCase processConfirmedPaymentWebhookUseCase =
-      mock(ProcessConfirmedPaymentWebhookUseCase.class);
+  private final PaymentWebhookRegisteredPublisher paymentWebhookRegisteredPublisher =
+      mock(PaymentWebhookRegisteredPublisher.class);
   private final Clock clock = Clock.fixed(Instant.parse("2026-03-30T16:00:00Z"), ZoneOffset.UTC);
   private final RegisterPaymentWebhookUseCase useCase =
       new RegisterPaymentWebhookUseCase(
-          paymentWebhookEventPersistencePort, processConfirmedPaymentWebhookUseCase, clock);
+          paymentWebhookEventPersistencePort, paymentWebhookRegisteredPublisher, clock);
 
   @Test
   void shouldRegisterNewWebhookEventOnFirstReceipt() {
     var command =
         new RegisterPaymentWebhookCommand(
-            "mock", "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_CONFIRMED\"}");
+            "mock", "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_CONFIRMED\"}", true);
     when(paymentWebhookEventPersistencePort.findByProviderNameAndExternalEventId("mock", "evt-123"))
         .thenReturn(Optional.empty());
     when(paymentWebhookEventPersistencePort.saveReceivedEvent(
-            any(), eq("mock"), eq("evt-123"), eq("PAYMENT_CONFIRMED"), eq(false), any(), any()))
+            any(), eq("mock"), eq("evt-123"), eq("PAYMENT_CONFIRMED"), eq(true), any(), any()))
         .thenAnswer(
             invocation ->
                 new PaymentWebhookEvent(
@@ -55,20 +56,6 @@ class RegisterPaymentWebhookUseCaseTest {
                     invocation.getArgument(5),
                     invocation.getArgument(6)));
 
-    var processedEvent =
-        new PaymentWebhookEvent(
-            UUID.randomUUID(),
-            null,
-            "mock",
-            "evt-123",
-            "PAYMENT_CONFIRMED",
-            false,
-            command.rawPayload(),
-            Instant.now(clock));
-    processedEvent.markProcessed(Instant.now(clock));
-    when(processConfirmedPaymentWebhookUseCase.execute(any(PaymentWebhookEvent.class), eq(null)))
-        .thenReturn(processedEvent);
-
     var result = useCase.execute(command);
 
     ArgumentCaptor<UUID> eventIdCaptor = ArgumentCaptor.forClass(UUID.class);
@@ -80,21 +67,29 @@ class RegisterPaymentWebhookUseCaseTest {
             eq("mock"),
             eq("evt-123"),
             eq("PAYMENT_CONFIRMED"),
-            eq(false),
+            eq(true),
             rawPayloadCaptor.capture(),
             receivedAtCaptor.capture());
 
     assertThat(eventIdCaptor.getValue()).isNotNull();
-    assertThat(result).isSameAs(processedEvent);
+    assertThat(result.getId()).isEqualTo(eventIdCaptor.getValue());
     assertThat(result.getProviderName()).isEqualTo("mock");
     assertThat(result.getExternalEventId()).isEqualTo("evt-123");
     assertThat(result.getEventType()).isEqualTo("PAYMENT_CONFIRMED");
+    assertThat(result.isSignatureValid()).isTrue();
     assertThat(rawPayloadCaptor.getValue()).isEqualTo(command.rawPayload());
     assertThat(result.getRawPayload()).isEqualTo(command.rawPayload());
     assertThat(receivedAtCaptor.getValue()).isEqualTo(Instant.now(clock));
     assertThat(result.getReceivedAt()).isEqualTo(Instant.now(clock));
-    assertThat(result.getProcessingStatus()).isEqualTo(PaymentWebhookProcessingStatus.PROCESSED);
-    verify(processConfirmedPaymentWebhookUseCase).execute(any(PaymentWebhookEvent.class), eq(null));
+    assertThat(result.getProcessingStatus()).isEqualTo(PaymentWebhookProcessingStatus.RECEIVED);
+    var inOrder = inOrder(paymentWebhookEventPersistencePort, paymentWebhookRegisteredPublisher);
+    inOrder
+        .verify(paymentWebhookEventPersistencePort)
+        .saveReceivedEvent(
+            any(), eq("mock"), eq("evt-123"), eq("PAYMENT_CONFIRMED"), eq(true), any(), any());
+    inOrder
+        .verify(paymentWebhookRegisteredPublisher)
+        .publish(new PaymentWebhookRegisteredEvent(result.getId(), null, "PAYMENT_CONFIRMED"));
   }
 
   @Test
@@ -130,7 +125,7 @@ class RegisterPaymentWebhookUseCaseTest {
     assertThat(result.getProcessedAt()).isEqualTo(Instant.parse("2026-03-30T15:01:00Z"));
     verify(paymentWebhookEventPersistencePort, never())
         .saveReceivedEvent(any(), any(), any(), any(), anyBoolean(), any(), any());
-    verify(processConfirmedPaymentWebhookUseCase, never()).execute(any(), any());
+    verify(paymentWebhookRegisteredPublisher, never()).publish(any());
   }
 
   @Test
@@ -151,7 +146,6 @@ class RegisterPaymentWebhookUseCaseTest {
     when(paymentWebhookEventPersistencePort.saveReceivedEvent(
             any(), eq("mock"), eq("evt-123"), eq("PAYMENT_CONFIRMED"), eq(false), any(), any()))
         .thenReturn(firstEvent);
-    when(processConfirmedPaymentWebhookUseCase.execute(firstEvent, null)).thenReturn(firstEvent);
 
     var command =
         new RegisterPaymentWebhookCommand(
@@ -165,6 +159,8 @@ class RegisterPaymentWebhookUseCaseTest {
     verify(paymentWebhookEventPersistencePort)
         .saveReceivedEvent(
             any(), eq("mock"), eq("evt-123"), eq("PAYMENT_CONFIRMED"), eq(false), any(), any());
+    verify(paymentWebhookRegisteredPublisher)
+        .publish(new PaymentWebhookRegisteredEvent(firstEvent.getId(), null, "PAYMENT_CONFIRMED"));
   }
 
   @Test
@@ -179,20 +175,42 @@ class RegisterPaymentWebhookUseCaseTest {
             false,
             "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_PENDING\"}",
             Instant.now(clock));
+    var processedEvent =
+        new PaymentWebhookEvent(
+            savedEvent.getId(),
+            null,
+            "mock",
+            "evt-123",
+            "PAYMENT_PENDING",
+            false,
+            "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_PENDING\"}",
+            Instant.now(clock));
+    processedEvent.markProcessed(Instant.now(clock));
     when(paymentWebhookEventPersistencePort.findByProviderNameAndExternalEventId("mock", "evt-123"))
         .thenReturn(Optional.empty());
     when(paymentWebhookEventPersistencePort.saveReceivedEvent(
             any(), eq("mock"), eq("evt-123"), eq("PAYMENT_PENDING"), eq(false), any(), any()))
         .thenReturn(savedEvent);
+    when(paymentWebhookEventPersistencePort.markProcessed(
+            savedEvent.getId(), null, Instant.now(clock)))
+        .thenReturn(processedEvent);
 
     var result =
         useCase.execute(
             new RegisterPaymentWebhookCommand(
                 "mock", "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_PENDING\"}"));
 
-    assertThat(result).isSameAs(savedEvent);
-    assertThat(result.getProcessingStatus()).isEqualTo(PaymentWebhookProcessingStatus.RECEIVED);
-    verify(processConfirmedPaymentWebhookUseCase, never()).execute(any(), any());
+    assertThat(result).isSameAs(processedEvent);
+    assertThat(result.getProcessingStatus()).isEqualTo(PaymentWebhookProcessingStatus.PROCESSED);
+    var inOrder = inOrder(paymentWebhookEventPersistencePort, paymentWebhookRegisteredPublisher);
+    inOrder
+        .verify(paymentWebhookEventPersistencePort)
+        .saveReceivedEvent(
+            any(), eq("mock"), eq("evt-123"), eq("PAYMENT_PENDING"), eq(false), any(), any());
+    inOrder
+        .verify(paymentWebhookEventPersistencePort)
+        .markProcessed(savedEvent.getId(), null, Instant.now(clock));
+    verify(paymentWebhookRegisteredPublisher, never()).publish(any());
   }
 
   @Test
@@ -226,7 +244,7 @@ class RegisterPaymentWebhookUseCaseTest {
                 """));
 
     assertThat(result).isSameAs(existingEvent);
-    verify(processConfirmedPaymentWebhookUseCase, never()).execute(any(), any());
+    verify(paymentWebhookRegisteredPublisher, never()).publish(any());
   }
 
   @Test
@@ -272,7 +290,7 @@ class RegisterPaymentWebhookUseCaseTest {
         .findByProviderNameAndExternalEventId(any(), any());
     verify(paymentWebhookEventPersistencePort, never())
         .saveReceivedEvent(any(), any(), any(), any(), anyBoolean(), any(), any());
-    verify(processConfirmedPaymentWebhookUseCase, never()).execute(any(), any());
+    verify(paymentWebhookRegisteredPublisher, never()).publish(any());
   }
 
   @Test
@@ -396,10 +414,6 @@ class RegisterPaymentWebhookUseCaseTest {
                     invocation.getArgument(4),
                     invocation.getArgument(5),
                     invocation.getArgument(6)));
-    when(processConfirmedPaymentWebhookUseCase.execute(
-            any(PaymentWebhookEvent.class), eq("charge-123")))
-        .thenAnswer(invocation -> invocation.getArgument(0));
-
     var result =
         useCase.execute(
             new RegisterPaymentWebhookCommand(
@@ -415,8 +429,7 @@ class RegisterPaymentWebhookUseCaseTest {
     assertThat(result.getProviderName()).isEqualTo("mock");
     verify(paymentWebhookEventPersistencePort)
         .findByProviderNameAndExternalEventId(eq("mock"), eq("evt-123"));
-    verify(processConfirmedPaymentWebhookUseCase)
-        .execute(any(PaymentWebhookEvent.class), eq("charge-123"));
+    verify(paymentWebhookRegisteredPublisher).publish(any(PaymentWebhookRegisteredEvent.class));
   }
 
   @Test
@@ -436,9 +449,6 @@ class RegisterPaymentWebhookUseCaseTest {
                     invocation.getArgument(4),
                     invocation.getArgument(5),
                     invocation.getArgument(6)));
-    when(processConfirmedPaymentWebhookUseCase.execute(any(PaymentWebhookEvent.class), eq(null)))
-        .thenAnswer(invocation -> invocation.getArgument(0));
-
     useCase.execute(
         new RegisterPaymentWebhookCommand(
             "mock",
@@ -450,7 +460,7 @@ class RegisterPaymentWebhookUseCaseTest {
             }
             """));
 
-    verify(processConfirmedPaymentWebhookUseCase).execute(any(PaymentWebhookEvent.class), eq(null));
+    verify(paymentWebhookRegisteredPublisher).publish(any(PaymentWebhookRegisteredEvent.class));
   }
 
   @Test
@@ -470,9 +480,6 @@ class RegisterPaymentWebhookUseCaseTest {
                     invocation.getArgument(4),
                     invocation.getArgument(5),
                     invocation.getArgument(6)));
-    when(processConfirmedPaymentWebhookUseCase.execute(any(PaymentWebhookEvent.class), eq(null)))
-        .thenAnswer(invocation -> invocation.getArgument(0));
-
     useCase.execute(
         new RegisterPaymentWebhookCommand(
             "mock",
@@ -484,6 +491,6 @@ class RegisterPaymentWebhookUseCaseTest {
             }
             """));
 
-    verify(processConfirmedPaymentWebhookUseCase).execute(any(PaymentWebhookEvent.class), eq(null));
+    verify(paymentWebhookRegisteredPublisher).publish(any(PaymentWebhookRegisteredEvent.class));
   }
 }

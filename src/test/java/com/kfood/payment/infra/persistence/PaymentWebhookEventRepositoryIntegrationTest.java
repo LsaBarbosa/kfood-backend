@@ -34,13 +34,14 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 @DataJpaTest
 @ActiveProfiles("test")
-@Import(TestJpaAuditingConfig.class)
+@Import({TestJpaAuditingConfig.class, PaymentWebhookEventPersistenceAdapter.class})
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @TestPropertySource(
     properties = {"spring.flyway.enabled=false", "spring.jpa.hibernate.ddl-auto=create"})
 class PaymentWebhookEventRepositoryIntegrationTest extends PostgreSqlContainerIT {
 
   @Autowired private PaymentWebhookEventRepository paymentWebhookEventRepository;
+  @Autowired private PaymentWebhookEventPersistenceAdapter paymentWebhookEventPersistenceAdapter;
   @Autowired private PaymentRepository paymentRepository;
   @Autowired private SalesOrderRepository salesOrderRepository;
   @Autowired private StoreRepository storeRepository;
@@ -269,6 +270,44 @@ class PaymentWebhookEventRepositoryIntegrationTest extends PostgreSqlContainerIT
             return null;
           });
     }
+  }
+
+  @Test
+  @DisplayName("should raise unique constraint during adapter save received event")
+  void shouldRaiseUniqueConstraintDuringAdapterSaveReceivedEvent() {
+    paymentWebhookEventPersistenceAdapter.saveReceivedEvent(
+        UUID.randomUUID(),
+        "mock",
+        "evt-adapter-duplicate",
+        "PAYMENT_PENDING",
+        true,
+        "{\"externalEventId\":\"evt-adapter-duplicate\",\"eventType\":\"PAYMENT_PENDING\"}",
+        Instant.parse("2026-03-30T10:15:00Z"));
+
+    assertThatThrownBy(
+            () ->
+                paymentWebhookEventPersistenceAdapter.saveReceivedEvent(
+                    UUID.randomUUID(),
+                    "mock",
+                    "evt-adapter-duplicate",
+                    "PAYMENT_PENDING",
+                    true,
+                    "{\"externalEventId\":\"evt-adapter-duplicate\",\"eventType\":\"PAYMENT_PENDING\"}",
+                    Instant.parse("2026-03-30T10:16:00Z")))
+        .isInstanceOf(Exception.class);
+
+    Integer persistedRows =
+        jdbcTemplate.queryForObject(
+            """
+            select count(*)
+            from payment_webhook_event
+            where provider_name = ? and external_event_id = ?
+            """,
+            Integer.class,
+            "mock",
+            "evt-adapter-duplicate");
+
+    assertThat(persistedRows).isEqualTo(1);
   }
 
   private <T> T inNewTransaction(TransactionCallback<T> action) {

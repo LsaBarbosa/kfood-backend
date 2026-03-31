@@ -35,6 +35,7 @@ public class PaymentWebhookController {
       @RequestHeader(name = WEBHOOK_TOKEN_HEADER, required = false) String webhookToken,
       @RequestBody String rawPayload) {
     paymentWebhookAuthenticationService.authenticate(provider, webhookToken);
-    registerPaymentWebhookUseCase.execute(new RegisterPaymentWebhookCommand(provider, rawPayload));
+    registerPaymentWebhookUseCase.execute(
+        new RegisterPaymentWebhookCommand(provider, rawPayload, true));
   }
 }
