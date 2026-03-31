@@ -123,6 +123,32 @@ class PaymentWebhookEventPersistenceAdapterTest {
   }
 
   @Test
+  void shouldTranslateWhenConstraintMessageAndSqlStateAppearInDifferentCauseLevels() {
+    var exception =
+        new JpaSystemException(
+            new GenericJDBCException(
+                "could not execute statement for constraint"
+                    + " uk_payment_webhook_event_provider_external_event",
+                new SQLException("duplicate key", "23505")));
+    when(paymentWebhookEventRepository.saveAndFlush(any(PaymentWebhookEvent.class)))
+        .thenThrow(exception);
+
+    assertThatThrownBy(
+            () ->
+                adapter.saveReceivedEvent(
+                    UUID.randomUUID(),
+                    "mock",
+                    "evt-123",
+                    "PAYMENT_CONFIRMED",
+                    true,
+                    "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_CONFIRMED\"}",
+                    Instant.parse("2026-03-30T16:00:00Z")))
+        .isInstanceOf(DataIntegrityViolationException.class)
+        .hasMessage("Duplicate payment webhook event for provider and external event id")
+        .hasCauseInstanceOf(JpaSystemException.class);
+  }
+
+  @Test
   void shouldKeepStableDataIntegrityViolationWhenRepositoryAlreadyTranslatesDuplicate() {
     when(paymentWebhookEventRepository.saveAndFlush(any(PaymentWebhookEvent.class)))
         .thenThrow(
@@ -198,6 +224,30 @@ class PaymentWebhookEventPersistenceAdapterTest {
                     "ERROR: duplicate key value violates unique constraint"
                         + " \"uk_other_constraint\"",
                     "23505")));
+    when(paymentWebhookEventRepository.saveAndFlush(any(PaymentWebhookEvent.class)))
+        .thenThrow(exception);
+
+    assertThatThrownBy(
+            () ->
+                adapter.saveReceivedEvent(
+                    UUID.randomUUID(),
+                    "mock",
+                    "evt-123",
+                    "PAYMENT_CONFIRMED",
+                    true,
+                    "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_CONFIRMED\"}",
+                    Instant.parse("2026-03-30T16:00:00Z")))
+        .isSameAs(exception);
+  }
+
+  @Test
+  void shouldNotTranslateWhenWebhookConstraintAppearsButSqlStateIsNotUniqueViolation() {
+    var exception =
+        new JpaSystemException(
+            new GenericJDBCException(
+                "could not execute statement for constraint"
+                    + " uk_payment_webhook_event_provider_external_event",
+                new SQLException("connection dropped while writing", "08006")));
     when(paymentWebhookEventRepository.saveAndFlush(any(PaymentWebhookEvent.class)))
         .thenThrow(exception);
 

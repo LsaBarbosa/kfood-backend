@@ -114,6 +114,8 @@ class RegisterPaymentWebhookUseCaseIntegrationTest extends PostgreSqlContainerIT
     assertThat(result.getId()).isEqualTo(persistedEvent.getId());
     assertThat(result.isSignatureValid()).isTrue();
     assertThat(result.getProcessingStatus()).isEqualTo(PaymentWebhookProcessingStatus.PROCESSED);
+    assertThat(persistedEvent.getProcessingStatus()).isEqualTo(PaymentWebhookProcessingStatus.PROCESSED);
+    assertThat(persistedEvent.getProcessedAt()).isNotNull();
     assertThat(countRows("evt-race")).isEqualTo(1);
   }
 

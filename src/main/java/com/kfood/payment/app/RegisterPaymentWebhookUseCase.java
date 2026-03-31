@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kfood.payment.app.port.PaymentWebhookEventPersistencePort;
 import com.kfood.payment.app.port.PaymentWebhookEventRecord;
+import com.kfood.payment.domain.PaymentWebhookProcessingStatus;
 import com.kfood.shared.exceptions.ApiFieldError;
 import com.kfood.shared.exceptions.BusinessException;
 import com.kfood.shared.exceptions.ErrorCode;
@@ -70,9 +71,16 @@ public class RegisterPaymentWebhookUseCase {
           new PaymentWebhookRegisteredEvent(savedEvent.getId(), providerReference, eventType));
       return savedEvent;
     } catch (DataIntegrityViolationException exception) {
-      return paymentWebhookEventPersistencePort
-          .findByProviderNameAndExternalEventId(normalizedProvider, externalEventId)
-          .orElseThrow(() -> exception);
+      var recoveredEvent =
+          paymentWebhookEventPersistencePort
+              .findByProviderNameAndExternalEventId(normalizedProvider, externalEventId)
+              .orElseThrow(() -> exception);
+      if (!CONFIRMED_EVENT_TYPE.equals(eventType)
+          && recoveredEvent.getProcessingStatus() == PaymentWebhookProcessingStatus.RECEIVED) {
+        return paymentWebhookEventPersistencePort.markProcessed(
+            recoveredEvent.getId(), null, Instant.now(clock));
+      }
+      return recoveredEvent;
     }
   }
 

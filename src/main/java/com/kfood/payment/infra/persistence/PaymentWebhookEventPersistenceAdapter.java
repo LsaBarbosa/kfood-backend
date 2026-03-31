@@ -89,22 +89,37 @@ public class PaymentWebhookEventPersistenceAdapter implements PaymentWebhookEven
   }
 
   private boolean isDuplicateWebhookEvent(Throwable exception) {
+    return hasWebhookConstraintInCauseChain(exception)
+        && (hasUniqueViolationSqlStateInCauseChain(exception)
+            || hasTranslatedDataIntegrityViolationInCauseChain(exception));
+  }
+
+  private boolean hasUniqueViolationSqlStateInCauseChain(Throwable exception) {
     for (Throwable current = exception; current != null; current = current.getCause()) {
-      if (current instanceof DataIntegrityViolationException
-          && hasWebhookConstraintMessage(current)) {
-        return true;
-      }
       if (current instanceof SQLException sqlException
-          && UNIQUE_VIOLATION_SQL_STATE.equals(sqlException.getSQLState())
-          && hasWebhookConstraintMessage(sqlException)) {
+          && UNIQUE_VIOLATION_SQL_STATE.equals(sqlException.getSQLState())) {
         return true;
       }
     }
     return false;
   }
 
-  private boolean hasWebhookConstraintMessage(Throwable throwable) {
-    return throwable.getMessage() != null
-        && throwable.getMessage().contains(WEBHOOK_EVENT_UNIQUE_CONSTRAINT);
+  private boolean hasTranslatedDataIntegrityViolationInCauseChain(Throwable exception) {
+    for (Throwable current = exception; current != null; current = current.getCause()) {
+      if (current instanceof DataIntegrityViolationException) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private boolean hasWebhookConstraintInCauseChain(Throwable exception) {
+    for (Throwable current = exception; current != null; current = current.getCause()) {
+      if (current.getMessage() != null
+          && current.getMessage().contains(WEBHOOK_EVENT_UNIQUE_CONSTRAINT)) {
+        return true;
+      }
+    }
+    return false;
   }
 }

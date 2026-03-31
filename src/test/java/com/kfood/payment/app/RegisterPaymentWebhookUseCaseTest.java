@@ -248,6 +248,56 @@ class RegisterPaymentWebhookUseCaseTest {
   }
 
   @Test
+  void shouldFinishRecoveredNonConfirmedEventWhenRaceConditionFindsReceivedRecord() {
+    var existingReceivedEvent =
+        new PaymentWebhookEvent(
+            UUID.randomUUID(),
+            null,
+            "mock",
+            "evt-123",
+            "PAYMENT_PENDING",
+            false,
+            "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_PENDING\"}",
+            Instant.parse("2026-03-30T15:00:00Z"));
+    var processedEvent =
+        new PaymentWebhookEvent(
+            existingReceivedEvent.getId(),
+            null,
+            "mock",
+            "evt-123",
+            "PAYMENT_PENDING",
+            false,
+            "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_PENDING\"}",
+            Instant.parse("2026-03-30T15:00:00Z"));
+    processedEvent.markProcessed(Instant.now(clock));
+    when(paymentWebhookEventPersistencePort.findByProviderNameAndExternalEventId("mock", "evt-123"))
+        .thenReturn(Optional.empty())
+        .thenReturn(Optional.of(existingReceivedEvent));
+    when(paymentWebhookEventPersistencePort.saveReceivedEvent(
+            any(), eq("mock"), eq("evt-123"), eq("PAYMENT_PENDING"), eq(false), any(), any()))
+        .thenThrow(new DataIntegrityViolationException("duplicate"));
+    when(paymentWebhookEventPersistencePort.markProcessed(
+            existingReceivedEvent.getId(), null, Instant.now(clock)))
+        .thenReturn(processedEvent);
+
+    var result =
+        useCase.execute(
+            new RegisterPaymentWebhookCommand(
+                "mock",
+                """
+                {
+                  "externalEventId": "evt-123",
+                  "eventType": "PAYMENT_PENDING"
+                }
+                """));
+
+    assertThat(result).isSameAs(processedEvent);
+    verify(paymentWebhookEventPersistencePort)
+        .markProcessed(existingReceivedEvent.getId(), null, Instant.now(clock));
+    verify(paymentWebhookRegisteredPublisher, never()).publish(any());
+  }
+
+  @Test
   void shouldPropagateUniqueConstraintFailureWhenExistingEventCannotBeRecovered() {
     when(paymentWebhookEventPersistencePort.findByProviderNameAndExternalEventId("mock", "evt-123"))
         .thenReturn(Optional.empty())
