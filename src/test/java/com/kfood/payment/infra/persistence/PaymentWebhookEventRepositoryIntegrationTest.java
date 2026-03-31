@@ -208,53 +208,67 @@ class PaymentWebhookEventRepositoryIntegrationTest extends PostgreSqlContainerIT
   @Test
   @DisplayName("should keep a single row after equivalent duplicate attempts")
   void shouldKeepSingleRowAfterEquivalentDuplicateAttempts() {
-    inNewTransaction(
-        status -> {
-          paymentWebhookEventRepository.saveAndFlush(
-              new PaymentWebhookEvent(
-                  UUID.randomUUID(),
-                  null,
-                  "mock",
-                  "evt-single-row",
-                  null,
-                  true,
-                  "{\"id\":\"evt-single-row\"}",
-                  Instant.parse("2026-03-30T10:15:00Z")));
-          return null;
-        });
-
-    assertThatThrownBy(
-            () ->
-                inNewTransaction(
-                    status -> {
-                      paymentWebhookEventRepository.saveAndFlush(
-                          new PaymentWebhookEvent(
-                              UUID.randomUUID(),
-                              null,
-                              "mock",
-                              "evt-single-row",
-                              null,
-                              false,
-                              "{\"id\":\"evt-single-row\",\"retry\":true}",
-                              Instant.parse("2026-03-30T10:16:00Z")));
-                      return null;
-                    }))
-        .isInstanceOf(Exception.class);
-
-    Integer persistedRows =
-        inNewTransaction(
-            status ->
-                jdbcTemplate.queryForObject(
-                    """
-                    select count(*)
-                    from payment_webhook_event
-                    where provider_name = ? and external_event_id = ?
-                    """,
-                    Integer.class,
+    try {
+      inNewTransaction(
+          status -> {
+            paymentWebhookEventRepository.saveAndFlush(
+                new PaymentWebhookEvent(
+                    UUID.randomUUID(),
+                    null,
                     "mock",
-                    "evt-single-row"));
+                    "evt-single-row",
+                    null,
+                    true,
+                    "{\"id\":\"evt-single-row\"}",
+                    Instant.parse("2026-03-30T10:15:00Z")));
+            return null;
+          });
 
-    assertThat(persistedRows).isEqualTo(1);
+      assertThatThrownBy(
+              () ->
+                  inNewTransaction(
+                      status -> {
+                        paymentWebhookEventRepository.saveAndFlush(
+                            new PaymentWebhookEvent(
+                                UUID.randomUUID(),
+                                null,
+                                "mock",
+                                "evt-single-row",
+                                null,
+                                false,
+                                "{\"id\":\"evt-single-row\",\"retry\":true}",
+                                Instant.parse("2026-03-30T10:16:00Z")));
+                        return null;
+                      }))
+          .isInstanceOf(Exception.class);
+
+      Integer persistedRows =
+          inNewTransaction(
+              status ->
+                  jdbcTemplate.queryForObject(
+                      """
+                      select count(*)
+                      from payment_webhook_event
+                      where provider_name = ? and external_event_id = ?
+                      """,
+                      Integer.class,
+                      "mock",
+                      "evt-single-row"));
+
+      assertThat(persistedRows).isEqualTo(1);
+    } finally {
+      inNewTransaction(
+          status -> {
+            jdbcTemplate.update(
+                """
+                delete from payment_webhook_event
+                where provider_name = ? and external_event_id = ?
+                """,
+                "mock",
+                "evt-single-row");
+            return null;
+          });
+    }
   }
 
   private <T> T inNewTransaction(TransactionCallback<T> action) {
