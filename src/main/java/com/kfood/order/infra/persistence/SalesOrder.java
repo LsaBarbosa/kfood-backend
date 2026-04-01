@@ -1,0 +1,441 @@
+package com.kfood.order.infra.persistence;
+
+import com.kfood.customer.infra.persistence.Customer;
+import com.kfood.customer.infra.persistence.CustomerAddress;
+import com.kfood.merchant.infra.persistence.Store;
+import com.kfood.order.app.port.OrderNumberTarget;
+import com.kfood.order.domain.FulfillmentType;
+import com.kfood.order.domain.OrderStatus;
+import com.kfood.order.domain.OrderStatusTransitionException;
+import com.kfood.payment.app.port.PaymentOrder;
+import com.kfood.payment.domain.PaymentMethod;
+import com.kfood.payment.domain.PaymentStatusSnapshot;
+import com.kfood.shared.infra.persistence.AuditableEntity;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Clock;
+import java.time.OffsetDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
+
+@Entity
+@Table(name = "sales_order")
+public class SalesOrder extends AuditableEntity implements PaymentOrder, OrderNumberTarget {
+
+  @Id private UUID id;
+
+  @ManyToOne(fetch = FetchType.LAZY, optional = false)
+  @JoinColumn(name = "store_id", nullable = false)
+  private Store store;
+
+  @ManyToOne(fetch = FetchType.LAZY, optional = false)
+  @JoinColumn(name = "customer_id", nullable = false)
+  private Customer customer;
+
+  @Column(name = "order_number", length = 50)
+  private String orderNumber;
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "payment_method", nullable = false, length = 20)
+  private PaymentMethod paymentMethod;
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "payment_method_snapshot", nullable = false, length = 20)
+  private PaymentMethod paymentMethodSnapshot;
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "payment_status_snapshot", nullable = false, length = 20)
+  private PaymentStatusSnapshot paymentStatusSnapshot;
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "status", nullable = false, length = 30)
+  private OrderStatus status;
+
+  @Enumerated(EnumType.STRING)
+  @Column(name = "fulfillment_type", nullable = false, length = 20)
+  private FulfillmentType fulfillmentType;
+
+  @Column(name = "subtotal_amount", nullable = false, precision = 12, scale = 2)
+  private BigDecimal subtotalAmount;
+
+  @Column(name = "delivery_fee_amount", nullable = false, precision = 12, scale = 2)
+  private BigDecimal deliveryFeeAmount;
+
+  @Column(name = "total_amount", nullable = false, precision = 12, scale = 2)
+  private BigDecimal totalAmount;
+
+  @Column(name = "scheduled_for")
+  private OffsetDateTime scheduledFor;
+
+  @Column(name = "notes", length = 1000)
+  private String notes;
+
+  @Column(name = "delivery_address_label", length = 60)
+  private String deliveryAddressLabel;
+
+  @Column(name = "delivery_address_zip_code", length = 8)
+  private String deliveryAddressZipCode;
+
+  @Column(name = "delivery_address_street", length = 160)
+  private String deliveryAddressStreet;
+
+  @Column(name = "delivery_address_number", length = 20)
+  private String deliveryAddressNumber;
+
+  @Column(name = "delivery_address_district", length = 100)
+  private String deliveryAddressDistrict;
+
+  @Column(name = "delivery_address_city", length = 100)
+  private String deliveryAddressCity;
+
+  @Column(name = "delivery_address_state", length = 2)
+  private String deliveryAddressState;
+
+  @Column(name = "delivery_address_complement", length = 120)
+  private String deliveryAddressComplement;
+
+  @OneToMany(
+      mappedBy = "order",
+      cascade = jakarta.persistence.CascadeType.ALL,
+      orphanRemoval = true)
+  private final List<SalesOrderItem> items = new ArrayList<>();
+
+  protected SalesOrder() {}
+
+  private SalesOrder(
+      UUID id,
+      Store store,
+      Customer customer,
+      FulfillmentType fulfillmentType,
+      PaymentMethod paymentMethod,
+      BigDecimal subtotalAmount,
+      BigDecimal deliveryFeeAmount,
+      BigDecimal totalAmount,
+      OffsetDateTime scheduledFor,
+      String notes) {
+    this.id = Objects.requireNonNull(id, "id is required");
+    this.store = Objects.requireNonNull(store, "store must not be null");
+    this.customer = Objects.requireNonNull(customer, "customer must not be null");
+    this.fulfillmentType =
+        Objects.requireNonNull(fulfillmentType, "fulfillmentType must not be null");
+    this.paymentMethod = Objects.requireNonNull(paymentMethod, "paymentMethod must not be null");
+    paymentMethodSnapshot = this.paymentMethod;
+    this.subtotalAmount = normalizeMoney(subtotalAmount, "subtotalAmount");
+    this.deliveryFeeAmount = normalizeMoney(deliveryFeeAmount, "deliveryFeeAmount");
+    this.totalAmount = normalizeMoney(totalAmount, "totalAmount");
+    this.scheduledFor = scheduledFor;
+    this.notes = normalizeNullable(notes);
+    status = OrderStatus.NEW;
+    paymentStatusSnapshot = PaymentStatusSnapshot.PENDING;
+    validateBusinessRules();
+  }
+
+  public static SalesOrder create(
+      UUID id,
+      Store store,
+      Customer customer,
+      FulfillmentType fulfillmentType,
+      PaymentMethod paymentMethod,
+      BigDecimal subtotalAmount,
+      BigDecimal deliveryFeeAmount,
+      BigDecimal totalAmount,
+      OffsetDateTime scheduledFor,
+      String notes) {
+    return new SalesOrder(
+        id,
+        store,
+        customer,
+        fulfillmentType,
+        paymentMethod,
+        subtotalAmount,
+        deliveryFeeAmount,
+        totalAmount,
+        scheduledFor,
+        notes);
+  }
+
+  @PrePersist
+  @PreUpdate
+  void validateLifecycle() {
+    validateBusinessRules();
+  }
+
+  public UUID getId() {
+    return id;
+  }
+
+  public Store getStore() {
+    return store;
+  }
+
+  @Override
+  public UUID getStoreId() {
+    return store.getId();
+  }
+
+  public Customer getCustomer() {
+    return customer;
+  }
+
+  public String getOrderNumber() {
+    return orderNumber;
+  }
+
+  @Override
+  public String getStoreTimezone() {
+    return store == null ? null : store.getTimezone();
+  }
+
+  public OrderStatus getStatus() {
+    return status;
+  }
+
+  public PaymentMethod getPaymentMethod() {
+    return paymentMethod;
+  }
+
+  public PaymentMethod getPaymentMethodSnapshot() {
+    return paymentMethodSnapshot;
+  }
+
+  public PaymentStatusSnapshot getPaymentStatusSnapshot() {
+    return paymentStatusSnapshot;
+  }
+
+  public FulfillmentType getFulfillmentType() {
+    return fulfillmentType;
+  }
+
+  public BigDecimal getSubtotalAmount() {
+    return subtotalAmount;
+  }
+
+  public BigDecimal getDeliveryFeeAmount() {
+    return deliveryFeeAmount;
+  }
+
+  public BigDecimal getTotalAmount() {
+    return totalAmount;
+  }
+
+  @Override
+  public boolean isCashPaymentEnabled() {
+    return store.isCashPaymentEnabled();
+  }
+
+  public OffsetDateTime getScheduledFor() {
+    return scheduledFor;
+  }
+
+  public String getNotes() {
+    return notes;
+  }
+
+  public String getDeliveryAddressLabel() {
+    return deliveryAddressLabel;
+  }
+
+  public String getDeliveryAddressZipCode() {
+    return deliveryAddressZipCode;
+  }
+
+  public String getDeliveryAddressStreet() {
+    return deliveryAddressStreet;
+  }
+
+  public String getDeliveryAddressNumber() {
+    return deliveryAddressNumber;
+  }
+
+  public String getDeliveryAddressDistrict() {
+    return deliveryAddressDistrict;
+  }
+
+  public String getDeliveryAddressCity() {
+    return deliveryAddressCity;
+  }
+
+  public String getDeliveryAddressState() {
+    return deliveryAddressState;
+  }
+
+  public String getDeliveryAddressComplement() {
+    return deliveryAddressComplement;
+  }
+
+  public List<SalesOrderItem> getItems() {
+    return Collections.unmodifiableList(items);
+  }
+
+  public void assignOrderNumber(String orderNumber) {
+    if (orderNumber == null || orderNumber.isBlank()) {
+      throw new IllegalArgumentException("orderNumber must not be blank");
+    }
+    if (this.orderNumber != null && !this.orderNumber.isBlank()) {
+      throw new IllegalStateException("orderNumber is already assigned");
+    }
+    this.orderNumber = orderNumber.trim();
+  }
+
+  public void markPaymentMethodSnapshot(PaymentMethod paymentMethod) {
+    var validatedPaymentMethod =
+        Objects.requireNonNull(paymentMethod, "paymentMethod must not be null");
+    this.paymentMethod = validatedPaymentMethod;
+    paymentMethodSnapshot = validatedPaymentMethod;
+  }
+
+  public void addItem(SalesOrderItem item) {
+    var validatedItem = Objects.requireNonNull(item, "item must not be null");
+    validatedItem.attachToOrder(this);
+    items.add(validatedItem);
+  }
+
+  public void markPaymentStatusSnapshot(PaymentStatusSnapshot paymentStatusSnapshot) {
+    var validatedPaymentStatusSnapshot =
+        Objects.requireNonNull(paymentStatusSnapshot, "paymentStatusSnapshot must not be null");
+    if (this.paymentStatusSnapshot == PaymentStatusSnapshot.PAID
+        && validatedPaymentStatusSnapshot != PaymentStatusSnapshot.PAID) {
+      throw new IllegalStateException("paymentStatusSnapshot cannot regress from PAID");
+    }
+    this.paymentStatusSnapshot = validatedPaymentStatusSnapshot;
+  }
+
+  public void defineDeliveryAddressSnapshot(CustomerAddress address) {
+    var validatedAddress = Objects.requireNonNull(address, "address must not be null");
+
+    deliveryAddressLabel = validatedAddress.getLabel();
+    deliveryAddressZipCode = validatedAddress.getZipCode();
+    deliveryAddressStreet = validatedAddress.getStreet();
+    deliveryAddressNumber = validatedAddress.getNumber();
+    deliveryAddressDistrict = validatedAddress.getDistrict();
+    deliveryAddressCity = validatedAddress.getCity();
+    deliveryAddressState = validatedAddress.getState();
+    deliveryAddressComplement = validatedAddress.getComplement();
+  }
+
+  public boolean hasDeliveryAddressSnapshot() {
+    return deliveryAddressStreet != null && !deliveryAddressStreet.isBlank();
+  }
+
+  public void defineSchedule(OffsetDateTime scheduledFor, Clock clock) {
+    var validatedClock = Objects.requireNonNull(clock, "clock must not be null");
+    if (scheduledFor == null) {
+      this.scheduledFor = null;
+      return;
+    }
+
+    var now = OffsetDateTime.now(validatedClock);
+    if (!scheduledFor.isAfter(now)) {
+      throw new IllegalArgumentException("scheduledFor must be in the future");
+    }
+
+    this.scheduledFor = scheduledFor;
+  }
+
+  public boolean isScheduled() {
+    return scheduledFor != null;
+  }
+
+  public boolean isScheduledForFuture(Clock clock) {
+    var validatedClock = Objects.requireNonNull(clock, "clock must not be null");
+    return scheduledFor != null && scheduledFor.isAfter(OffsetDateTime.now(validatedClock));
+  }
+
+  public boolean isAvailableForOperation(Clock clock) {
+    var validatedClock = Objects.requireNonNull(clock, "clock must not be null");
+    return scheduledFor == null || !scheduledFor.isAfter(OffsetDateTime.now(validatedClock));
+  }
+
+  public boolean canTransitionTo(OrderStatus targetStatus) {
+    var validatedTargetStatus =
+        Objects.requireNonNull(targetStatus, "targetStatus must not be null");
+
+    return switch (status) {
+      case NEW ->
+          validatedTargetStatus == OrderStatus.PREPARING
+              || validatedTargetStatus == OrderStatus.CANCELED;
+      case PREPARING ->
+          validatedTargetStatus == OrderStatus.READY
+              || validatedTargetStatus == OrderStatus.CANCELED;
+      case READY ->
+          switch (fulfillmentType) {
+            case DELIVERY ->
+                validatedTargetStatus == OrderStatus.OUT_FOR_DELIVERY
+                    || validatedTargetStatus == OrderStatus.CANCELED;
+            case PICKUP ->
+                validatedTargetStatus == OrderStatus.COMPLETED
+                    || validatedTargetStatus == OrderStatus.CANCELED;
+          };
+      case OUT_FOR_DELIVERY ->
+          validatedTargetStatus == OrderStatus.COMPLETED
+              || validatedTargetStatus == OrderStatus.CANCELED;
+      case COMPLETED, CANCELED -> false;
+    };
+  }
+
+  public void changeStatus(OrderStatus targetStatus) {
+    if (!canTransitionTo(targetStatus)) {
+      throw new OrderStatusTransitionException(status, targetStatus);
+    }
+
+    status = targetStatus;
+  }
+
+  public void cancel() {
+    changeStatus(OrderStatus.CANCELED);
+  }
+
+  public boolean isFinalStatus() {
+    return status == OrderStatus.COMPLETED || status == OrderStatus.CANCELED;
+  }
+
+  private void validateBusinessRules() {
+    if (paymentMethod == null && paymentMethodSnapshot != null) {
+      paymentMethod = paymentMethodSnapshot;
+    } else if (paymentMethod != null && paymentMethodSnapshot == null) {
+      paymentMethodSnapshot = paymentMethod;
+    } else if (paymentMethod != null && paymentMethodSnapshot != paymentMethod) {
+      paymentMethod = paymentMethodSnapshot;
+    }
+
+    if (subtotalAmount.signum() < 0) {
+      throw new IllegalArgumentException("subtotalAmount must not be negative");
+    }
+    if (deliveryFeeAmount.signum() < 0) {
+      throw new IllegalArgumentException("deliveryFeeAmount must not be negative");
+    }
+    if (totalAmount.signum() < 0) {
+      throw new IllegalArgumentException("totalAmount must not be negative");
+    }
+
+    var expectedTotal = subtotalAmount.add(deliveryFeeAmount).setScale(2, RoundingMode.HALF_UP);
+    if (expectedTotal.compareTo(totalAmount) != 0) {
+      throw new IllegalArgumentException(
+          "totalAmount must be equal to subtotalAmount + deliveryFeeAmount");
+    }
+  }
+
+  private static BigDecimal normalizeMoney(BigDecimal value, String fieldName) {
+    var normalized = Objects.requireNonNull(value, fieldName + " must not be null");
+    return normalized.setScale(2, RoundingMode.HALF_UP);
+  }
+
+  private String normalizeNullable(String value) {
+    return value == null || value.isBlank() ? null : value.trim();
+  }
+}

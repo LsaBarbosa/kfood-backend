@@ -1,0 +1,33 @@
+spring:
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT}
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST}
+    port: ${RABBITMQ_PORT}
+    username: ${RABBITMQ_USERNAME}
+    password: ${RABBITMQ_PASSWORD}
+
+app:
+  security:
+    jwt-secret: ${JWT_SECRET}
+    jwt-expiration-seconds: ${JWT_EXPIRATION_SECONDS}
+
+management:
+  endpoint:
+    health:
+      group:
+        readiness:
+          include: readinessState,db,redis,rabbit,ping
+        liveness:
+          include: livenessState,ping
+      show-details: never
+      show-components: never

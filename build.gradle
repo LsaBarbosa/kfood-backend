@@ -1,7 +1,11 @@
+import com.kfood.build.DiffCoverageSupport
+
 plugins {
     id 'java'
     id 'org.springframework.boot' version '4.0.3'
     id 'io.spring.dependency-management' version '1.1.7'
+    id 'com.diffplug.spotless' version '8.3.0'
+    id 'jacoco'
 }
 
 group = 'com.kfood'
@@ -18,25 +22,133 @@ repositories {
     mavenCentral()
 }
 
-dependencies {
+ext {
+    testcontainersVersion = '1.21.3'
+}
 
+dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-web'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-security'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'org.springframework.boot:spring-boot-starter-amqp'
+
+    implementation 'org.flywaydb:flyway-core'
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.7'
+
+    runtimeOnly 'org.postgresql:postgresql'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.7'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.7'
+    testRuntimeOnly 'com.h2database:h2:2.3.232'
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
-    testImplementation 'org.springframework.boot:spring-boot-webmvc-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
+    testImplementation 'org.springframework.boot:spring-boot-starter-webmvc-test'
     testImplementation 'org.springframework.security:spring-security-test'
-    testImplementation 'org.springframework.boot:spring-boot-webmvc-test'
-
-
     testImplementation 'com.tngtech.archunit:archunit-junit5:1.4.1'
 
+    testImplementation "org.testcontainers:junit-jupiter:${testcontainersVersion}"
+    testImplementation "org.testcontainers:postgresql:${testcontainersVersion}"
+    testImplementation "org.testcontainers:testcontainers:${testcontainersVersion}"
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
 
 tasks.named('test') {
     useJUnitPlatform()
+    systemProperty 'api.version', '1.44'
+}
+
+jacoco {
+    toolVersion = '0.8.13'
+}
+
+def jacocoCoverageExclusions = [
+    'com/kfood/KfoodBackendApplication*'
+]
+
+def filteredJacocoClassDirectories = sourceSets.main.output.asFileTree.matching {
+    exclude jacocoCoverageExclusions
+}
+
+def changedMainClasses = providers.provider {
+    def diffBase = providers.gradleProperty('jacocoDiffBase').orElse('HEAD~1').get()
+    DiffCoverageSupport.changedMainClasses(
+        rootDir,
+        diffBase,
+        DiffCoverageSupport.processBuilderRunner()
+    )
+}
+
+def minimumCoverage = providers
+    .gradleProperty('jacocoMinimumCoverage')
+    .map { new BigDecimal(it) }
+    .orElse(new BigDecimal('0.99'))
+
+tasks.named('jacocoTestReport') {
+    dependsOn tasks.named('test')
+    classDirectories.setFrom(filteredJacocoClassDirectories)
+
+    reports {
+        xml.required = true
+        html.required = true
+        csv.required = false
+    }
+}
+
+tasks.named('jacocoTestCoverageVerification') {
+    dependsOn tasks.named('test')
+    classDirectories.setFrom(filteredJacocoClassDirectories)
+
+    violationRules {
+        rule {
+            enabled = true
+            element = 'BUNDLE'
+
+            limit {
+                counter = 'LINE'
+                value = 'COVEREDRATIO'
+                minimum = minimumCoverage.get()
+            }
+        }
+
+        def changedClasses = changedMainClasses.get()
+        if (!changedClasses.isEmpty()) {
+            rule {
+                enabled = true
+                element = 'CLASS'
+                includes = changedClasses
+
+                limit {
+                    counter = 'LINE'
+                    value = 'COVEREDRATIO'
+                    minimum = new BigDecimal('1.00')
+                }
+            }
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('spotlessCheck')
+    dependsOn tasks.named('jacocoTestReport')
+    dependsOn tasks.named('jacocoTestCoverageVerification')
+}
+
+spotless {
+    java {
+        target 'src/*/java/**/*.java'
+        targetExclude 'build/**'
+
+        googleJavaFormat()
+        removeUnusedImports()
+        formatAnnotations()
+    }
+
+    format 'misc', {
+        target '*.gradle', '.gitattributes', '.gitignore', '.editorconfig'
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
 }

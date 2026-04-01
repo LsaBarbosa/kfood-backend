@@ -1,6 +1,8 @@
 # Gradle
 .gradle/
 build/
+!buildSrc/src/
+!buildSrc/src/**
 out/
 
 # Java
@@ -10,6 +12,7 @@ out/
 *.ear
 hs_err_pid*
 replay_pid*
+!gradle/wrapper/gradle-wrapper.jar
 
 # IDEs
 .idea/
