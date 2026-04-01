@@ -73,6 +73,8 @@ class PublicStoreControllerWebMvcTest {
         .andExpect(jsonPath("$.hours", Matchers.hasSize(1)))
         .andExpect(jsonPath("$.hours[0].*", Matchers.hasSize(4)))
         .andExpect(jsonPath("$.hours[0].dayOfWeek").value("MONDAY"))
+        .andExpect(jsonPath("$.hours[0].openTime").value("10:00:00"))
+        .andExpect(jsonPath("$.hours[0].closeTime").value("22:00:00"))
         .andExpect(jsonPath("$.hours[0].closed").value(false))
         .andExpect(jsonPath("$.deliveryZones", Matchers.hasSize(1)))
         .andExpect(jsonPath("$.deliveryZones[0].*", Matchers.hasSize(3)))
@@ -85,8 +87,13 @@ class PublicStoreControllerWebMvcTest {
         .andExpect(jsonPath("$.createdAt").doesNotExist())
         .andExpect(jsonPath("$.hoursConfigured").doesNotExist())
         .andExpect(jsonPath("$.deliveryZonesConfigured").doesNotExist())
+        .andExpect(jsonPath("$.logoUrl").doesNotExist())
+        .andExpect(jsonPath("$.bannerUrl").doesNotExist())
+        .andExpect(jsonPath("$.acceptsDelivery").doesNotExist())
+        .andExpect(jsonPath("$.acceptsPickup").doesNotExist())
         .andExpect(jsonPath("$.deliveryZones[0].id").doesNotExist())
-        .andExpect(jsonPath("$.deliveryZones[0].active").doesNotExist());
+        .andExpect(jsonPath("$.deliveryZones[0].active").doesNotExist())
+        .andExpect(jsonPath("$.deliveryZones[0].storeId").doesNotExist());
   }
 
   @Test
