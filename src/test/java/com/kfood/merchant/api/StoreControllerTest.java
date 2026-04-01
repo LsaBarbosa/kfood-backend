@@ -12,11 +12,14 @@ import com.kfood.merchant.app.CreateStoreTermsAcceptanceCommand;
 import com.kfood.merchant.app.CreateStoreTermsAcceptanceUseCase;
 import com.kfood.merchant.app.CreateStoreUseCase;
 import com.kfood.merchant.app.GetStoreDetailsUseCase;
+import com.kfood.merchant.app.GetStoreTermsAcceptanceHistoryUseCase;
+import com.kfood.merchant.app.StoreTermsAcceptanceHistoryItemOutput;
 import com.kfood.merchant.app.StoreTermsAcceptanceOutput;
 import com.kfood.merchant.app.UpdateStoreUseCase;
 import com.kfood.merchant.domain.LegalDocumentType;
 import com.kfood.shared.web.ForwardedClientIpResolver;
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
@@ -34,6 +37,7 @@ class StoreControllerTest {
             provider(mock(UpdateStoreUseCase.class)),
             provider(mock(GetStoreDetailsUseCase.class)),
             provider(createStoreTermsAcceptanceUseCase),
+            provider(mock(GetStoreTermsAcceptanceHistoryUseCase.class)),
             provider(mock(ChangeStoreStatusUseCase.class)),
             new ForwardedClientIpResolver(false));
     var request = new CreateStoreTermsAcceptanceRequest(LegalDocumentType.TERMS_OF_USE, "2026.03");
@@ -58,6 +62,40 @@ class StoreControllerTest {
     assertThat(response.documentVersion()).isEqualTo(expectedResponse.documentVersion());
     verify(createStoreTermsAcceptanceUseCase)
         .execute(any(CreateStoreTermsAcceptanceCommand.class), same("203.0.113.7"));
+  }
+
+  @Test
+  void shouldReturnTermsAcceptanceHistoryResponse() {
+    GetStoreTermsAcceptanceHistoryUseCase getStoreTermsAcceptanceHistoryUseCase =
+        mock(GetStoreTermsAcceptanceHistoryUseCase.class);
+    var controller =
+        new StoreController(
+            provider(mock(CreateStoreUseCase.class)),
+            provider(mock(UpdateStoreUseCase.class)),
+            provider(mock(GetStoreDetailsUseCase.class)),
+            provider(mock(CreateStoreTermsAcceptanceUseCase.class)),
+            provider(getStoreTermsAcceptanceHistoryUseCase),
+            provider(mock(ChangeStoreStatusUseCase.class)),
+            new ForwardedClientIpResolver(false));
+    var acceptanceId = UUID.randomUUID();
+    var acceptedByUserId = UUID.randomUUID();
+    when(getStoreTermsAcceptanceHistoryUseCase.execute())
+        .thenReturn(
+            List.of(
+                new StoreTermsAcceptanceHistoryItemOutput(
+                    acceptanceId,
+                    acceptedByUserId,
+                    LegalDocumentType.TERMS_OF_USE,
+                    "2026.04",
+                    Instant.parse("2026-04-20T13:15:00Z"))));
+
+    var response = controller.getTermsAcceptanceHistory();
+
+    assertThat(response)
+        .singleElement()
+        .satisfies(item -> assertThat(item.id()).isEqualTo(acceptanceId));
+    assertThat(response.getFirst().acceptedByUserId()).isEqualTo(acceptedByUserId);
+    assertThat(response.getFirst().documentVersion()).isEqualTo("2026.04");
   }
 
   @SuppressWarnings("unchecked")
