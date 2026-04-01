@@ -11,6 +11,7 @@ Registra a aceitação de um documento legal para o tenant autenticado.
 - campos aceitos no request: `documentType`, `documentVersion`
 - `acceptedAt` nao faz parte do payload publico de entrada
 - `requestIp` nao faz parte do payload publico de entrada
+- a resposta publica inclui `acceptedAt`
 
 Regras server-side:
 
