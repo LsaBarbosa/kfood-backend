@@ -415,6 +415,97 @@ A aplicação adota um payload padronizado para erros previsíveis e inesperados
 
 ---
 
+## Merchant Store API
+
+Os endpoints abaixo refletem o comportamento atual implementado para a área da loja do merchant na Sprint 6.
+
+### POST `/v1/merchant/store/terms-acceptance`
+
+Registra a aceitação de um documento legal para o tenant autenticado.
+
+- acesso esperado: `OWNER`
+- `acceptedAt` é gerado no servidor
+- o request não aceita `acceptedAt` como campo de entrada
+
+Request:
+
+```json
+{
+  "documentType": "TERMS_OF_USE",
+  "documentVersion": "2026.03"
+}
+```
+
+Response `201 Created`:
+
+```json
+{
+  "id": "2d30e5c1-1d72-4ed1-a8b6-1e78a8b06f43",
+  "documentType": "TERMS_OF_USE",
+  "documentVersion": "2026.03",
+  "acceptedAt": "2026-03-20T10:15:00Z"
+}
+```
+
+### GET `/v1/merchant/store/terms-acceptance/history`
+
+Consulta o histórico de aceite legal do tenant autenticado.
+
+- acesso esperado: `OWNER`
+- itens retornam em ordem decrescente de `acceptedAt`
+
+Response `200 OK`:
+
+```json
+[
+  {
+    "id": "2d30e5c1-1d72-4ed1-a8b6-1e78a8b06f43",
+    "acceptedByUserId": "b4f3df57-74cb-4cc7-a7d6-f3af375203b1",
+    "documentType": "TERMS_OF_USE",
+    "documentVersion": "2026.04",
+    "acceptedAt": "2026-04-20T13:15:00Z"
+  },
+  {
+    "id": "88fd1e88-df32-4b07-b113-186d1cfb2e65",
+    "acceptedByUserId": "f97c6d58-c0a8-4c85-8411-6072e94e951a",
+    "documentType": "TERMS_OF_USE",
+    "documentVersion": "2026.03",
+    "acceptedAt": "2026-03-20T13:15:00Z"
+  }
+]
+```
+
+### PATCH `/v1/merchant/store/status`
+
+Atualiza o status operacional da loja atual.
+
+- acesso esperado: `OWNER` ou `ADMIN`
+
+Request:
+
+```json
+{
+  "targetStatus": "ACTIVE"
+}
+```
+
+Response `200 OK`:
+
+```json
+{
+  "id": "e6b2f3ee-c5c9-42bf-b3af-2ec9072c0caf",
+  "slug": "loja-do-bairro",
+  "name": "Loja do Bairro",
+  "status": "ACTIVE",
+  "phone": "21999990000",
+  "timezone": "America/Sao_Paulo",
+  "hoursConfigured": true,
+  "deliveryZonesConfigured": true
+}
+```
+
+---
+
 ## Auditoria base
 
 A base técnica já prevê auditoria mínima de timestamps automáticos nas entidades.
