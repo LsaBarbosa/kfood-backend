@@ -214,6 +214,66 @@ class RegisterPaymentWebhookUseCaseTest {
   }
 
   @Test
+  void shouldReturnSavedConfirmedEventWithoutPublishingAgainWhenStatusIsNotReceived() {
+    var savedEvent =
+        new PaymentWebhookEvent(
+            UUID.randomUUID(),
+            null,
+            "mock",
+            "evt-123",
+            "PAYMENT_CONFIRMED",
+            false,
+            "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_CONFIRMED\"}",
+            Instant.now(clock));
+    savedEvent.markProcessed(Instant.now(clock));
+    when(paymentWebhookEventPersistencePort.findByProviderNameAndExternalEventId("mock", "evt-123"))
+        .thenReturn(Optional.empty());
+    when(paymentWebhookEventPersistencePort.saveReceivedEvent(
+            any(), eq("mock"), eq("evt-123"), eq("PAYMENT_CONFIRMED"), eq(false), any(), any()))
+        .thenReturn(savedEvent);
+
+    var result =
+        useCase.execute(
+            new RegisterPaymentWebhookCommand(
+                "mock", "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_CONFIRMED\"}"));
+
+    assertThat(result).isSameAs(savedEvent);
+    assertThat(result.getProcessingStatus()).isEqualTo(PaymentWebhookProcessingStatus.PROCESSED);
+    verify(paymentWebhookRegisteredPublisher, never()).publish(any());
+    verify(paymentWebhookEventPersistencePort, never()).markProcessed(any(), any(), any());
+  }
+
+  @Test
+  void shouldReturnSavedNonConfirmedEventWithoutProcessingAgainWhenStatusIsNotReceived() {
+    var savedEvent =
+        new PaymentWebhookEvent(
+            UUID.randomUUID(),
+            null,
+            "mock",
+            "evt-123",
+            "PAYMENT_PENDING",
+            false,
+            "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_PENDING\"}",
+            Instant.now(clock));
+    savedEvent.markProcessed(Instant.now(clock));
+    when(paymentWebhookEventPersistencePort.findByProviderNameAndExternalEventId("mock", "evt-123"))
+        .thenReturn(Optional.empty());
+    when(paymentWebhookEventPersistencePort.saveReceivedEvent(
+            any(), eq("mock"), eq("evt-123"), eq("PAYMENT_PENDING"), eq(false), any(), any()))
+        .thenReturn(savedEvent);
+
+    var result =
+        useCase.execute(
+            new RegisterPaymentWebhookCommand(
+                "mock", "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_PENDING\"}"));
+
+    assertThat(result).isSameAs(savedEvent);
+    assertThat(result.getProcessingStatus()).isEqualTo(PaymentWebhookProcessingStatus.PROCESSED);
+    verify(paymentWebhookRegisteredPublisher, never()).publish(any());
+    verify(paymentWebhookEventPersistencePort, never()).markProcessed(any(), any(), any());
+  }
+
+  @Test
   void shouldRecoverExistingEventWhenRaceConditionHitsUniqueConstraint() {
     var existingEvent =
         new PaymentWebhookEvent(
