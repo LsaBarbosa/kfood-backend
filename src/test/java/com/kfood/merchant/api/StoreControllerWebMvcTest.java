@@ -30,6 +30,7 @@ import com.kfood.merchant.app.StoreNotFoundException;
 import com.kfood.merchant.app.StoreOutput;
 import com.kfood.merchant.app.StoreTermsAcceptanceHistoryItemOutput;
 import com.kfood.merchant.app.StoreTermsAcceptanceOutput;
+import com.kfood.merchant.app.TenantAccessDeniedException;
 import com.kfood.merchant.app.UpdateStoreCommand;
 import com.kfood.merchant.app.UpdateStoreUseCase;
 import com.kfood.merchant.domain.LegalDocumentType;
@@ -367,6 +368,48 @@ class StoreControllerWebMvcTest {
         .andExpect(jsonPath("$.documentType").value("TERMS_OF_USE"))
         .andExpect(jsonPath("$.documentVersion").value("2026.03"))
         .andExpect(jsonPath("$.acceptedAt").value("2026-03-20T10:15:00Z"));
+  }
+
+  @Test
+  void shouldRequireAuthenticationToAcceptTerms() throws Exception {
+    mockMvc
+        .perform(
+            post("/v1/merchant/store/terms-acceptance")
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "documentType": "TERMS_OF_USE",
+                      "documentVersion": "2026.03"
+                    }
+                    """))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.code").value("AUTH_INVALID_CREDENTIALS"));
+  }
+
+  @Test
+  void shouldReturnTenantAccessDeniedWhenAcceptingTermsAcrossTenants() throws Exception {
+    when(clientIpResolver.resolve(any())).thenReturn("203.0.113.9");
+    when(createStoreTermsAcceptanceUseCase.execute(
+            any(CreateStoreTermsAcceptanceCommand.class), any(String.class)))
+        .thenThrow(new TenantAccessDeniedException());
+
+    mockMvc
+        .perform(
+            post("/v1/merchant/store/terms-acceptance")
+                .header("Authorization", "Bearer " + tokenOf(UserRoleName.OWNER))
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "documentType": "TERMS_OF_USE",
+                      "documentVersion": "2026.03"
+                    }
+                    """))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.code").value("TENANT_ACCESS_DENIED"))
+        .andExpect(
+            jsonPath("$.message").value("Authenticated user cannot operate on another tenant."));
   }
 
   @Test
