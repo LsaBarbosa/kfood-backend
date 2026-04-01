@@ -272,68 +272,69 @@ class PaymentWebhookEventRepositoryIntegrationTest extends PostgreSqlContainerIT
     }
   }
 
-    @Test
-    @DisplayName("should return existing event during adapter duplicate save received event")
-    void shouldReturnExistingEventDuringAdapterDuplicateSaveReceivedEvent() {
-        try {
-            var firstResult =
-                inNewTransaction(
-                    status ->
-                        paymentWebhookEventPersistenceAdapter.saveReceivedEvent(
-                            UUID.randomUUID(),
-                            "mock",
-                            "evt-adapter-duplicate",
-                            "PAYMENT_PENDING",
-                            true,
-                            "{\"externalEventId\":\"evt-adapter-duplicate\",\"eventType\":\"PAYMENT_PENDING\"}",
-                            Instant.parse("2026-03-30T10:15:00Z")));
+  @Test
+  @DisplayName("should return existing event during adapter duplicate save received event")
+  void shouldReturnExistingEventDuringAdapterDuplicateSaveReceivedEvent() {
+    try {
+      var firstResult =
+          inNewTransaction(
+              status ->
+                  paymentWebhookEventPersistenceAdapter.saveReceivedEvent(
+                      UUID.randomUUID(),
+                      "mock",
+                      "evt-adapter-duplicate",
+                      "PAYMENT_PENDING",
+                      true,
+                      "{\"externalEventId\":\"evt-adapter-duplicate\",\"eventType\":\"PAYMENT_PENDING\"}",
+                      Instant.parse("2026-03-30T10:15:00Z")));
 
-            var secondResult =
-                inNewTransaction(
-                    status ->
-                        paymentWebhookEventPersistenceAdapter.saveReceivedEvent(
-                            UUID.randomUUID(),
-                            "mock",
-                            "evt-adapter-duplicate",
-                            "PAYMENT_PENDING",
-                            true,
-                            "{\"externalEventId\":\"evt-adapter-duplicate\",\"eventType\":\"PAYMENT_PENDING\"}",
-                            Instant.parse("2026-03-30T10:16:00Z")));
+      var secondResult =
+          inNewTransaction(
+              status ->
+                  paymentWebhookEventPersistenceAdapter.saveReceivedEvent(
+                      UUID.randomUUID(),
+                      "mock",
+                      "evt-adapter-duplicate",
+                      "PAYMENT_PENDING",
+                      true,
+                      "{\"externalEventId\":\"evt-adapter-duplicate\",\"eventType\":\"PAYMENT_PENDING\"}",
+                      Instant.parse("2026-03-30T10:16:00Z")));
 
-            assertThat(secondResult.getId()).isEqualTo(firstResult.getId());
-            assertThat(secondResult.getProviderName()).isEqualTo("mock");
-            assertThat(secondResult.getExternalEventId()).isEqualTo("evt-adapter-duplicate");
-            assertThat(secondResult.getProcessingStatus())
-                .isEqualTo(PaymentWebhookProcessingStatus.RECEIVED);
+      assertThat(secondResult.getId()).isEqualTo(firstResult.getId());
+      assertThat(secondResult.getProviderName()).isEqualTo("mock");
+      assertThat(secondResult.getExternalEventId()).isEqualTo("evt-adapter-duplicate");
+      assertThat(secondResult.getProcessingStatus())
+          .isEqualTo(PaymentWebhookProcessingStatus.RECEIVED);
 
-            Integer persistedRows =
-                inNewTransaction(
-                    status ->
-                        jdbcTemplate.queryForObject(
-                            """
+      Integer persistedRows =
+          inNewTransaction(
+              status ->
+                  jdbcTemplate.queryForObject(
+                      """
                             select count(*)
                             from payment_webhook_event
                             where provider_name = ? and external_event_id = ?
                             """,
-                            Integer.class,
-                            "mock",
-                            "evt-adapter-duplicate"));
+                      Integer.class,
+                      "mock",
+                      "evt-adapter-duplicate"));
 
-            assertThat(persistedRows).isEqualTo(1);
-        } finally {
-            inNewTransaction(
-                status -> {
-                    jdbcTemplate.update(
-                        """
+      assertThat(persistedRows).isEqualTo(1);
+    } finally {
+      inNewTransaction(
+          status -> {
+            jdbcTemplate.update(
+                """
                         delete from payment_webhook_event
                         where provider_name = ? and external_event_id = ?
                         """,
-                        "mock",
-                        "evt-adapter-duplicate");
-                    return null;
-                });
-        }
+                "mock",
+                "evt-adapter-duplicate");
+            return null;
+          });
     }
+  }
+
   private <T> T inNewTransaction(TransactionCallback<T> action) {
     var template = new TransactionTemplate(transactionManager);
     template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
