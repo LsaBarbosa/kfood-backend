@@ -94,8 +94,7 @@ class ProcessConfirmedPaymentWebhookUseCaseTest {
 
     var result = useCase.execute(event, null);
 
-    assertThat(result.getProcessingStatus())
-        .isEqualTo(PaymentWebhookProcessingStatus.FAILED);
+    assertThat(result.getProcessingStatus()).isEqualTo(PaymentWebhookProcessingStatus.FAILED);
     verify(paymentWebhookPaymentPort, never())
         .findByProviderNameAndProviderReference("mock", "charge-123");
   }
@@ -109,8 +108,7 @@ class ProcessConfirmedPaymentWebhookUseCaseTest {
 
     var result = useCase.execute(event, "   ");
 
-    assertThat(result.getProcessingStatus())
-        .isEqualTo(PaymentWebhookProcessingStatus.FAILED);
+    assertThat(result.getProcessingStatus()).isEqualTo(PaymentWebhookProcessingStatus.FAILED);
     verify(paymentWebhookPaymentPort, never())
         .findByProviderNameAndProviderReference("mock", "charge-123");
   }
@@ -126,10 +124,8 @@ class ProcessConfirmedPaymentWebhookUseCaseTest {
 
     var result = useCase.execute(event, "charge-123");
 
-    assertThat(result.getProcessingStatus())
-        .isEqualTo(PaymentWebhookProcessingStatus.FAILED);
-    verify(paymentWebhookEventPersistencePort)
-        .markFailed(event.getId(), Instant.now(clock));
+    assertThat(result.getProcessingStatus()).isEqualTo(PaymentWebhookProcessingStatus.FAILED);
+    verify(paymentWebhookEventPersistencePort).markFailed(event.getId(), Instant.now(clock));
   }
 
   @Test
@@ -144,8 +140,7 @@ class ProcessConfirmedPaymentWebhookUseCaseTest {
 
     var result = useCase.execute(event, "charge-123");
 
-    assertThat(result.getProcessingStatus())
-        .isEqualTo(PaymentWebhookProcessingStatus.FAILED);
+    assertThat(result.getProcessingStatus()).isEqualTo(PaymentWebhookProcessingStatus.FAILED);
     assertThat(payment.getStatus()).isEqualTo(PaymentStatus.FAILED);
     assertThat(((SalesOrder) payment.getOrder()).getPaymentStatusSnapshot())
         .isEqualTo(PaymentStatusSnapshot.FAILED);
