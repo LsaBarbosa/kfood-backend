@@ -1,0 +1,209 @@
+openapi: 3.1.0
+info:
+  title: KFood Payment Webhook Contract
+  version: Sprint 13
+  description: >
+    Focused OpenAPI contract for the payment webhook endpoint. This document reflects the
+    approved Sprint 13 behavior for webhook acknowledgement, operational processing status,
+    idempotent replay handling, and validation/authentication responses.
+paths:
+  /v1/payments/webhooks/{provider}:
+    post:
+      tags:
+        - Payments
+      summary: Receive payment provider webhook
+      description: >
+        Receives the raw webhook payload from a payment provider, validates the webhook token,
+        persists the received payload, and acknowledges the provider with HTTP 202.
+
+        Idempotency: the pair `provider + externalEventId` is treated as the replay key. Replayed
+        deliveries must not duplicate side effects and still return the same acknowledgement
+        contract.
+
+        Persistence: the raw request body is stored as received so the payload can be audited and
+        replay-safe processing can be enforced.
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          description: Provider identifier configured by the server, for example `mock`.
+          schema:
+            type: string
+          example: mock
+        - name: X-Webhook-Token
+          in: header
+          required: true
+          description: Shared webhook token used to authenticate the provider request.
+          schema:
+            type: string
+          example: mock-token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PaymentWebhookRequest'
+            examples:
+              confirmedPayment:
+                summary: Confirmed payment event
+                value:
+                  externalEventId: evt-123
+                  eventType: PAYMENT_CONFIRMED
+                  providerReference: charge-123
+              ignoredEvent:
+                summary: Non-confirmed event that is persisted and finalized as ignored
+                value:
+                  externalEventId: evt-456
+                  eventType: PAYMENT_PENDING
+      responses:
+        '202':
+          description: >
+            Webhook accepted and persisted. The operational processing status reflects the current
+            state of the stored webhook event record.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentWebhookAcceptedResponse'
+              examples:
+                received:
+                  summary: First confirmed delivery queued for follow-up processing
+                  value:
+                    accepted: true
+                    processingStatus: RECEIVED
+                    externalEventId: evt-123
+                processedReplay:
+                  summary: Replay of an already finalized confirmed event
+                  value:
+                    accepted: true
+                    processingStatus: PROCESSED
+                    externalEventId: evt-123
+                ignored:
+                  summary: Non-confirmed event finalized without payment side effects
+                  value:
+                    accepted: true
+                    processingStatus: IGNORED
+                    externalEventId: evt-456
+                failed:
+                  summary: Confirmed event persisted but finalized with processing failure
+                  value:
+                    accepted: true
+                    processingStatus: FAILED
+                    externalEventId: evt-789
+        '400':
+          description: Invalid JSON payload or required fields missing/blank.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+              examples:
+                malformedJson:
+                  value:
+                    code: VALIDATION_ERROR
+                    message: Validation failed.
+                    details:
+                      - field: body
+                        message: Malformed JSON payload.
+                missingExternalEventId:
+                  value:
+                    code: VALIDATION_ERROR
+                    message: Validation failed.
+                    details:
+                      - field: externalEventId
+                        message: externalEventId must not be blank
+        '401':
+          description: Missing, blank, or invalid webhook token.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiErrorResponse'
+              examples:
+                invalidToken:
+                  value:
+                    code: WEBHOOK_SIGNATURE_INVALID
+                    message: Invalid webhook token.
+components:
+  schemas:
+    PaymentWebhookRequest:
+      type: object
+      additionalProperties: true
+      required:
+        - externalEventId
+        - eventType
+      properties:
+        externalEventId:
+          type: string
+          description: Provider event identifier used for idempotent replay detection.
+          example: evt-123
+        eventType:
+          type: string
+          description: >
+            Provider event type. `PAYMENT_CONFIRMED` triggers confirmed-payment processing.
+            Other event types are still persisted and may be finalized as `IGNORED`.
+          example: PAYMENT_CONFIRMED
+        providerReference:
+          type:
+            - string
+            - 'null'
+          description: Provider-side payment reference used to correlate confirmed events.
+          example: charge-123
+      description: >
+        Raw webhook JSON body persisted by the server. Extra provider-specific fields are allowed
+        and are stored as part of the raw payload.
+    PaymentWebhookAcceptedResponse:
+      type: object
+      required:
+        - accepted
+        - processingStatus
+        - externalEventId
+      properties:
+        accepted:
+          type: boolean
+          description: Always `true` when the webhook request is authenticated and accepted.
+          example: true
+        processingStatus:
+          $ref: '#/components/schemas/PaymentWebhookProcessingStatus'
+        externalEventId:
+          type: string
+          description: External event identifier extracted from the webhook payload.
+          example: evt-123
+    PaymentWebhookProcessingStatus:
+      type: string
+      description: Operational status of the persisted webhook event.
+      enum:
+        - RECEIVED
+        - PROCESSED
+        - IGNORED
+        - FAILED
+      x-enum-descriptions:
+        - Webhook was accepted and stored, awaiting or eligible for follow-up processing.
+        - Webhook processing finished successfully and any expected side effect ran once.
+        - Webhook was accepted and stored, but no further payment processing was required.
+        - Webhook was accepted and stored, but the expected processing could not complete.
+    ApiErrorResponse:
+      type: object
+      required:
+        - code
+        - message
+      properties:
+        code:
+          type: string
+          example: VALIDATION_ERROR
+        message:
+          type: string
+          example: Validation failed.
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiFieldError'
+    ApiFieldError:
+      type: object
+      required:
+        - field
+        - message
+      properties:
+        field:
+          type: string
+          example: externalEventId
+        message:
+          type: string
+          example: externalEventId must not be blank
