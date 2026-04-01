@@ -469,12 +469,15 @@ Response `404 Not Found`:
 
 Os endpoints abaixo refletem o comportamento atual implementado para a área da loja do merchant na Sprint 6.
 
+Contrato formal do aceite de termos: [docs/api/merchant-store-terms-acceptance-contract.md](/home/kronos/Documentos/Codigin/kfood-backend/docs/api/merchant-store-terms-acceptance-contract.md)
+
 ### POST `/v1/merchant/store/terms-acceptance`
 
 Registra a aceitação de um documento legal para o tenant autenticado.
 
 - acesso esperado: `OWNER`
 - `acceptedAt` é gerado no servidor
+- o backend deriva `requestIp` dos metadados da requisição HTTP; esse valor não faz parte do payload público
 - o request não aceita `acceptedAt` como campo de entrada
 
 Request:
@@ -503,6 +506,7 @@ Consulta o histórico de aceite legal do tenant autenticado.
 
 - acesso esperado: `OWNER`
 - itens retornam em ordem decrescente de `acceptedAt`
+- os itens refletem aceites persistidos com `acceptedAt` gerado no servidor
 
 Response `200 OK`:
 
