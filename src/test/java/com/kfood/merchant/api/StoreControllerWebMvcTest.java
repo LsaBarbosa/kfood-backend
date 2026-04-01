@@ -1,5 +1,6 @@
 package com.kfood.merchant.api;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
@@ -36,6 +37,7 @@ import com.kfood.merchant.app.UpdateStoreUseCase;
 import com.kfood.merchant.domain.LegalDocumentType;
 import com.kfood.merchant.domain.StoreStatus;
 import com.kfood.shared.web.ClientIpResolver;
+import java.lang.reflect.RecordComponent;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
@@ -74,6 +76,15 @@ class StoreControllerWebMvcTest {
   @MockitoBean private ChangeStoreStatusUseCase changeStoreStatusUseCase;
 
   @MockitoBean private ClientIpResolver clientIpResolver;
+
+  @Test
+  void shouldExposeOnlyDocumentTypeAndDocumentVersionInTermsAcceptanceRequest() {
+    assertThat(
+            java.util.Arrays.stream(CreateStoreTermsAcceptanceRequest.class.getRecordComponents())
+                .map(RecordComponent::getName))
+        .containsExactly("documentType", "documentVersion")
+        .doesNotContain("acceptedAt");
+  }
 
   @Test
   void shouldCreateStoreSuccessfully() throws Exception {
