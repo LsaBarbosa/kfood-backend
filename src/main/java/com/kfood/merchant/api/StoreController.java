@@ -8,13 +8,16 @@ import com.kfood.merchant.app.CreateStoreTermsAcceptanceCommand;
 import com.kfood.merchant.app.CreateStoreTermsAcceptanceUseCase;
 import com.kfood.merchant.app.CreateStoreUseCase;
 import com.kfood.merchant.app.GetStoreDetailsUseCase;
+import com.kfood.merchant.app.GetStoreTermsAcceptanceHistoryUseCase;
 import com.kfood.merchant.app.StoreDetailsOutput;
 import com.kfood.merchant.app.StoreOutput;
+import com.kfood.merchant.app.StoreTermsAcceptanceHistoryItemOutput;
 import com.kfood.merchant.app.UpdateStoreCommand;
 import com.kfood.merchant.app.UpdateStoreUseCase;
 import com.kfood.shared.web.ClientIpResolver;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
+import java.util.List;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -36,6 +39,8 @@ public class StoreController {
   private final ObjectProvider<GetStoreDetailsUseCase> getStoreDetailsUseCaseProvider;
   private final ObjectProvider<CreateStoreTermsAcceptanceUseCase>
       createStoreTermsAcceptanceUseCaseProvider;
+  private final ObjectProvider<GetStoreTermsAcceptanceHistoryUseCase>
+      getStoreTermsAcceptanceHistoryUseCaseProvider;
   private final ObjectProvider<ChangeStoreStatusUseCase> changeStoreStatusUseCaseProvider;
   private final ClientIpResolver clientIpResolver;
 
@@ -44,12 +49,16 @@ public class StoreController {
       ObjectProvider<UpdateStoreUseCase> updateStoreUseCaseProvider,
       ObjectProvider<GetStoreDetailsUseCase> getStoreDetailsUseCaseProvider,
       ObjectProvider<CreateStoreTermsAcceptanceUseCase> createStoreTermsAcceptanceUseCaseProvider,
+      ObjectProvider<GetStoreTermsAcceptanceHistoryUseCase>
+          getStoreTermsAcceptanceHistoryUseCaseProvider,
       ObjectProvider<ChangeStoreStatusUseCase> changeStoreStatusUseCaseProvider,
       ClientIpResolver clientIpResolver) {
     this.createStoreUseCaseProvider = createStoreUseCaseProvider;
     this.updateStoreUseCaseProvider = updateStoreUseCaseProvider;
     this.getStoreDetailsUseCaseProvider = getStoreDetailsUseCaseProvider;
     this.createStoreTermsAcceptanceUseCaseProvider = createStoreTermsAcceptanceUseCaseProvider;
+    this.getStoreTermsAcceptanceHistoryUseCaseProvider =
+        getStoreTermsAcceptanceHistoryUseCaseProvider;
     this.changeStoreStatusUseCaseProvider = changeStoreStatusUseCaseProvider;
     this.clientIpResolver = clientIpResolver;
   }
@@ -100,6 +109,14 @@ public class StoreController {
         result.id(), result.documentType(), result.documentVersion(), result.acceptedAt());
   }
 
+  @GetMapping("/terms-acceptance/history")
+  @PreAuthorize(Roles.OWNER)
+  public List<StoreTermsAcceptanceHistoryItemResponse> getTermsAcceptanceHistory() {
+    return getStoreTermsAcceptanceHistoryUseCase().execute().stream()
+        .map(this::toStoreTermsAcceptanceHistoryItemResponse)
+        .toList();
+  }
+
   @GetMapping
   @PreAuthorize(Roles.OWNER_MANAGER_ATTENDANT)
   public StoreDetailsResponse getCurrentStore() {
@@ -129,6 +146,10 @@ public class StoreController {
     return createStoreTermsAcceptanceUseCaseProvider.getObject();
   }
 
+  private GetStoreTermsAcceptanceHistoryUseCase getStoreTermsAcceptanceHistoryUseCase() {
+    return getStoreTermsAcceptanceHistoryUseCaseProvider.getObject();
+  }
+
   private ChangeStoreStatusUseCase changeStoreStatusUseCase() {
     return changeStoreStatusUseCaseProvider.getObject();
   }
@@ -154,5 +175,15 @@ public class StoreController {
         output.timezone(),
         output.hoursConfigured(),
         output.deliveryZonesConfigured());
+  }
+
+  private StoreTermsAcceptanceHistoryItemResponse toStoreTermsAcceptanceHistoryItemResponse(
+      StoreTermsAcceptanceHistoryItemOutput output) {
+    return new StoreTermsAcceptanceHistoryItemResponse(
+        output.id(),
+        output.acceptedByUserId(),
+        output.documentType(),
+        output.documentVersion(),
+        output.acceptedAt());
   }
 }
