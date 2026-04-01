@@ -1,6 +1,7 @@
 package com.kfood.merchant.api;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -12,6 +13,7 @@ import com.kfood.identity.app.JwtTokenService;
 import com.kfood.identity.domain.UserRoleName;
 import com.kfood.identity.domain.UserStatus;
 import com.kfood.identity.persistence.IdentityUserEntity;
+import com.kfood.merchant.app.TenantAccessDeniedException;
 import com.kfood.merchant.application.user.MerchantUserOutput;
 import com.kfood.merchant.application.user.port.MerchantTenantAccessPort;
 import com.kfood.merchant.application.user.port.MerchantUserManagementPort;
@@ -43,17 +45,103 @@ class MerchantUserControllerWebMvcTest {
   @MockitoBean private MerchantTenantAccessPort merchantTenantAccessPort;
 
   @Test
-  void shouldCreateMerchantUserWithValidPayload() throws Exception {
+  void shouldAllowOwnerToCreateAttendant() throws Exception {
     when(merchantTenantAccessPort.getRequiredStoreId()).thenReturn(UUID.randomUUID());
+    when(merchantTenantAccessPort.getRequiredAuthenticatedUserRoles())
+        .thenReturn(Set.of(UserRoleName.OWNER));
     when(merchantUserManagementPort.create(
             any(UUID.class), any(String.class), any(String.class), any(Set.class)))
         .thenReturn(
             new MerchantUserOutput(
                 UUID.randomUUID(),
-                "manager@kfood.local",
-                List.of("MANAGER"),
+                "attendant@kfood.local",
+                List.of("ATTENDANT"),
                 UserStatus.ACTIVE,
                 Instant.parse("2026-03-26T12:00:00Z")));
+
+    mockMvc
+        .perform(
+            post("/v1/merchant/users")
+                .header("Authorization", "Bearer " + tokenOf(UserRoleName.OWNER))
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "email": "attendant@kfood.local",
+                      "password": "Senha@123",
+                      "roles": ["ATTENDANT"]
+                    }
+                    """))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.email").value("attendant@kfood.local"))
+        .andExpect(jsonPath("$.roles[0]").value("ATTENDANT"))
+        .andExpect(jsonPath("$.status").value("ACTIVE"))
+        .andExpect(jsonPath("$.password").doesNotExist())
+        .andExpect(jsonPath("$.passwordHash").doesNotExist());
+  }
+
+  @Test
+  void shouldAllowManagerToCreateAttendant() throws Exception {
+    when(merchantTenantAccessPort.getRequiredStoreId()).thenReturn(UUID.randomUUID());
+    when(merchantTenantAccessPort.getRequiredAuthenticatedUserRoles())
+        .thenReturn(Set.of(UserRoleName.MANAGER));
+    when(merchantUserManagementPort.create(
+            any(UUID.class), any(String.class), any(String.class), any(Set.class)))
+        .thenReturn(
+            new MerchantUserOutput(
+                UUID.randomUUID(),
+                "attendant@kfood.local",
+                List.of("ATTENDANT"),
+                UserStatus.ACTIVE,
+                Instant.parse("2026-03-26T12:00:00Z")));
+
+    mockMvc
+        .perform(
+            post("/v1/merchant/users")
+                .header("Authorization", "Bearer " + tokenOf(UserRoleName.MANAGER))
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "email": "attendant@kfood.local",
+                      "password": "Senha@123",
+                      "roles": ["ATTENDANT"]
+                    }
+                    """))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.email").value("attendant@kfood.local"))
+        .andExpect(jsonPath("$.roles[0]").value("ATTENDANT"))
+        .andExpect(jsonPath("$.status").value("ACTIVE"));
+  }
+
+  @Test
+  void shouldRejectManagerCreatingManager() throws Exception {
+    when(merchantTenantAccessPort.getRequiredAuthenticatedUserRoles())
+        .thenReturn(Set.of(UserRoleName.MANAGER));
+
+    mockMvc
+        .perform(
+            post("/v1/merchant/users")
+                .header("Authorization", "Bearer " + tokenOf(UserRoleName.MANAGER))
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "email": "manager@kfood.local",
+                      "password": "Senha@123",
+                      "roles": ["MANAGER"]
+                    }
+                    """))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+        .andExpect(
+            jsonPath("$.message").value("Role not allowed for merchant user creation: MANAGER"));
+  }
+
+  @Test
+  void shouldRejectTenantMismatchWhenCreatingMerchantUser() throws Exception {
+    when(merchantTenantAccessPort.getRequiredAuthenticatedUserRoles())
+        .thenThrow(new TenantAccessDeniedException());
 
     mockMvc
         .perform(
@@ -68,12 +156,36 @@ class MerchantUserControllerWebMvcTest {
                       "roles": ["MANAGER"]
                     }
                     """))
-        .andExpect(status().isCreated())
-        .andExpect(jsonPath("$.email").value("manager@kfood.local"))
-        .andExpect(jsonPath("$.roles[0]").value("MANAGER"))
-        .andExpect(jsonPath("$.status").value("ACTIVE"))
-        .andExpect(jsonPath("$.password").doesNotExist())
-        .andExpect(jsonPath("$.passwordHash").doesNotExist());
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.code").value("TENANT_ACCESS_DENIED"))
+        .andExpect(
+            jsonPath("$.message").value("Authenticated user cannot operate on another tenant."));
+  }
+
+  @Test
+  void shouldRejectInvalidRoleCombinationWithExistingErrorEnvelope() throws Exception {
+    when(merchantTenantAccessPort.getRequiredAuthenticatedUserRoles())
+        .thenReturn(Set.of(UserRoleName.OWNER));
+
+    mockMvc
+        .perform(
+            post("/v1/merchant/users")
+                .header("Authorization", "Bearer " + tokenOf(UserRoleName.OWNER))
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "email": "owner@kfood.local",
+                      "password": "Senha@123",
+                      "roles": ["OWNER", "MANAGER"]
+                    }
+                    """))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+        .andExpect(
+            jsonPath("$.message")
+                .value(
+                    "Role combination not allowed for merchant user creation: [OWNER, MANAGER]"));
   }
 
   @Test
@@ -141,6 +253,8 @@ class MerchantUserControllerWebMvcTest {
                     """))
         .andExpect(status().isForbidden())
         .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN_ROLE"));
+
+    verifyNoInteractions(merchantTenantAccessPort, merchantUserManagementPort);
   }
 
   private String tokenOf(UserRoleName role) {

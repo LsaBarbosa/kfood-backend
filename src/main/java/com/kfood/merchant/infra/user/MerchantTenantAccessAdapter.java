@@ -1,5 +1,7 @@
 package com.kfood.merchant.infra.user;
 
+import com.kfood.identity.domain.UserRoleName;
+import com.kfood.identity.persistence.IdentityUserEntity;
 import com.kfood.identity.persistence.IdentityUserRepository;
 import com.kfood.merchant.app.AuthenticatedUserNotFoundException;
 import com.kfood.merchant.app.StoreNotFoundException;
@@ -8,8 +10,11 @@ import com.kfood.merchant.application.user.port.MerchantTenantAccessPort;
 import com.kfood.merchant.infra.persistence.StoreRepository;
 import com.kfood.shared.security.CurrentAuthenticatedUserProvider;
 import com.kfood.shared.tenancy.CurrentTenantProvider;
+import java.util.EnumSet;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -33,6 +38,17 @@ public class MerchantTenantAccessAdapter implements MerchantTenantAccessPort {
 
   @Override
   public UUID getRequiredStoreId() {
+    return getRequiredAuthenticatedUserForCurrentTenant().getStoreId();
+  }
+
+  @Override
+  public Set<UserRoleName> getRequiredAuthenticatedUserRoles() {
+    return getRequiredAuthenticatedUserForCurrentTenant().getRoles().stream()
+        .map(role -> role.getRoleName())
+        .collect(Collectors.toCollection(() -> EnumSet.noneOf(UserRoleName.class)));
+  }
+
+  private IdentityUserEntity getRequiredAuthenticatedUserForCurrentTenant() {
     var storeId = currentTenantProvider.getRequiredStoreId();
     var authenticatedUserId = currentAuthenticatedUserProvider.getRequiredUserId();
 
@@ -47,6 +63,6 @@ public class MerchantTenantAccessAdapter implements MerchantTenantAccessPort {
       throw new TenantAccessDeniedException();
     }
 
-    return storeId;
+    return authenticatedUser;
   }
 }
