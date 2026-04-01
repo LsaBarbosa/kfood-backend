@@ -83,7 +83,10 @@ class PaymentWebhookControllerWebMvcTest {
                       "providerReference": "charge-123"
                     }
                     """))
-        .andExpect(status().isAccepted());
+        .andExpect(status().isAccepted())
+        .andExpect(jsonPath("$.accepted").value(true))
+        .andExpect(jsonPath("$.processingStatus").value("RECEIVED"))
+        .andExpect(jsonPath("$.externalEventId").value("evt-123"));
 
     verify(paymentWebhookEventPersistencePort)
         .saveReceivedEvent(
@@ -114,7 +117,10 @@ class PaymentWebhookControllerWebMvcTest {
                       "eventType": "PAYMENT_CONFIRMED"
                     }
                     """))
-        .andExpect(status().isAccepted());
+        .andExpect(status().isAccepted())
+        .andExpect(jsonPath("$.accepted").value(true))
+        .andExpect(jsonPath("$.processingStatus").value("PROCESSED"))
+        .andExpect(jsonPath("$.externalEventId").value("evt-123"));
 
     verify(paymentWebhookEventPersistencePort, never())
         .saveReceivedEvent(any(), any(), any(), any(), anyBoolean(), any(), any());

@@ -30,12 +30,13 @@ public class PaymentWebhookController {
 
   @PostMapping("/{provider}")
   @ResponseStatus(HttpStatus.ACCEPTED)
-  public void receive(
+  public PaymentWebhookResponse receive(
       @PathVariable String provider,
       @RequestHeader(name = WEBHOOK_TOKEN_HEADER, required = false) String webhookToken,
       @RequestBody String rawPayload) {
     paymentWebhookAuthenticationService.authenticate(provider, webhookToken);
-    registerPaymentWebhookUseCase.execute(
-        new RegisterPaymentWebhookCommand(provider, rawPayload, true));
+    return PaymentWebhookResponse.from(
+        registerPaymentWebhookUseCase.execute(
+            new RegisterPaymentWebhookCommand(provider, rawPayload, true)));
   }
 }
