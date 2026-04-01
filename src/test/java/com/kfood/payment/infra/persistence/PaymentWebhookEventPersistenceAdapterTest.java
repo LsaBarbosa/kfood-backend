@@ -190,7 +190,7 @@ class PaymentWebhookEventPersistenceAdapterTest {
   }
 
   @Test
-  void shouldMarkWebhookEventAsFailedProcessing() {
+  void shouldMarkWebhookEventAsIgnored() {
     var event =
         new PaymentWebhookEvent(
             UUID.randomUUID(),
@@ -203,10 +203,31 @@ class PaymentWebhookEventPersistenceAdapterTest {
             Instant.parse("2026-03-30T15:00:00Z"));
     when(paymentWebhookEventRepository.findById(event.getId())).thenReturn(Optional.of(event));
 
-    var result = adapter.markFailedProcessing(event.getId(), Instant.parse("2026-03-30T16:00:00Z"));
+    var result = adapter.markIgnored(event.getId(), Instant.parse("2026-03-30T16:00:00Z"));
 
     assertThat(result.getProcessingStatus())
-        .isEqualTo(com.kfood.payment.domain.PaymentWebhookProcessingStatus.FAILED_PROCESSING);
+        .isEqualTo(com.kfood.payment.domain.PaymentWebhookProcessingStatus.IGNORED);
+    assertThat(result.getProcessedAt()).isEqualTo(Instant.parse("2026-03-30T16:00:00Z"));
+  }
+
+  @Test
+  void shouldMarkWebhookEventAsFailed() {
+    var event =
+        new PaymentWebhookEvent(
+            UUID.randomUUID(),
+            null,
+            "mock",
+            "evt-123",
+            "PAYMENT_CONFIRMED",
+            false,
+            "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_CONFIRMED\"}",
+            Instant.parse("2026-03-30T15:00:00Z"));
+    when(paymentWebhookEventRepository.findById(event.getId())).thenReturn(Optional.of(event));
+
+    var result = adapter.markFailed(event.getId(), Instant.parse("2026-03-30T16:00:00Z"));
+
+    assertThat(result.getProcessingStatus())
+        .isEqualTo(com.kfood.payment.domain.PaymentWebhookProcessingStatus.FAILED);
     assertThat(result.getProcessedAt()).isEqualTo(Instant.parse("2026-03-30T16:00:00Z"));
   }
 }

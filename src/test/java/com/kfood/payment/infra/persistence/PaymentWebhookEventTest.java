@@ -168,7 +168,7 @@ class PaymentWebhookEventTest {
   }
 
   @Test
-  void shouldMarkEventAsFailedProcessing() {
+  void shouldMarkEventAsIgnored() {
     var event =
         new PaymentWebhookEvent(
             UUID.randomUUID(),
@@ -181,10 +181,29 @@ class PaymentWebhookEventTest {
             Instant.parse("2026-03-30T10:15:00Z"));
     var processedAt = Instant.parse("2026-03-30T10:20:00Z");
 
-    event.markFailedProcessing(processedAt);
+    event.markIgnored(processedAt);
 
-    assertThat(event.getProcessingStatus())
-        .isEqualTo(PaymentWebhookProcessingStatus.FAILED_PROCESSING);
+    assertThat(event.getProcessingStatus()).isEqualTo(PaymentWebhookProcessingStatus.IGNORED);
+    assertThat(event.getProcessedAt()).isEqualTo(processedAt);
+  }
+
+  @Test
+  void shouldMarkEventAsFailed() {
+    var event =
+        new PaymentWebhookEvent(
+            UUID.randomUUID(),
+            null,
+            "provider",
+            "evt-123",
+            null,
+            true,
+            "{\"ok\":true}",
+            Instant.parse("2026-03-30T10:15:00Z"));
+    var processedAt = Instant.parse("2026-03-30T10:20:00Z");
+
+    event.markFailed(processedAt);
+
+    assertThat(event.getProcessingStatus()).isEqualTo(PaymentWebhookProcessingStatus.FAILED);
     assertThat(event.getProcessedAt()).isEqualTo(processedAt);
   }
 
@@ -305,19 +324,29 @@ class PaymentWebhookEventTest {
 
     assertThatThrownBy(() -> invokeValidateLifecycle(event))
         .hasRootCauseInstanceOf(IllegalArgumentException.class)
-        .hasRootCauseMessage("processedAt is required when event is processed");
+        .hasRootCauseMessage("processedAt is required when event is finalized");
   }
 
   @Test
-  void shouldAllowFailedProcessingStatusWithProcessedAtOnLifecycle() throws Exception {
+  void shouldAllowIgnoredStatusWithProcessedAtOnLifecycle() throws Exception {
     var event = validEvent();
-    setField(event, "processingStatus", PaymentWebhookProcessingStatus.FAILED_PROCESSING);
+    setField(event, "processingStatus", PaymentWebhookProcessingStatus.IGNORED);
     setField(event, "processedAt", Instant.parse("2026-03-30T10:20:00Z"));
 
     invokeValidateLifecycle(event);
 
-    assertThat(event.getProcessingStatus())
-        .isEqualTo(PaymentWebhookProcessingStatus.FAILED_PROCESSING);
+    assertThat(event.getProcessingStatus()).isEqualTo(PaymentWebhookProcessingStatus.IGNORED);
+  }
+
+  @Test
+  void shouldAllowFailedStatusWithProcessedAtOnLifecycle() throws Exception {
+    var event = validEvent();
+    setField(event, "processingStatus", PaymentWebhookProcessingStatus.FAILED);
+    setField(event, "processedAt", Instant.parse("2026-03-30T10:20:00Z"));
+
+    invokeValidateLifecycle(event);
+
+    assertThat(event.getProcessingStatus()).isEqualTo(PaymentWebhookProcessingStatus.FAILED);
   }
 
   @Test

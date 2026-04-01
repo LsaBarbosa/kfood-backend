@@ -86,66 +86,61 @@ class ProcessConfirmedPaymentWebhookUseCaseTest {
   }
 
   @Test
-  void shouldMarkEventAsFailedProcessingWhenProviderReferenceIsMissing() {
+  void shouldMarkEventAsFailedWhenProviderReferenceIsMissing() {
     var event = webhookEvent();
-    var failedEvent = failedProcessingEvent();
-    when(paymentWebhookEventPersistencePort.markFailedProcessing(event.getId(), Instant.now(clock)))
+    var failedEvent = failedEvent();
+    when(paymentWebhookEventPersistencePort.markFailed(event.getId(), Instant.now(clock)))
         .thenReturn(failedEvent);
 
     var result = useCase.execute(event, null);
 
-    assertThat(result.getProcessingStatus())
-        .isEqualTo(PaymentWebhookProcessingStatus.FAILED_PROCESSING);
+    assertThat(result.getProcessingStatus()).isEqualTo(PaymentWebhookProcessingStatus.FAILED);
     verify(paymentWebhookPaymentPort, never())
         .findByProviderNameAndProviderReference("mock", "charge-123");
   }
 
   @Test
-  void shouldMarkEventAsFailedProcessingWhenProviderReferenceIsBlank() {
+  void shouldMarkEventAsFailedWhenProviderReferenceIsBlank() {
     var event = webhookEvent();
-    var failedEvent = failedProcessingEvent();
-    when(paymentWebhookEventPersistencePort.markFailedProcessing(event.getId(), Instant.now(clock)))
+    var failedEvent = failedEvent();
+    when(paymentWebhookEventPersistencePort.markFailed(event.getId(), Instant.now(clock)))
         .thenReturn(failedEvent);
 
     var result = useCase.execute(event, "   ");
 
-    assertThat(result.getProcessingStatus())
-        .isEqualTo(PaymentWebhookProcessingStatus.FAILED_PROCESSING);
+    assertThat(result.getProcessingStatus()).isEqualTo(PaymentWebhookProcessingStatus.FAILED);
     verify(paymentWebhookPaymentPort, never())
         .findByProviderNameAndProviderReference("mock", "charge-123");
   }
 
   @Test
-  void shouldMarkEventAsFailedProcessingWhenPaymentCannotBeCorrelated() {
+  void shouldMarkEventAsFailedWhenPaymentCannotBeCorrelated() {
     var event = webhookEvent();
-    var failedEvent = failedProcessingEvent();
+    var failedEvent = failedEvent();
     when(paymentWebhookPaymentPort.findByProviderNameAndProviderReference("mock", "charge-123"))
         .thenReturn(Optional.empty());
-    when(paymentWebhookEventPersistencePort.markFailedProcessing(event.getId(), Instant.now(clock)))
+    when(paymentWebhookEventPersistencePort.markFailed(event.getId(), Instant.now(clock)))
         .thenReturn(failedEvent);
 
     var result = useCase.execute(event, "charge-123");
 
-    assertThat(result.getProcessingStatus())
-        .isEqualTo(PaymentWebhookProcessingStatus.FAILED_PROCESSING);
-    verify(paymentWebhookEventPersistencePort)
-        .markFailedProcessing(event.getId(), Instant.now(clock));
+    assertThat(result.getProcessingStatus()).isEqualTo(PaymentWebhookProcessingStatus.FAILED);
+    verify(paymentWebhookEventPersistencePort).markFailed(event.getId(), Instant.now(clock));
   }
 
   @Test
-  void shouldMarkEventAsFailedProcessingWhenPaymentTransitionIsInvalid() {
+  void shouldMarkEventAsFailedWhenPaymentTransitionIsInvalid() {
     var event = webhookEvent();
-    var failedEvent = failedProcessingEvent();
+    var failedEvent = failedEvent();
     var payment = payment(PaymentStatus.FAILED);
     when(paymentWebhookPaymentPort.findByProviderNameAndProviderReference("mock", "charge-123"))
         .thenReturn(Optional.of(payment));
-    when(paymentWebhookEventPersistencePort.markFailedProcessing(event.getId(), Instant.now(clock)))
+    when(paymentWebhookEventPersistencePort.markFailed(event.getId(), Instant.now(clock)))
         .thenReturn(failedEvent);
 
     var result = useCase.execute(event, "charge-123");
 
-    assertThat(result.getProcessingStatus())
-        .isEqualTo(PaymentWebhookProcessingStatus.FAILED_PROCESSING);
+    assertThat(result.getProcessingStatus()).isEqualTo(PaymentWebhookProcessingStatus.FAILED);
     assertThat(payment.getStatus()).isEqualTo(PaymentStatus.FAILED);
     assertThat(((SalesOrder) payment.getOrder()).getPaymentStatusSnapshot())
         .isEqualTo(PaymentStatusSnapshot.FAILED);
@@ -163,9 +158,9 @@ class ProcessConfirmedPaymentWebhookUseCaseTest {
         Instant.parse("2026-03-30T17:00:00Z"));
   }
 
-  private PaymentWebhookEvent failedProcessingEvent() {
+  private PaymentWebhookEvent failedEvent() {
     var event = webhookEvent();
-    event.markFailedProcessing(Instant.now(clock));
+    event.markFailed(Instant.now(clock));
     return event;
   }
 

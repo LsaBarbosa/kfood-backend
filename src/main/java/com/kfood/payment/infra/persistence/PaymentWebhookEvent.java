@@ -139,8 +139,14 @@ public class PaymentWebhookEvent extends AuditableEntity implements PaymentWebho
     validateBusinessRules();
   }
 
-  public void markFailedProcessing(Instant processedAt) {
-    this.processingStatus = PaymentWebhookProcessingStatus.FAILED_PROCESSING;
+  public void markIgnored(Instant processedAt) {
+    this.processingStatus = PaymentWebhookProcessingStatus.IGNORED;
+    this.processedAt = Objects.requireNonNull(processedAt, "processedAt is required");
+    validateBusinessRules();
+  }
+
+  public void markFailed(Instant processedAt) {
+    this.processingStatus = PaymentWebhookProcessingStatus.FAILED;
     this.processedAt = Objects.requireNonNull(processedAt, "processedAt is required");
     validateBusinessRules();
   }
@@ -162,9 +168,10 @@ public class PaymentWebhookEvent extends AuditableEntity implements PaymentWebho
       throw new IllegalArgumentException("receivedAt is required");
     }
     if ((processingStatus == PaymentWebhookProcessingStatus.PROCESSED
-            || processingStatus == PaymentWebhookProcessingStatus.FAILED_PROCESSING)
+            || processingStatus == PaymentWebhookProcessingStatus.IGNORED
+            || processingStatus == PaymentWebhookProcessingStatus.FAILED)
         && processedAt == null) {
-      throw new IllegalArgumentException("processedAt is required when event is processed");
+      throw new IllegalArgumentException("processedAt is required when event is finalized");
     }
     if (processingStatus == PaymentWebhookProcessingStatus.RECEIVED && processedAt != null) {
       throw new IllegalArgumentException("processedAt must be null when event is received");

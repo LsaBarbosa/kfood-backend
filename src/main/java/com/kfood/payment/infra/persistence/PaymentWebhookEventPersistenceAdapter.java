@@ -120,9 +120,16 @@ public class PaymentWebhookEventPersistenceAdapter implements PaymentWebhookEven
   }
 
   @Override
-  public PaymentWebhookEventRecord markFailedProcessing(UUID eventId, Instant processedAt) {
+  public PaymentWebhookEventRecord markIgnored(UUID eventId, Instant processedAt) {
     var event = paymentWebhookEventRepository.findById(eventId).orElseThrow();
-    event.markFailedProcessing(processedAt);
+    event.markIgnored(processedAt);
+    return event;
+  }
+
+  @Override
+  public PaymentWebhookEventRecord markFailed(UUID eventId, Instant processedAt) {
+    var event = paymentWebhookEventRepository.findById(eventId).orElseThrow();
+    event.markFailed(processedAt);
     return event;
   }
 }

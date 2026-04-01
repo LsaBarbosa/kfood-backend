@@ -63,8 +63,8 @@ public class RegisterPaymentWebhookUseCase {
             Instant.now(clock));
     if (!CONFIRMED_EVENT_TYPE.equals(eventType)) {
       if (savedEvent.getProcessingStatus() == PaymentWebhookProcessingStatus.RECEIVED) {
-        return paymentWebhookEventPersistencePort.markProcessed(
-            savedEvent.getId(), null, Instant.now(clock));
+        return paymentWebhookEventPersistencePort.markIgnored(
+            savedEvent.getId(), Instant.now(clock));
       }
       return savedEvent;
     }
