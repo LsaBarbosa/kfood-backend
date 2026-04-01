@@ -100,6 +100,32 @@ class PaymentRepositoryIntegrationTest extends PostgreSqlContainerIT {
     assertThat(row).isEqualTo("CASH|CONFIRMED");
   }
 
+  @Test
+  @DisplayName("should find payment by provider name and provider reference with order loaded")
+  void shouldFindPaymentByProviderNameAndProviderReferenceWithOrderLoaded() {
+    var savedOrder = salesOrderRepository.saveAndFlush(order());
+    var payment =
+        paymentRepository.saveAndFlush(
+            new Payment(
+                UUID.randomUUID(),
+                savedOrder,
+                PaymentMethod.PIX,
+                "mock",
+                "charge-123",
+                PaymentStatus.PENDING,
+                new BigDecimal("57.50"),
+                "000201...",
+                null,
+                null));
+
+    var result =
+        paymentRepository.findDetailedByProviderNameAndProviderReference("mock", "charge-123");
+
+    assertThat(result).isPresent();
+    assertThat(result.orElseThrow().getId()).isEqualTo(payment.getId());
+    assertThat(result.orElseThrow().getOrder().getId()).isEqualTo(savedOrder.getId());
+  }
+
   private SalesOrder order() {
     var store =
         storeRepository.saveAndFlush(
