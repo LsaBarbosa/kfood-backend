@@ -225,12 +225,12 @@ class RegisterPaymentWebhookUseCaseTest {
             false,
             "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_CONFIRMED\"}",
             Instant.parse("2026-03-30T15:00:00Z"));
+    existingEvent.markProcessed(Instant.parse("2026-03-30T15:01:00Z"));
     when(paymentWebhookEventPersistencePort.findByProviderNameAndExternalEventId("mock", "evt-123"))
-        .thenReturn(Optional.empty())
-        .thenReturn(Optional.of(existingEvent));
+        .thenReturn(Optional.empty());
     when(paymentWebhookEventPersistencePort.saveReceivedEvent(
             any(), eq("mock"), eq("evt-123"), eq("PAYMENT_CONFIRMED"), eq(false), any(), any()))
-        .thenThrow(new DataIntegrityViolationException("duplicate"));
+        .thenReturn(existingEvent);
 
     var result =
         useCase.execute(
@@ -271,11 +271,10 @@ class RegisterPaymentWebhookUseCaseTest {
             Instant.parse("2026-03-30T15:00:00Z"));
     processedEvent.markProcessed(Instant.now(clock));
     when(paymentWebhookEventPersistencePort.findByProviderNameAndExternalEventId("mock", "evt-123"))
-        .thenReturn(Optional.empty())
-        .thenReturn(Optional.of(existingReceivedEvent));
+        .thenReturn(Optional.empty());
     when(paymentWebhookEventPersistencePort.saveReceivedEvent(
             any(), eq("mock"), eq("evt-123"), eq("PAYMENT_PENDING"), eq(false), any(), any()))
-        .thenThrow(new DataIntegrityViolationException("duplicate"));
+        .thenReturn(existingReceivedEvent);
     when(paymentWebhookEventPersistencePort.markProcessed(
             existingReceivedEvent.getId(), null, Instant.now(clock)))
         .thenReturn(processedEvent);

@@ -2,28 +2,48 @@ package com.kfood.payment.infra.persistence;
 
 import com.kfood.payment.app.port.PaymentWebhookEventPersistencePort;
 import com.kfood.payment.app.port.PaymentWebhookEventRecord;
-import java.sql.SQLException;
+import com.kfood.payment.domain.PaymentWebhookProcessingStatus;
+import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
-import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 @Component
 public class PaymentWebhookEventPersistenceAdapter implements PaymentWebhookEventPersistencePort {
 
-  private static final String UNIQUE_VIOLATION_SQL_STATE = "23505";
-  private static final String WEBHOOK_EVENT_UNIQUE_CONSTRAINT =
-      "uk_payment_webhook_event_provider_external_event";
+  private static final String INSERT_RECEIVED_EVENT_SQL =
+      """
+      INSERT INTO payment_webhook_event (
+          id,
+          payment_id,
+          provider_name,
+          external_event_id,
+          event_type,
+          signature_valid,
+          raw_payload,
+          processing_status,
+          received_at,
+          processed_at,
+          created_at,
+          updated_at
+      ) VALUES (?, NULL, ?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)
+      ON CONFLICT (provider_name, external_event_id) DO NOTHING
+      RETURNING id
+      """;
 
   private final PaymentWebhookEventRepository paymentWebhookEventRepository;
   private final PaymentRepository paymentRepository;
+  private final JdbcTemplate jdbcTemplate;
 
   public PaymentWebhookEventPersistenceAdapter(
       PaymentWebhookEventRepository paymentWebhookEventRepository,
-      PaymentRepository paymentRepository) {
+      PaymentRepository paymentRepository,
+      JdbcTemplate jdbcTemplate) {
     this.paymentWebhookEventRepository = paymentWebhookEventRepository;
     this.paymentRepository = paymentRepository;
+    this.jdbcTemplate = jdbcTemplate;
   }
 
   @Override
@@ -50,24 +70,42 @@ public class PaymentWebhookEventPersistenceAdapter implements PaymentWebhookEven
       boolean signatureValid,
       String rawPayload,
       Instant receivedAt) {
-    try {
-      return paymentWebhookEventRepository.saveAndFlush(
-          new PaymentWebhookEvent(
-              eventId,
-              null,
-              providerName,
-              externalEventId,
-              eventType,
-              signatureValid,
-              rawPayload,
-              receivedAt));
-    } catch (RuntimeException exception) {
-      if (isDuplicateWebhookEvent(exception)) {
-        throw new DataIntegrityViolationException(
-            "Duplicate payment webhook event for provider and external event id", exception);
-      }
-      throw exception;
+    var event =
+        new PaymentWebhookEvent(
+            eventId,
+            null,
+            providerName,
+            externalEventId,
+            eventType,
+            signatureValid,
+            rawPayload,
+            receivedAt);
+    var auditTimestamp = Instant.now();
+
+    UUID insertedEventId =
+        jdbcTemplate.query(
+            INSERT_RECEIVED_EVENT_SQL,
+            preparedStatement -> {
+              preparedStatement.setObject(1, event.getId());
+              preparedStatement.setString(2, event.getProviderName());
+              preparedStatement.setString(3, event.getExternalEventId());
+              preparedStatement.setString(4, event.getEventType());
+              preparedStatement.setBoolean(5, event.isSignatureValid());
+              preparedStatement.setString(6, event.getRawPayload());
+              preparedStatement.setString(7, PaymentWebhookProcessingStatus.RECEIVED.name());
+              preparedStatement.setTimestamp(8, Timestamp.from(event.getReceivedAt()));
+              preparedStatement.setTimestamp(9, Timestamp.from(auditTimestamp));
+              preparedStatement.setTimestamp(10, Timestamp.from(auditTimestamp));
+            },
+            resultSet -> resultSet.next() ? resultSet.getObject("id", UUID.class) : null);
+
+    if (insertedEventId != null) {
+      return paymentWebhookEventRepository.findById(insertedEventId).orElseThrow();
     }
+
+    return paymentWebhookEventRepository
+        .findByProviderNameAndExternalEventId(event.getProviderName(), event.getExternalEventId())
+        .orElseThrow();
   }
 
   @Override
@@ -86,40 +124,5 @@ public class PaymentWebhookEventPersistenceAdapter implements PaymentWebhookEven
     var event = paymentWebhookEventRepository.findById(eventId).orElseThrow();
     event.markFailedProcessing(processedAt);
     return event;
-  }
-
-  private boolean isDuplicateWebhookEvent(Throwable exception) {
-    return hasWebhookConstraintInCauseChain(exception)
-        && (hasUniqueViolationSqlStateInCauseChain(exception)
-            || hasTranslatedDataIntegrityViolationInCauseChain(exception));
-  }
-
-  private boolean hasUniqueViolationSqlStateInCauseChain(Throwable exception) {
-    for (Throwable current = exception; current != null; current = current.getCause()) {
-      if (current instanceof SQLException sqlException
-          && UNIQUE_VIOLATION_SQL_STATE.equals(sqlException.getSQLState())) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  private boolean hasTranslatedDataIntegrityViolationInCauseChain(Throwable exception) {
-    for (Throwable current = exception; current != null; current = current.getCause()) {
-      if (current instanceof DataIntegrityViolationException) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  private boolean hasWebhookConstraintInCauseChain(Throwable exception) {
-    for (Throwable current = exception; current != null; current = current.getCause()) {
-      if (current.getMessage() != null
-          && current.getMessage().contains(WEBHOOK_EVENT_UNIQUE_CONSTRAINT)) {
-        return true;
-      }
-    }
-    return false;
   }
 }

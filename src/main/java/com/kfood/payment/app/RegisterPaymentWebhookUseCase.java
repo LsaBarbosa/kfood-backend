@@ -13,7 +13,6 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -53,35 +52,27 @@ public class RegisterPaymentWebhookUseCase {
       return existingEvent.get();
     }
 
-    try {
-      var savedEvent =
-          paymentWebhookEventPersistencePort.saveReceivedEvent(
-              UUID.randomUUID(),
-              normalizedProvider,
-              externalEventId,
-              eventType,
-              command.signatureValid(),
-              command.rawPayload(),
-              Instant.now(clock));
-      if (!CONFIRMED_EVENT_TYPE.equals(eventType)) {
+    var savedEvent =
+        paymentWebhookEventPersistencePort.saveReceivedEvent(
+            UUID.randomUUID(),
+            normalizedProvider,
+            externalEventId,
+            eventType,
+            command.signatureValid(),
+            command.rawPayload(),
+            Instant.now(clock));
+    if (!CONFIRMED_EVENT_TYPE.equals(eventType)) {
+      if (savedEvent.getProcessingStatus() == PaymentWebhookProcessingStatus.RECEIVED) {
         return paymentWebhookEventPersistencePort.markProcessed(
             savedEvent.getId(), null, Instant.now(clock));
       }
+      return savedEvent;
+    }
+    if (savedEvent.getProcessingStatus() == PaymentWebhookProcessingStatus.RECEIVED) {
       paymentWebhookRegisteredPublisher.publish(
           new PaymentWebhookRegisteredEvent(savedEvent.getId(), providerReference, eventType));
-      return savedEvent;
-    } catch (DataIntegrityViolationException exception) {
-      var recoveredEvent =
-          paymentWebhookEventPersistencePort
-              .findByProviderNameAndExternalEventId(normalizedProvider, externalEventId)
-              .orElseThrow(() -> exception);
-      if (!CONFIRMED_EVENT_TYPE.equals(eventType)
-          && recoveredEvent.getProcessingStatus() == PaymentWebhookProcessingStatus.RECEIVED) {
-        return paymentWebhookEventPersistencePort.markProcessed(
-            recoveredEvent.getId(), null, Instant.now(clock));
-      }
-      return recoveredEvent;
     }
+    return savedEvent;
   }
 
   private String readOptionalText(JsonNode payload, String fieldName) {
