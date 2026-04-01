@@ -10,9 +10,14 @@ import org.springframework.validation.annotation.Validated;
 public class AppProperties {
 
   private final Security security = new Security();
+  private final Payment payment = new Payment();
 
   public Security getSecurity() {
     return security;
+  }
+
+  public Payment getPayment() {
+    return payment;
   }
 
   public static class Security {
@@ -35,6 +40,46 @@ public class AppProperties {
 
     public void setJwtExpirationSeconds(long jwtExpirationSeconds) {
       this.jwtExpirationSeconds = jwtExpirationSeconds;
+    }
+  }
+
+  public static class Payment {
+
+    private final Webhook webhook = new Webhook();
+
+    public Webhook getWebhook() {
+      return webhook;
+    }
+  }
+
+  public static class Webhook {
+
+    private final Providers providers = new Providers();
+
+    public Providers getProviders() {
+      return providers;
+    }
+  }
+
+  public static class Providers {
+
+    private final Provider mock = new Provider();
+
+    public Provider getMock() {
+      return mock;
+    }
+  }
+
+  public static class Provider {
+
+    private String token;
+
+    public String getToken() {
+      return token;
+    }
+
+    public void setToken(String token) {
+      this.token = token;
     }
   }
 }
