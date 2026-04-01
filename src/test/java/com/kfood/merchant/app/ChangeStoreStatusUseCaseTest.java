@@ -78,6 +78,86 @@ class ChangeStoreStatusUseCaseTest {
   }
 
   @Test
+  void shouldSuspendActiveStore() {
+    var storeId = UUID.randomUUID();
+    var actorUserId = UUID.randomUUID();
+    var command = new ChangeStoreStatusCommand(StoreStatus.SUSPENDED);
+    var requirements = new StoreActivationRequirements(true, true, true);
+    var currentStore =
+        new StoreDetailsOutput(
+            storeId,
+            "loja-do-bairro",
+            "Loja do Bairro",
+            StoreStatus.ACTIVE,
+            "21999990000",
+            "America/Sao_Paulo",
+            true,
+            true);
+    var output =
+        new StoreDetailsOutput(
+            storeId,
+            "loja-do-bairro",
+            "Loja do Bairro",
+            StoreStatus.SUSPENDED,
+            "21999990000",
+            "America/Sao_Paulo",
+            true,
+            true);
+
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
+    when(currentAuthenticatedUserProvider.getRequiredUserId()).thenReturn(actorUserId);
+    when(storeActivationRequirementsService.evaluate(storeId)).thenReturn(requirements);
+    when(merchantQueryPort.getStoreDetails(storeId, requirements)).thenReturn(currentStore);
+    when(merchantCommandPort.changeStoreStatus(storeId, command, requirements)).thenReturn(output);
+
+    var response = changeStoreStatusUseCase.execute(command);
+
+    assertThat(response.status()).isEqualTo(StoreStatus.SUSPENDED);
+    verify(merchantStoreAuditPort)
+        .recordStoreStatusChanged(storeId, actorUserId, StoreStatus.ACTIVE, StoreStatus.SUSPENDED);
+  }
+
+  @Test
+  void shouldReactivateSuspendedStore() {
+    var storeId = UUID.randomUUID();
+    var actorUserId = UUID.randomUUID();
+    var command = new ChangeStoreStatusCommand(StoreStatus.ACTIVE);
+    var requirements = new StoreActivationRequirements(true, true, true);
+    var currentStore =
+        new StoreDetailsOutput(
+            storeId,
+            "loja-do-bairro",
+            "Loja do Bairro",
+            StoreStatus.SUSPENDED,
+            "21999990000",
+            "America/Sao_Paulo",
+            true,
+            true);
+    var output =
+        new StoreDetailsOutput(
+            storeId,
+            "loja-do-bairro",
+            "Loja do Bairro",
+            StoreStatus.ACTIVE,
+            "21999990000",
+            "America/Sao_Paulo",
+            true,
+            true);
+
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
+    when(currentAuthenticatedUserProvider.getRequiredUserId()).thenReturn(actorUserId);
+    when(storeActivationRequirementsService.evaluate(storeId)).thenReturn(requirements);
+    when(merchantQueryPort.getStoreDetails(storeId, requirements)).thenReturn(currentStore);
+    when(merchantCommandPort.changeStoreStatus(storeId, command, requirements)).thenReturn(output);
+
+    var response = changeStoreStatusUseCase.execute(command);
+
+    assertThat(response.status()).isEqualTo(StoreStatus.ACTIVE);
+    verify(merchantStoreAuditPort)
+        .recordStoreStatusChanged(storeId, actorUserId, StoreStatus.SUSPENDED, StoreStatus.ACTIVE);
+  }
+
+  @Test
   void shouldPropagateRequirementsFailure() {
     var storeId = UUID.randomUUID();
     var actorUserId = UUID.randomUUID();
