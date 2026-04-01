@@ -22,18 +22,22 @@ import com.kfood.merchant.app.CreateStoreTermsAcceptanceCommand;
 import com.kfood.merchant.app.CreateStoreTermsAcceptanceUseCase;
 import com.kfood.merchant.app.CreateStoreUseCase;
 import com.kfood.merchant.app.GetStoreDetailsUseCase;
+import com.kfood.merchant.app.GetStoreTermsAcceptanceHistoryUseCase;
 import com.kfood.merchant.app.StoreActivationRequirementsNotMetException;
 import com.kfood.merchant.app.StoreDetailsOutput;
 import com.kfood.merchant.app.StoreNotActiveException;
 import com.kfood.merchant.app.StoreNotFoundException;
 import com.kfood.merchant.app.StoreOutput;
+import com.kfood.merchant.app.StoreTermsAcceptanceHistoryItemOutput;
 import com.kfood.merchant.app.StoreTermsAcceptanceOutput;
+import com.kfood.merchant.app.TenantAccessDeniedException;
 import com.kfood.merchant.app.UpdateStoreCommand;
 import com.kfood.merchant.app.UpdateStoreUseCase;
 import com.kfood.merchant.domain.LegalDocumentType;
 import com.kfood.merchant.domain.StoreStatus;
 import com.kfood.shared.web.ClientIpResolver;
 import java.time.Instant;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
@@ -64,6 +68,8 @@ class StoreControllerWebMvcTest {
   @MockitoBean private GetStoreDetailsUseCase getStoreDetailsUseCase;
 
   @MockitoBean private CreateStoreTermsAcceptanceUseCase createStoreTermsAcceptanceUseCase;
+
+  @MockitoBean private GetStoreTermsAcceptanceHistoryUseCase getStoreTermsAcceptanceHistoryUseCase;
 
   @MockitoBean private ChangeStoreStatusUseCase changeStoreStatusUseCase;
 
@@ -231,10 +237,11 @@ class StoreControllerWebMvcTest {
 
   @Test
   void shouldChangeStoreStatus() throws Exception {
+    var storeId = UUID.randomUUID();
     when(changeStoreStatusUseCase.execute(any(ChangeStoreStatusCommand.class)))
         .thenReturn(
             new StoreDetailsOutput(
-                UUID.randomUUID(),
+                storeId,
                 "loja-do-bairro",
                 "Loja do Bairro",
                 StoreStatus.ACTIVE,
@@ -255,7 +262,14 @@ class StoreControllerWebMvcTest {
                     }
                     """))
         .andExpect(status().isOk())
-        .andExpect(jsonPath("$.status").value("ACTIVE"));
+        .andExpect(jsonPath("$.id").value(storeId.toString()))
+        .andExpect(jsonPath("$.slug").value("loja-do-bairro"))
+        .andExpect(jsonPath("$.name").value("Loja do Bairro"))
+        .andExpect(jsonPath("$.status").value("ACTIVE"))
+        .andExpect(jsonPath("$.phone").value("21999990000"))
+        .andExpect(jsonPath("$.timezone").value("America/Sao_Paulo"))
+        .andExpect(jsonPath("$.hoursConfigured").value(true))
+        .andExpect(jsonPath("$.deliveryZonesConfigured").value(true));
   }
 
   @Test
@@ -327,7 +341,7 @@ class StoreControllerWebMvcTest {
   }
 
   @Test
-  void shouldAcceptTermsSuccessfully() throws Exception {
+  void shouldAcceptTermsSuccessfullyWithoutAcceptedAtInRequest() throws Exception {
     when(clientIpResolver.resolve(any())).thenReturn("203.0.113.9");
     when(createStoreTermsAcceptanceUseCase.execute(
             any(CreateStoreTermsAcceptanceCommand.class), any(String.class)))
@@ -352,7 +366,120 @@ class StoreControllerWebMvcTest {
                     """))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.documentType").value("TERMS_OF_USE"))
-        .andExpect(jsonPath("$.documentVersion").value("2026.03"));
+        .andExpect(jsonPath("$.documentVersion").value("2026.03"))
+        .andExpect(jsonPath("$.acceptedAt").value("2026-03-20T10:15:00Z"));
+  }
+
+  @Test
+  void shouldRequireAuthenticationToAcceptTerms() throws Exception {
+    mockMvc
+        .perform(
+            post("/v1/merchant/store/terms-acceptance")
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "documentType": "TERMS_OF_USE",
+                      "documentVersion": "2026.03"
+                    }
+                    """))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.code").value("AUTH_INVALID_CREDENTIALS"));
+  }
+
+  @Test
+  void shouldReturnTenantAccessDeniedWhenAcceptingTermsAcrossTenants() throws Exception {
+    when(clientIpResolver.resolve(any())).thenReturn("203.0.113.9");
+    when(createStoreTermsAcceptanceUseCase.execute(
+            any(CreateStoreTermsAcceptanceCommand.class), any(String.class)))
+        .thenThrow(new TenantAccessDeniedException());
+
+    mockMvc
+        .perform(
+            post("/v1/merchant/store/terms-acceptance")
+                .header("Authorization", "Bearer " + tokenOf(UserRoleName.OWNER))
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "documentType": "TERMS_OF_USE",
+                      "documentVersion": "2026.03"
+                    }
+                    """))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.code").value("TENANT_ACCESS_DENIED"))
+        .andExpect(
+            jsonPath("$.message").value("Authenticated user cannot operate on another tenant."));
+  }
+
+  @Test
+  void shouldGetTermsAcceptanceHistorySuccessfully() throws Exception {
+    var firstAcceptanceId = UUID.randomUUID();
+    var secondAcceptanceId = UUID.randomUUID();
+    var firstAcceptedByUserId = UUID.randomUUID();
+    var secondAcceptedByUserId = UUID.randomUUID();
+    when(getStoreTermsAcceptanceHistoryUseCase.execute())
+        .thenReturn(
+            List.of(
+                new StoreTermsAcceptanceHistoryItemOutput(
+                    firstAcceptanceId,
+                    firstAcceptedByUserId,
+                    LegalDocumentType.TERMS_OF_USE,
+                    "2026.04",
+                    Instant.parse("2026-04-20T13:15:00Z")),
+                new StoreTermsAcceptanceHistoryItemOutput(
+                    secondAcceptanceId,
+                    secondAcceptedByUserId,
+                    LegalDocumentType.TERMS_OF_USE,
+                    "2026.03",
+                    Instant.parse("2026-03-20T13:15:00Z"))));
+
+    mockMvc
+        .perform(
+            get("/v1/merchant/store/terms-acceptance/history")
+                .header("Authorization", "Bearer " + tokenOf(UserRoleName.OWNER)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$[0].id").value(firstAcceptanceId.toString()))
+        .andExpect(jsonPath("$[0].acceptedByUserId").value(firstAcceptedByUserId.toString()))
+        .andExpect(jsonPath("$[0].documentType").value("TERMS_OF_USE"))
+        .andExpect(jsonPath("$[0].documentVersion").value("2026.04"))
+        .andExpect(jsonPath("$[0].acceptedAt").value("2026-04-20T13:15:00Z"))
+        .andExpect(jsonPath("$[1].id").value(secondAcceptanceId.toString()))
+        .andExpect(jsonPath("$[1].acceptedByUserId").value(secondAcceptedByUserId.toString()))
+        .andExpect(jsonPath("$[1].documentVersion").value("2026.03"))
+        .andExpect(jsonPath("$[1].acceptedAt").value("2026-03-20T13:15:00Z"));
+  }
+
+  @Test
+  void shouldRequireAuthenticationToGetTermsAcceptanceHistory() throws Exception {
+    mockMvc
+        .perform(get("/v1/merchant/store/terms-acceptance/history"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.code").value("AUTH_INVALID_CREDENTIALS"));
+  }
+
+  @Test
+  void shouldForbidManagerFromGettingTermsAcceptanceHistory() throws Exception {
+    mockMvc
+        .perform(
+            get("/v1/merchant/store/terms-acceptance/history")
+                .header("Authorization", "Bearer " + tokenOf(UserRoleName.MANAGER)))
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN_ROLE"));
+  }
+
+  @Test
+  void shouldReturnNotFoundWhenGettingTermsAcceptanceHistoryForMissingStore() throws Exception {
+    var storeId = UUID.randomUUID();
+    when(getStoreTermsAcceptanceHistoryUseCase.execute())
+        .thenThrow(new StoreNotFoundException(storeId));
+
+    mockMvc
+        .perform(
+            get("/v1/merchant/store/terms-acceptance/history")
+                .header("Authorization", "Bearer " + tokenOf(UserRoleName.OWNER)))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
   }
 
   @Test

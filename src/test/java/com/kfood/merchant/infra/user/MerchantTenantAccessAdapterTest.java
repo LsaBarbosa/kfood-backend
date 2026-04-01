@@ -49,6 +49,20 @@ class MerchantTenantAccessAdapterTest {
   }
 
   @Test
+  void shouldReturnAuthenticatedUserRolesForCurrentTenantUser() {
+    var storeId = UUID.randomUUID();
+    var userId = UUID.randomUUID();
+
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
+    when(currentAuthenticatedUserProvider.getRequiredUserId()).thenReturn(userId);
+    when(storeRepository.findById(storeId)).thenReturn(Optional.of(store(storeId)));
+    when(identityUserRepository.findById(userId)).thenReturn(Optional.of(user(userId, storeId)));
+
+    assertThat(service.getRequiredAuthenticatedUserRoles())
+        .containsExactlyInAnyOrder(UserRoleName.MANAGER);
+  }
+
+  @Test
   void shouldThrowWhenAuthenticatedUserBelongsToAnotherTenant() {
     var storeId = UUID.randomUUID();
     var userId = UUID.randomUUID();
