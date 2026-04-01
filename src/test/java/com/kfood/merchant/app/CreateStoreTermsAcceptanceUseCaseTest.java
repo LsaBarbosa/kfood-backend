@@ -5,8 +5,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.kfood.merchant.app.audit.MerchantStoreAuditPort;
 import com.kfood.merchant.app.port.MerchantCommandPort;
 import com.kfood.merchant.domain.LegalDocumentType;
 import com.kfood.shared.security.CurrentAuthenticatedUserProvider;
@@ -21,13 +23,18 @@ import org.springframework.security.access.AccessDeniedException;
 class CreateStoreTermsAcceptanceUseCaseTest {
 
   private final MerchantCommandPort merchantCommandPort = mock(MerchantCommandPort.class);
+  private final MerchantStoreAuditPort merchantStoreAuditPort = mock(MerchantStoreAuditPort.class);
   private final CurrentTenantProvider currentTenantProvider = mock(CurrentTenantProvider.class);
   private final CurrentAuthenticatedUserProvider currentAuthenticatedUserProvider =
       mock(CurrentAuthenticatedUserProvider.class);
   private final Clock clock = Clock.fixed(Instant.parse("2026-03-20T13:15:00Z"), ZoneOffset.UTC);
   private final CreateStoreTermsAcceptanceUseCase createStoreTermsAcceptanceUseCase =
       new CreateStoreTermsAcceptanceUseCase(
-          merchantCommandPort, currentTenantProvider, currentAuthenticatedUserProvider, clock);
+          merchantCommandPort,
+          merchantStoreAuditPort,
+          currentTenantProvider,
+          currentAuthenticatedUserProvider,
+          clock);
 
   @Test
   void shouldPersistTermsAcceptanceWithServerGeneratedTimestampAndNormalizedIp() {
@@ -58,6 +65,14 @@ class CreateStoreTermsAcceptanceUseCaseTest {
     verify(merchantCommandPort)
         .createStoreTermsAcceptance(
             storeId, userId, request, "203.0.113.9", Instant.parse("2026-03-20T13:15:00Z"));
+    verify(merchantStoreAuditPort)
+        .recordTermsAccepted(
+            storeId,
+            userId,
+            output.id(),
+            output.documentType(),
+            output.documentVersion(),
+            output.acceptedAt());
   }
 
   @Test
@@ -70,6 +85,7 @@ class CreateStoreTermsAcceptanceUseCaseTest {
     assertThatThrownBy(() -> createStoreTermsAcceptanceUseCase.execute(request, "203.0.113.9"))
         .isInstanceOf(AccessDeniedException.class)
         .hasMessageContaining("Unauthenticated request");
+    verifyNoInteractions(merchantCommandPort, merchantStoreAuditPort);
   }
 
   @Test
@@ -90,5 +106,6 @@ class CreateStoreTermsAcceptanceUseCaseTest {
 
     assertThatThrownBy(() -> createStoreTermsAcceptanceUseCase.execute(request, "203.0.113.9"))
         .isInstanceOf(TenantAccessDeniedException.class);
+    verifyNoInteractions(merchantStoreAuditPort);
   }
 }
