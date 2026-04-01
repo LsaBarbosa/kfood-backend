@@ -419,9 +419,11 @@ A aplicação adota um payload padronizado para erros previsíveis e inesperados
 
 O repositório expõe uma leitura pública da loja por slug. O contrato abaixo reflete o comportamento implementado hoje, sem inventar campos sem backing real no modelo.
 
+Contrato formal da loja pública: [docs/api/public-store-contract.md](/home/kronos/Documentos/Codigin/kfood-backend/docs/api/public-store-contract.md)
+
 ### GET `/v1/public/stores/{slug}`
 
-Consulta os dados públicos da loja.
+Consulta somente os dados públicos mínimos da loja.
 
 - acesso esperado: público, sem autenticação
 - o payload retorna apenas campos públicos já suportados pela implementação
@@ -451,6 +453,15 @@ Response `200 OK`:
       "minOrderAmount": 25.00
     }
   ]
+}
+```
+
+Response `404 Not Found`:
+
+```json
+{
+  "code": "RESOURCE_NOT_FOUND",
+  "message": "Store not found for slug: loja-inexistente"
 }
 ```
 
