@@ -415,6 +415,56 @@ A aplicação adota um payload padronizado para erros previsíveis e inesperados
 
 ---
 
+## Public Store API
+
+O repositório expõe uma leitura pública da loja por slug. O contrato abaixo reflete o comportamento implementado hoje, sem inventar campos sem backing real no modelo.
+
+### GET `/v1/public/stores/{slug}`
+
+Consulta os dados públicos da loja.
+
+- acesso esperado: público, sem autenticação
+- o payload retorna apenas campos públicos já suportados pela implementação
+- o payload não expõe `id`, `cnpj`, `timezone` nem outros campos internos do tenant
+- o payload não inclui mídia ou flags comerciais sem suporte persistido, como `logoUrl`, `bannerUrl` ou campos equivalentes
+
+Response `200 OK`:
+
+```json
+{
+  "slug": "loja-do-bairro",
+  "name": "Loja do Bairro",
+  "status": "ACTIVE",
+  "phone": "21999990000",
+  "hours": [
+    {
+      "dayOfWeek": "MONDAY",
+      "openTime": "10:00:00",
+      "closeTime": "22:00:00",
+      "closed": false
+    }
+  ],
+  "deliveryZones": [
+    {
+      "zoneName": "Centro",
+      "feeAmount": 6.50,
+      "minOrderAmount": 25.00
+    }
+  ]
+}
+```
+
+Response `404 Not Found`:
+
+```json
+{
+  "code": "RESOURCE_NOT_FOUND",
+  "message": "Store not found for slug: loja-inexistente"
+}
+```
+
+---
+
 ## Merchant Store API
 
 Os endpoints abaixo refletem o comportamento atual implementado para a área da loja do merchant na Sprint 6.

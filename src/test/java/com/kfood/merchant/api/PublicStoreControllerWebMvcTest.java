@@ -22,6 +22,7 @@ import java.time.DayOfWeek;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
+import org.hamcrest.Matchers;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -64,18 +65,28 @@ class PublicStoreControllerWebMvcTest {
     mockMvc
         .perform(get("/v1/public/stores/loja-do-bairro"))
         .andExpect(status().isOk())
+        .andExpect(jsonPath("$.*", Matchers.hasSize(6)))
         .andExpect(jsonPath("$.slug").value("loja-do-bairro"))
         .andExpect(jsonPath("$.name").value("Loja do Bairro"))
         .andExpect(jsonPath("$.status").value("ACTIVE"))
         .andExpect(jsonPath("$.phone").value("21999990000"))
+        .andExpect(jsonPath("$.hours", Matchers.hasSize(1)))
+        .andExpect(jsonPath("$.hours[0].*", Matchers.hasSize(4)))
         .andExpect(jsonPath("$.hours[0].dayOfWeek").value("MONDAY"))
         .andExpect(jsonPath("$.hours[0].closed").value(false))
+        .andExpect(jsonPath("$.deliveryZones", Matchers.hasSize(1)))
+        .andExpect(jsonPath("$.deliveryZones[0].*", Matchers.hasSize(3)))
         .andExpect(jsonPath("$.deliveryZones[0].zoneName").value("Centro"))
         .andExpect(jsonPath("$.deliveryZones[0].feeAmount").value(6.5))
         .andExpect(jsonPath("$.deliveryZones[0].minOrderAmount").value(25.0))
         .andExpect(jsonPath("$.id").doesNotExist())
         .andExpect(jsonPath("$.cnpj").doesNotExist())
-        .andExpect(jsonPath("$.timezone").doesNotExist());
+        .andExpect(jsonPath("$.timezone").doesNotExist())
+        .andExpect(jsonPath("$.createdAt").doesNotExist())
+        .andExpect(jsonPath("$.hoursConfigured").doesNotExist())
+        .andExpect(jsonPath("$.deliveryZonesConfigured").doesNotExist())
+        .andExpect(jsonPath("$.deliveryZones[0].id").doesNotExist())
+        .andExpect(jsonPath("$.deliveryZones[0].active").doesNotExist());
   }
 
   @Test
