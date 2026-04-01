@@ -371,19 +371,19 @@ class PaymentWebhookEventRepositoryIntegrationTest extends PostgreSqlContainerIT
   }
 
   @Test
-  @DisplayName("should persist failed processing status enum as string")
-  void shouldPersistFailedProcessingStatusEnumAsString() {
+  @DisplayName("should persist ignored status enum as string")
+  void shouldPersistIgnoredStatusEnumAsString() {
     var event =
         new PaymentWebhookEvent(
             UUID.randomUUID(),
             null,
             "mock",
-            "evt-failed-processing",
+            "evt-ignored",
             null,
             true,
-            "{\"id\":\"evt-failed-processing\"}",
+            "{\"id\":\"evt-ignored\"}",
             Instant.parse("2026-03-30T10:15:00Z"));
-    event.markFailedProcessing(Instant.parse("2026-03-30T10:16:00Z"));
+    event.markIgnored(Instant.parse("2026-03-30T10:16:00Z"));
     paymentWebhookEventRepository.saveAndFlush(event);
 
     var row =
@@ -396,7 +396,36 @@ class PaymentWebhookEventRepositoryIntegrationTest extends PostgreSqlContainerIT
             String.class,
             event.getId());
 
-    assertThat(row).isEqualTo("FAILED_PROCESSING");
+    assertThat(row).isEqualTo("IGNORED");
+  }
+
+  @Test
+  @DisplayName("should persist failed status enum as string")
+  void shouldPersistFailedStatusEnumAsString() {
+    var event =
+        new PaymentWebhookEvent(
+            UUID.randomUUID(),
+            null,
+            "mock",
+            "evt-failed",
+            null,
+            true,
+            "{\"id\":\"evt-failed\"}",
+            Instant.parse("2026-03-30T10:15:00Z"));
+    event.markFailed(Instant.parse("2026-03-30T10:16:00Z"));
+    paymentWebhookEventRepository.saveAndFlush(event);
+
+    var row =
+        jdbcTemplate.queryForObject(
+            """
+            select processing_status
+            from payment_webhook_event
+            where id = ?
+            """,
+            String.class,
+            event.getId());
+
+    assertThat(row).isEqualTo("FAILED");
   }
 
   private SalesOrder order() {

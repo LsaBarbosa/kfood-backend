@@ -33,21 +33,21 @@ public class ProcessConfirmedPaymentWebhookUseCase {
     var processedAt = Instant.now(clock);
     var normalizedProviderReference = normalizeProviderReference(providerReference);
     if (normalizedProviderReference == null) {
-      return paymentWebhookEventPersistencePort.markFailedProcessing(event.getId(), processedAt);
+      return paymentWebhookEventPersistencePort.markFailed(event.getId(), processedAt);
     }
 
     var correlatedPayment =
         paymentWebhookPaymentPort.findByProviderNameAndProviderReference(
             event.getProviderName(), normalizedProviderReference);
     if (correlatedPayment.isEmpty()) {
-      return paymentWebhookEventPersistencePort.markFailedProcessing(event.getId(), processedAt);
+      return paymentWebhookEventPersistencePort.markFailed(event.getId(), processedAt);
     }
 
     var payment = correlatedPayment.get();
     try {
       confirmPayment(payment, processedAt);
     } catch (PaymentStatusTransitionException exception) {
-      return paymentWebhookEventPersistencePort.markFailedProcessing(event.getId(), processedAt);
+      return paymentWebhookEventPersistencePort.markFailed(event.getId(), processedAt);
     }
 
     return paymentWebhookEventPersistencePort.markProcessed(

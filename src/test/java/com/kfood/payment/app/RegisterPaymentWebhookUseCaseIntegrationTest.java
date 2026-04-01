@@ -73,7 +73,7 @@ class RegisterPaymentWebhookUseCaseIntegrationTest extends PostgreSqlContainerIT
     assertThat(replayResult.getId()).isEqualTo(firstResult.getId());
     assertThat(replayResult.isSignatureValid()).isTrue();
     assertThat(replayResult.getProcessingStatus())
-        .isEqualTo(PaymentWebhookProcessingStatus.PROCESSED);
+        .isEqualTo(PaymentWebhookProcessingStatus.IGNORED);
     assertThat(
             paymentWebhookEventRepository.findByProviderNameAndExternalEventId(
                 "mock", "evt-replay"))
@@ -83,7 +83,7 @@ class RegisterPaymentWebhookUseCaseIntegrationTest extends PostgreSqlContainerIT
             persisted -> {
               assertThat(persisted.getId()).isEqualTo(firstResult.getId());
               assertThat(persisted.getProcessingStatus())
-                  .isEqualTo(PaymentWebhookProcessingStatus.PROCESSED);
+                  .isEqualTo(PaymentWebhookProcessingStatus.IGNORED);
               assertThat(persisted.getProcessedAt()).isNotNull();
             });
     assertThat(countRows("evt-replay")).isEqualTo(1);
@@ -113,9 +113,9 @@ class RegisterPaymentWebhookUseCaseIntegrationTest extends PostgreSqlContainerIT
 
     assertThat(result.getId()).isEqualTo(persistedEvent.getId());
     assertThat(result.isSignatureValid()).isTrue();
-    assertThat(result.getProcessingStatus()).isEqualTo(PaymentWebhookProcessingStatus.PROCESSED);
+    assertThat(result.getProcessingStatus()).isEqualTo(PaymentWebhookProcessingStatus.IGNORED);
     assertThat(persistedEvent.getProcessingStatus())
-        .isEqualTo(PaymentWebhookProcessingStatus.PROCESSED);
+        .isEqualTo(PaymentWebhookProcessingStatus.IGNORED);
     assertThat(persistedEvent.getProcessedAt()).isNotNull();
     assertThat(countRows("evt-race")).isEqualTo(1);
   }
@@ -215,8 +215,13 @@ class RegisterPaymentWebhookUseCaseIntegrationTest extends PostgreSqlContainerIT
     }
 
     @Override
-    public PaymentWebhookEventRecord markFailedProcessing(UUID eventId, Instant processedAt) {
-      return delegate.markFailedProcessing(eventId, processedAt);
+    public PaymentWebhookEventRecord markIgnored(UUID eventId, Instant processedAt) {
+      return delegate.markIgnored(eventId, processedAt);
+    }
+
+    @Override
+    public PaymentWebhookEventRecord markFailed(UUID eventId, Instant processedAt) {
+      return delegate.markFailed(eventId, processedAt);
     }
 
     private void maybeInsertConflictingRow(

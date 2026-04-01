@@ -22,5 +22,7 @@ public interface PaymentWebhookEventPersistencePort {
 
   PaymentWebhookEventRecord markProcessed(UUID eventId, UUID paymentId, Instant processedAt);
 
-  PaymentWebhookEventRecord markFailedProcessing(UUID eventId, Instant processedAt);
+  PaymentWebhookEventRecord markIgnored(UUID eventId, Instant processedAt);
+
+  PaymentWebhookEventRecord markFailed(UUID eventId, Instant processedAt);
 }

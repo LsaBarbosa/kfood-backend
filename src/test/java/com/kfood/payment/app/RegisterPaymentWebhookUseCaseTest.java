@@ -164,7 +164,7 @@ class RegisterPaymentWebhookUseCaseTest {
   }
 
   @Test
-  void shouldNotProcessWebhookWhenEventTypeIsNotPaymentConfirmed() {
+  void shouldMarkWebhookAsIgnoredWhenEventTypeIsNotPaymentConfirmed() {
     var savedEvent =
         new PaymentWebhookEvent(
             UUID.randomUUID(),
@@ -175,7 +175,7 @@ class RegisterPaymentWebhookUseCaseTest {
             false,
             "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_PENDING\"}",
             Instant.now(clock));
-    var processedEvent =
+    var ignoredEvent =
         new PaymentWebhookEvent(
             savedEvent.getId(),
             null,
@@ -185,23 +185,22 @@ class RegisterPaymentWebhookUseCaseTest {
             false,
             "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_PENDING\"}",
             Instant.now(clock));
-    processedEvent.markProcessed(Instant.now(clock));
+    ignoredEvent.markIgnored(Instant.now(clock));
     when(paymentWebhookEventPersistencePort.findByProviderNameAndExternalEventId("mock", "evt-123"))
         .thenReturn(Optional.empty());
     when(paymentWebhookEventPersistencePort.saveReceivedEvent(
             any(), eq("mock"), eq("evt-123"), eq("PAYMENT_PENDING"), eq(false), any(), any()))
         .thenReturn(savedEvent);
-    when(paymentWebhookEventPersistencePort.markProcessed(
-            savedEvent.getId(), null, Instant.now(clock)))
-        .thenReturn(processedEvent);
+    when(paymentWebhookEventPersistencePort.markIgnored(savedEvent.getId(), Instant.now(clock)))
+        .thenReturn(ignoredEvent);
 
     var result =
         useCase.execute(
             new RegisterPaymentWebhookCommand(
                 "mock", "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_PENDING\"}"));
 
-    assertThat(result).isSameAs(processedEvent);
-    assertThat(result.getProcessingStatus()).isEqualTo(PaymentWebhookProcessingStatus.PROCESSED);
+    assertThat(result).isSameAs(ignoredEvent);
+    assertThat(result.getProcessingStatus()).isEqualTo(PaymentWebhookProcessingStatus.IGNORED);
     var inOrder = inOrder(paymentWebhookEventPersistencePort, paymentWebhookRegisteredPublisher);
     inOrder
         .verify(paymentWebhookEventPersistencePort)
@@ -209,7 +208,7 @@ class RegisterPaymentWebhookUseCaseTest {
             any(), eq("mock"), eq("evt-123"), eq("PAYMENT_PENDING"), eq(false), any(), any());
     inOrder
         .verify(paymentWebhookEventPersistencePort)
-        .markProcessed(savedEvent.getId(), null, Instant.now(clock));
+        .markIgnored(savedEvent.getId(), Instant.now(clock));
     verify(paymentWebhookRegisteredPublisher, never()).publish(any());
   }
 
@@ -255,7 +254,7 @@ class RegisterPaymentWebhookUseCaseTest {
             false,
             "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_PENDING\"}",
             Instant.now(clock));
-    savedEvent.markProcessed(Instant.now(clock));
+    savedEvent.markIgnored(Instant.now(clock));
     when(paymentWebhookEventPersistencePort.findByProviderNameAndExternalEventId("mock", "evt-123"))
         .thenReturn(Optional.empty());
     when(paymentWebhookEventPersistencePort.saveReceivedEvent(
@@ -268,9 +267,10 @@ class RegisterPaymentWebhookUseCaseTest {
                 "mock", "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_PENDING\"}"));
 
     assertThat(result).isSameAs(savedEvent);
-    assertThat(result.getProcessingStatus()).isEqualTo(PaymentWebhookProcessingStatus.PROCESSED);
+    assertThat(result.getProcessingStatus()).isEqualTo(PaymentWebhookProcessingStatus.IGNORED);
     verify(paymentWebhookRegisteredPublisher, never()).publish(any());
     verify(paymentWebhookEventPersistencePort, never()).markProcessed(any(), any(), any());
+    verify(paymentWebhookEventPersistencePort, never()).markIgnored(any(), any());
   }
 
   @Test
@@ -319,7 +319,7 @@ class RegisterPaymentWebhookUseCaseTest {
             false,
             "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_PENDING\"}",
             Instant.parse("2026-03-30T15:00:00Z"));
-    var processedEvent =
+    var ignoredEvent =
         new PaymentWebhookEvent(
             existingReceivedEvent.getId(),
             null,
@@ -329,15 +329,15 @@ class RegisterPaymentWebhookUseCaseTest {
             false,
             "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_PENDING\"}",
             Instant.parse("2026-03-30T15:00:00Z"));
-    processedEvent.markProcessed(Instant.now(clock));
+    ignoredEvent.markIgnored(Instant.now(clock));
     when(paymentWebhookEventPersistencePort.findByProviderNameAndExternalEventId("mock", "evt-123"))
         .thenReturn(Optional.empty());
     when(paymentWebhookEventPersistencePort.saveReceivedEvent(
             any(), eq("mock"), eq("evt-123"), eq("PAYMENT_PENDING"), eq(false), any(), any()))
         .thenReturn(existingReceivedEvent);
-    when(paymentWebhookEventPersistencePort.markProcessed(
-            existingReceivedEvent.getId(), null, Instant.now(clock)))
-        .thenReturn(processedEvent);
+    when(paymentWebhookEventPersistencePort.markIgnored(
+            existingReceivedEvent.getId(), Instant.now(clock)))
+        .thenReturn(ignoredEvent);
 
     var result =
         useCase.execute(
@@ -350,9 +350,9 @@ class RegisterPaymentWebhookUseCaseTest {
                 }
                 """));
 
-    assertThat(result).isSameAs(processedEvent);
+    assertThat(result).isSameAs(ignoredEvent);
     verify(paymentWebhookEventPersistencePort)
-        .markProcessed(existingReceivedEvent.getId(), null, Instant.now(clock));
+        .markIgnored(existingReceivedEvent.getId(), Instant.now(clock));
     verify(paymentWebhookRegisteredPublisher, never()).publish(any());
   }
 
