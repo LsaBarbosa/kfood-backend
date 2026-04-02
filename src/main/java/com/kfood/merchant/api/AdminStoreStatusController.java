@@ -46,7 +46,22 @@ public class AdminStoreStatusController {
         output.status(),
         output.phone(),
         output.timezone(),
+        output.category(),
+        toStoreAddressResponse(output.address()),
         output.hoursConfigured(),
         output.deliveryZonesConfigured());
+  }
+
+  private StoreAddressResponse toStoreAddressResponse(
+      com.kfood.merchant.app.StoreAddressOutput address) {
+    return address == null
+        ? null
+        : new StoreAddressResponse(
+            address.zipCode(),
+            address.street(),
+            address.number(),
+            address.district(),
+            address.city(),
+            address.state());
   }
 }
