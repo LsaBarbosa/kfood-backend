@@ -22,7 +22,8 @@ class StoreTermsAcceptanceDataDictionaryDocumentationTest {
     assertThat(dataDictionary).contains("- name: `store_terms_acceptance`");
     assertThat(columnsSection).contains("| `request_ip` | `varchar(45)` | yes |");
     assertThat(dataDictionary)
-        .contains("`request_ip` is derived and normalized by the backend from the HTTP request metadata before persistence.");
+        .contains(
+            "`request_ip` is derived and normalized by the backend from the HTTP request metadata before persistence.");
   }
 
   private static String sectionBetween(String content, String startMarker, String endMarker) {
