@@ -1,8 +1,10 @@
 package com.kfood.merchant.infra.persistence;
 
+import com.kfood.merchant.domain.StoreCategory;
 import com.kfood.merchant.domain.StoreStatus;
 import com.kfood.shared.infra.persistence.AuditableEntity;
 import jakarta.persistence.Column;
+import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
@@ -42,6 +44,12 @@ public class Store extends AuditableEntity {
   private String timezone;
 
   @Enumerated(EnumType.STRING)
+  @Column(name = "category", length = 40)
+  private StoreCategory category;
+
+  @Embedded private StoreAddress address;
+
+  @Enumerated(EnumType.STRING)
   @Column(name = "status", nullable = false, length = 20)
   private StoreStatus status;
 
@@ -54,12 +62,26 @@ public class Store extends AuditableEntity {
   protected Store() {}
 
   public Store(UUID id, String name, String slug, String cnpj, String phone, String timezone) {
+    this(id, name, slug, cnpj, phone, timezone, null, null);
+  }
+
+  public Store(
+      UUID id,
+      String name,
+      String slug,
+      String cnpj,
+      String phone,
+      String timezone,
+      StoreCategory category,
+      StoreAddress address) {
     this.id = Objects.requireNonNull(id, "id is required");
     this.name = normalize(Objects.requireNonNull(name, "name is required"));
     this.slug = normalize(Objects.requireNonNull(slug, "slug is required"));
     this.cnpj = normalize(Objects.requireNonNull(cnpj, "cnpj is required"));
     this.phone = normalize(Objects.requireNonNull(phone, "phone is required"));
     this.timezone = normalize(Objects.requireNonNull(timezone, "timezone is required"));
+    this.category = category;
+    this.address = address;
     status = StoreStatus.SETUP;
     hoursVersion = 0;
     cashPaymentEnabled = false;
@@ -103,6 +125,14 @@ public class Store extends AuditableEntity {
     return status;
   }
 
+  public StoreCategory getCategory() {
+    return category;
+  }
+
+  public StoreAddress getAddress() {
+    return address;
+  }
+
   public int getHoursVersion() {
     return hoursVersion;
   }
@@ -143,6 +173,14 @@ public class Store extends AuditableEntity {
     this.timezone = normalize(Objects.requireNonNull(timezone, "timezone is required"));
   }
 
+  public void changeCategory(StoreCategory category) {
+    this.category = Objects.requireNonNull(category, "category is required");
+  }
+
+  public void changeAddress(StoreAddress address) {
+    this.address = Objects.requireNonNull(address, "address is required");
+  }
+
   public void incrementHoursVersion() {
     hoursVersion++;
   }
@@ -167,6 +205,14 @@ public class Store extends AuditableEntity {
       throw new StoreStatusTransitionException(status, StoreStatus.SUSPENDED);
     }
     status = StoreStatus.SUSPENDED;
+  }
+
+  public boolean hasCategoryConfigured() {
+    return category != null;
+  }
+
+  public boolean hasAddressConfigured() {
+    return address != null && address.isComplete();
   }
 
   private String normalize(String value) {

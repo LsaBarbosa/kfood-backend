@@ -32,10 +32,17 @@ class CreateMerchantUserUseCaseTest {
     var storeId = UUID.randomUUID();
     var command =
         new CreateMerchantUserCommand(
-            "attendant@kfood.local", "Senha@123", Set.of(UserRoleName.ATTENDANT));
+            "attendant@kfood.local",
+            "Temp!1234",
+            Set.of(UserRoleName.ATTENDANT),
+            UserStatus.ACTIVE);
 
     stubSuccessfulCreation(
-        storeId, Set.of(UserRoleName.OWNER), Set.of(UserRoleName.ATTENDANT), created("ATTENDANT"));
+        storeId,
+        Set.of(UserRoleName.OWNER),
+        Set.of(UserRoleName.ATTENDANT),
+        UserStatus.ACTIVE,
+        created("ATTENDANT", UserStatus.ACTIVE));
 
     var response = useCase.execute(command);
 
@@ -49,10 +56,14 @@ class CreateMerchantUserUseCaseTest {
     var storeId = UUID.randomUUID();
     var command =
         new CreateMerchantUserCommand(
-            "manager@kfood.local", "Senha@123", Set.of(UserRoleName.MANAGER));
+            "manager@kfood.local", "Temp!1234", Set.of(UserRoleName.MANAGER), UserStatus.ACTIVE);
 
     stubSuccessfulCreation(
-        storeId, Set.of(UserRoleName.OWNER), Set.of(UserRoleName.MANAGER), created("MANAGER"));
+        storeId,
+        Set.of(UserRoleName.OWNER),
+        Set.of(UserRoleName.MANAGER),
+        UserStatus.ACTIVE,
+        created("MANAGER", UserStatus.ACTIVE));
 
     var response = useCase.execute(command);
 
@@ -64,10 +75,15 @@ class CreateMerchantUserUseCaseTest {
   void shouldAllowOwnerToCreateOwner() {
     var storeId = UUID.randomUUID();
     var command =
-        new CreateMerchantUserCommand("owner@kfood.local", "Senha@123", Set.of(UserRoleName.OWNER));
+        new CreateMerchantUserCommand(
+            "owner@kfood.local", "Temp!1234", Set.of(UserRoleName.OWNER), UserStatus.ACTIVE);
 
     stubSuccessfulCreation(
-        storeId, Set.of(UserRoleName.OWNER), Set.of(UserRoleName.OWNER), created("OWNER"));
+        storeId,
+        Set.of(UserRoleName.OWNER),
+        Set.of(UserRoleName.OWNER),
+        UserStatus.ACTIVE,
+        created("OWNER", UserStatus.ACTIVE));
 
     var response = useCase.execute(command);
 
@@ -80,13 +96,17 @@ class CreateMerchantUserUseCaseTest {
     var storeId = UUID.randomUUID();
     var command =
         new CreateMerchantUserCommand(
-            "attendant@kfood.local", "Senha@123", Set.of(UserRoleName.ATTENDANT));
+            "attendant@kfood.local",
+            "Temp!1234",
+            Set.of(UserRoleName.ATTENDANT),
+            UserStatus.ACTIVE);
 
     stubSuccessfulCreation(
         storeId,
         Set.of(UserRoleName.MANAGER),
         Set.of(UserRoleName.ATTENDANT),
-        created("ATTENDANT"));
+        UserStatus.ACTIVE,
+        created("ATTENDANT", UserStatus.ACTIVE));
 
     var response = useCase.execute(command);
 
@@ -98,7 +118,7 @@ class CreateMerchantUserUseCaseTest {
   void shouldRejectManagerCreatingManager() {
     var command =
         new CreateMerchantUserCommand(
-            "manager@kfood.local", "Senha@123", Set.of(UserRoleName.MANAGER));
+            "manager@kfood.local", "Temp!1234", Set.of(UserRoleName.MANAGER), UserStatus.ACTIVE);
 
     when(merchantTenantAccessPort.getRequiredAuthenticatedUserRoles())
         .thenReturn(Set.of(UserRoleName.MANAGER));
@@ -113,7 +133,8 @@ class CreateMerchantUserUseCaseTest {
   @Test
   void shouldRejectManagerCreatingOwner() {
     var command =
-        new CreateMerchantUserCommand("owner@kfood.local", "Senha@123", Set.of(UserRoleName.OWNER));
+        new CreateMerchantUserCommand(
+            "owner@kfood.local", "Temp!1234", Set.of(UserRoleName.OWNER), UserStatus.ACTIVE);
 
     when(merchantTenantAccessPort.getRequiredAuthenticatedUserRoles())
         .thenReturn(Set.of(UserRoleName.MANAGER));
@@ -129,7 +150,10 @@ class CreateMerchantUserUseCaseTest {
   void shouldRejectAttendantCreatingMerchantUser() {
     var command =
         new CreateMerchantUserCommand(
-            "attendant@kfood.local", "Senha@123", Set.of(UserRoleName.ATTENDANT));
+            "attendant@kfood.local",
+            "Temp!1234",
+            Set.of(UserRoleName.ATTENDANT),
+            UserStatus.ACTIVE);
 
     when(merchantTenantAccessPort.getRequiredAuthenticatedUserRoles())
         .thenReturn(Set.of(UserRoleName.ATTENDANT));
@@ -145,7 +169,10 @@ class CreateMerchantUserUseCaseTest {
   void shouldRejectInvalidRequestedRoleCombination() {
     var command =
         new CreateMerchantUserCommand(
-            "owner@kfood.local", "Senha@123", Set.of(UserRoleName.OWNER, UserRoleName.MANAGER));
+            "owner@kfood.local",
+            "Temp!1234",
+            Set.of(UserRoleName.OWNER, UserRoleName.MANAGER),
+            UserStatus.ACTIVE);
 
     when(merchantTenantAccessPort.getRequiredAuthenticatedUserRoles())
         .thenReturn(Set.of(UserRoleName.OWNER));
@@ -161,7 +188,7 @@ class CreateMerchantUserUseCaseTest {
 
   @Test
   void shouldRejectNullRequestedRoles() {
-    var command = new CreateMerchantUserCommand("owner@kfood.local", "Senha@123", null);
+    var command = new CreateMerchantUserCommand("owner@kfood.local", "Temp!1234", null, null);
 
     when(merchantTenantAccessPort.getRequiredAuthenticatedUserRoles())
         .thenReturn(Set.of(UserRoleName.OWNER));
@@ -178,7 +205,10 @@ class CreateMerchantUserUseCaseTest {
   void shouldRejectNullActorRoles() {
     var command =
         new CreateMerchantUserCommand(
-            "attendant@kfood.local", "Senha@123", Set.of(UserRoleName.ATTENDANT));
+            "attendant@kfood.local",
+            "Temp!1234",
+            Set.of(UserRoleName.ATTENDANT),
+            UserStatus.ACTIVE);
 
     when(merchantTenantAccessPort.getRequiredAuthenticatedUserRoles()).thenReturn(null);
 
@@ -193,7 +223,7 @@ class CreateMerchantUserUseCaseTest {
   void shouldBlockCrossTenantAttempt() {
     var command =
         new CreateMerchantUserCommand(
-            "manager@kfood.local", "Senha@123", Set.of(UserRoleName.MANAGER));
+            "manager@kfood.local", "Temp!1234", Set.of(UserRoleName.MANAGER), UserStatus.ACTIVE);
 
     when(merchantTenantAccessPort.getRequiredAuthenticatedUserRoles())
         .thenThrow(new TenantAccessDeniedException());
@@ -210,19 +240,27 @@ class CreateMerchantUserUseCaseTest {
     var storeId = UUID.randomUUID();
     var command =
         new CreateMerchantUserCommand(
-            "attendant@kfood.local", "Senha@123", Set.of(UserRoleName.ATTENDANT));
+            "attendant@kfood.local",
+            "Temp!1234",
+            Set.of(UserRoleName.ATTENDANT),
+            UserStatus.INACTIVE);
 
     when(merchantTenantAccessPort.getRequiredStoreId()).thenReturn(storeId);
     when(merchantTenantAccessPort.getRequiredAuthenticatedUserRoles())
         .thenReturn(Set.of(UserRoleName.MANAGER));
     when(merchantUserManagementPort.create(
-            storeId, "attendant@kfood.local", "Senha@123", Set.of(UserRoleName.ATTENDANT)))
-        .thenReturn(created("ATTENDANT"));
+            storeId,
+            "attendant@kfood.local",
+            "Temp!1234",
+            Set.of(UserRoleName.ATTENDANT),
+            UserStatus.INACTIVE))
+        .thenReturn(created("ATTENDANT", UserStatus.INACTIVE));
 
     var response = useCase.execute(command);
 
     assertThat(response.email()).isEqualTo("attendant@kfood.local");
     assertThat(response.roles()).containsExactly("ATTENDANT");
+    assertThat(response.status()).isEqualTo(UserStatus.INACTIVE);
     assertThat(
             java.util.Arrays.stream(response.getClass().getRecordComponents())
                 .map(RecordComponent::getName))
@@ -241,19 +279,21 @@ class CreateMerchantUserUseCaseTest {
       UUID storeId,
       Set<UserRoleName> actorRoles,
       Set<UserRoleName> requestedRoles,
+      UserStatus requestedStatus,
       MerchantUserOutput created) {
     when(merchantTenantAccessPort.getRequiredAuthenticatedUserRoles()).thenReturn(actorRoles);
     when(merchantTenantAccessPort.getRequiredStoreId()).thenReturn(storeId);
-    when(merchantUserManagementPort.create(storeId, created.email(), "Senha@123", requestedRoles))
+    when(merchantUserManagementPort.create(
+            storeId, created.email(), "Temp!1234", requestedRoles, requestedStatus))
         .thenReturn(created);
   }
 
-  private MerchantUserOutput created(String role) {
+  private MerchantUserOutput created(String role, UserStatus status) {
     return new MerchantUserOutput(
         UUID.randomUUID(),
         role.toLowerCase() + "@kfood.local",
         List.of(role),
-        UserStatus.ACTIVE,
+        status,
         Instant.parse("2026-03-26T12:00:00Z"));
   }
 }

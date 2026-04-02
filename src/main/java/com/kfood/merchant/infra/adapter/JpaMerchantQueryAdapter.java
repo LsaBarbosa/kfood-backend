@@ -74,6 +74,8 @@ public class JpaMerchantQueryAdapter implements MerchantQueryPort {
         store.getStatus(),
         store.getPhone(),
         store.getTimezone(),
+        store.getCategory(),
+        toAddressOutput(store.getAddress()),
         requirements.hoursConfigured(),
         requirements.deliveryZonesConfigured());
   }
@@ -180,8 +182,36 @@ public class JpaMerchantQueryAdapter implements MerchantQueryPort {
         store.getCnpj(),
         store.getPhone(),
         store.getTimezone(),
+        store.getCategory(),
+        toAddressView(store.getAddress()),
         store.getStatus(),
         store.getCreatedAt());
+  }
+
+  private MerchantViews.StoreAddressView toAddressView(
+      com.kfood.merchant.infra.persistence.StoreAddress address) {
+    return address == null
+        ? null
+        : new MerchantViews.StoreAddressView(
+            address.getZipCode(),
+            address.getStreet(),
+            address.getNumber(),
+            address.getDistrict(),
+            address.getCity(),
+            address.getState());
+  }
+
+  private com.kfood.merchant.app.StoreAddressOutput toAddressOutput(
+      com.kfood.merchant.infra.persistence.StoreAddress address) {
+    return address == null
+        ? null
+        : new com.kfood.merchant.app.StoreAddressOutput(
+            address.getZipCode(),
+            address.getStreet(),
+            address.getNumber(),
+            address.getDistrict(),
+            address.getCity(),
+            address.getState());
   }
 
   private MerchantViews.DeliveryZoneView toDeliveryZoneView(

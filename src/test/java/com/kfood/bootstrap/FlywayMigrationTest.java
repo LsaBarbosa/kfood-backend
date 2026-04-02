@@ -346,6 +346,24 @@ class FlywayMigrationTest {
   }
 
   @Test
+  void shouldRegisterVersionThirtyInFlywayHistory() throws Exception {
+    try (Connection connection = dataSource.getConnection();
+        Statement statement = connection.createStatement();
+        ResultSet resultSet =
+            statement.executeQuery(
+                """
+                     select count(*)
+                     from flyway_schema_history
+                     where version = '30'
+                       and success = true
+                     """)) {
+
+      assertThat(resultSet.next()).isTrue();
+      assertThat(resultSet.getInt(1)).isEqualTo(1);
+    }
+  }
+
+  @Test
   void shouldAddCashPaymentAndPaymentMethodSnapshotColumns() throws Exception {
     assertThat(columnExists("store", "cash_payment_enabled")).isTrue();
     assertThat(columnExists("sales_order", "payment_method_snapshot")).isTrue();
@@ -641,6 +659,17 @@ class FlywayMigrationTest {
   }
 
   @Test
+  void shouldApplyStoreCategoryAndAddressColumnsAfterApplyingMigrations() throws Exception {
+    assertThat(columnExists("store", "category")).isTrue();
+    assertThat(columnExists("store", "address_zip_code")).isTrue();
+    assertThat(columnExists("store", "address_street")).isTrue();
+    assertThat(columnExists("store", "address_number")).isTrue();
+    assertThat(columnExists("store", "address_district")).isTrue();
+    assertThat(columnExists("store", "address_city")).isTrue();
+    assertThat(columnExists("store", "address_state")).isTrue();
+  }
+
+  @Test
   void shouldApplyDeliveryZoneConstraintsAfterApplyingMigrations() throws Exception {
     try (Connection connection = dataSource.getConnection();
         Statement statement = connection.createStatement()) {
@@ -683,6 +712,12 @@ class FlywayMigrationTest {
             indexExists("store_terms_acceptance", "idx_store_terms_acceptance_store_accepted_at"))
         .isTrue();
     assertThat(indexExists("delivery_zone", "idx_delivery_zone_store_active_zone_name")).isTrue();
+  }
+
+  @Test
+  void shouldApplyStoreTermsAcceptanceRequestIpColumnAfterApplyingMigrations() throws Exception {
+    assertThat(tableExists("store_terms_acceptance")).isTrue();
+    assertThat(columnExists("store_terms_acceptance", "request_ip")).isTrue();
   }
 
   @Test

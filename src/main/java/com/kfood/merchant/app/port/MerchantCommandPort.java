@@ -10,6 +10,7 @@ import com.kfood.merchant.app.StoreActivationRequirements;
 import com.kfood.merchant.app.StoreDetailsOutput;
 import com.kfood.merchant.app.StoreOutput;
 import com.kfood.merchant.app.StoreTermsAcceptanceOutput;
+import com.kfood.merchant.app.UpdateDeliveryZoneCommand;
 import com.kfood.merchant.app.UpdateStoreCommand;
 import com.kfood.merchant.app.UpdateStoreHoursCommand;
 import com.kfood.merchant.app.UpdateStoreHoursOutput;
@@ -19,6 +20,11 @@ import java.util.UUID;
 public interface MerchantCommandPort {
 
   DeliveryZoneOutput createDeliveryZone(UUID storeId, CreateDeliveryZoneCommand command);
+
+  DeliveryZoneOutput updateDeliveryZone(
+      UUID storeId, UUID zoneId, UpdateDeliveryZoneCommand command);
+
+  void deleteDeliveryZone(UUID storeId, UUID zoneId);
 
   UpdateStoreHoursOutput updateStoreHours(UUID storeId, UpdateStoreHoursCommand command);
 

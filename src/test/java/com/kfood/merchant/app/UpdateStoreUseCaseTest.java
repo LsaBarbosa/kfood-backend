@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.kfood.merchant.app.port.MerchantCommandPort;
+import com.kfood.merchant.domain.StoreCategory;
 import com.kfood.merchant.domain.StoreStatus;
 import com.kfood.shared.tenancy.CurrentTenantProvider;
 import java.util.UUID;
@@ -22,7 +23,15 @@ class UpdateStoreUseCaseTest {
   @Test
   void shouldUpdateOnlyInformedFields() {
     var storeId = UUID.randomUUID();
-    var request = new UpdateStoreCommand("Loja Premium", null, null, "21911112222", null);
+    var request =
+        new UpdateStoreCommand(
+            "Loja Premium",
+            null,
+            null,
+            "21911112222",
+            null,
+            StoreCategory.PIZZARIA,
+            new StoreAddressCommand("25000-000", "Rua Central", "100", "Centro", "Mage", "RJ"));
     var output =
         new StoreOutput(
             storeId,
@@ -31,6 +40,8 @@ class UpdateStoreUseCaseTest {
             "45.723.174/0001-10",
             "21911112222",
             "America/Sao_Paulo",
+            StoreCategory.PIZZARIA,
+            new StoreAddressOutput("25000000", "Rua Central", "100", "Centro", "Mage", "RJ"),
             StoreStatus.SETUP);
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
@@ -40,13 +51,15 @@ class UpdateStoreUseCaseTest {
 
     assertThat(response.name()).isEqualTo("Loja Premium");
     assertThat(response.phone()).isEqualTo("21911112222");
+    assertThat(response.category()).isEqualTo(StoreCategory.PIZZARIA);
+    assertThat(response.address().zipCode()).isEqualTo("25000000");
     verify(merchantCommandPort).updateStore(storeId, request);
   }
 
   @Test
   void shouldPropagateDuplicatedSlugOnUpdate() {
     var storeId = UUID.randomUUID();
-    var request = new UpdateStoreCommand(null, "novo-slug", null, null, null);
+    var request = new UpdateStoreCommand(null, "novo-slug", null, null, null, null, null);
 
     when(currentTenantProvider.getRequiredStoreId()).thenReturn(storeId);
     when(merchantCommandPort.updateStore(storeId, request))

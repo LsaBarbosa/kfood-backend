@@ -13,10 +13,12 @@ import com.kfood.merchant.app.CreateStoreTermsAcceptanceUseCase;
 import com.kfood.merchant.app.CreateStoreUseCase;
 import com.kfood.merchant.app.GetStoreDetailsUseCase;
 import com.kfood.merchant.app.GetStoreTermsAcceptanceHistoryUseCase;
+import com.kfood.merchant.app.StoreDetailsOutput;
 import com.kfood.merchant.app.StoreTermsAcceptanceHistoryItemOutput;
 import com.kfood.merchant.app.StoreTermsAcceptanceOutput;
 import com.kfood.merchant.app.UpdateStoreUseCase;
 import com.kfood.merchant.domain.LegalDocumentType;
+import com.kfood.merchant.domain.StoreStatus;
 import com.kfood.shared.web.ForwardedClientIpResolver;
 import java.time.Instant;
 import java.util.List;
@@ -96,6 +98,37 @@ class StoreControllerTest {
         .satisfies(item -> assertThat(item.id()).isEqualTo(acceptanceId));
     assertThat(response.getFirst().acceptedByUserId()).isEqualTo(acceptedByUserId);
     assertThat(response.getFirst().documentVersion()).isEqualTo("2026.04");
+  }
+
+  @Test
+  void shouldReturnNullAddressForLegacyStoreDetailsResponse() {
+    GetStoreDetailsUseCase getStoreDetailsUseCase = mock(GetStoreDetailsUseCase.class);
+    var controller =
+        new StoreController(
+            provider(mock(CreateStoreUseCase.class)),
+            provider(mock(UpdateStoreUseCase.class)),
+            provider(getStoreDetailsUseCase),
+            provider(mock(CreateStoreTermsAcceptanceUseCase.class)),
+            provider(mock(GetStoreTermsAcceptanceHistoryUseCase.class)),
+            provider(mock(ChangeStoreStatusUseCase.class)),
+            new ForwardedClientIpResolver(false));
+    var storeId = UUID.randomUUID();
+    when(getStoreDetailsUseCase.execute())
+        .thenReturn(
+            new StoreDetailsOutput(
+                storeId,
+                "loja-legada",
+                "Loja Legada",
+                StoreStatus.SETUP,
+                "21999990000",
+                "America/Sao_Paulo",
+                false,
+                false));
+
+    var response = controller.getCurrentStore();
+
+    assertThat(response.id()).isEqualTo(storeId);
+    assertThat(response.address()).isNull();
   }
 
   @SuppressWarnings("unchecked")

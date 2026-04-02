@@ -1,5 +1,7 @@
 package com.kfood.merchant.api;
 
+import com.kfood.merchant.domain.StoreCategory;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
@@ -15,9 +17,12 @@ public record UpdateStoreRequest(
         @Size(max = 120) String slug,
     @CNPJ String cnpj,
     @Pattern(regexp = "^\\d{10,15}$", message = "phone must contain between 10 and 15 digits") String phone,
-    @Pattern(regexp = "^(?=.*\\S).+$", message = "timezone must not be blank") @Size(max = 60) String timezone) {
+    @Pattern(regexp = "^(?=.*\\S).+$", message = "timezone must not be blank") @Size(max = 60) String timezone,
+    StoreCategory category,
+    @Valid StoreAddressRequest address) {
 
   @AssertTrue(message = "at least one field must be informed") public boolean hasAnyFieldInformed() {
-    return Stream.of(name, slug, cnpj, phone, timezone).anyMatch(Objects::nonNull);
+    return Stream.of(name, slug, cnpj, phone, timezone, category, address)
+        .anyMatch(Objects::nonNull);
   }
 }

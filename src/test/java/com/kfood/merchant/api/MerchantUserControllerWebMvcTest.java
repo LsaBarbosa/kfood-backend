@@ -50,7 +50,11 @@ class MerchantUserControllerWebMvcTest {
     when(merchantTenantAccessPort.getRequiredAuthenticatedUserRoles())
         .thenReturn(Set.of(UserRoleName.OWNER));
     when(merchantUserManagementPort.create(
-            any(UUID.class), any(String.class), any(String.class), any(Set.class)))
+            any(UUID.class),
+            any(String.class),
+            any(String.class),
+            any(Set.class),
+            any(UserStatus.class)))
         .thenReturn(
             new MerchantUserOutput(
                 UUID.randomUUID(),
@@ -68,14 +72,16 @@ class MerchantUserControllerWebMvcTest {
                     """
                     {
                       "email": "attendant@kfood.local",
-                      "password": "Senha@123",
-                      "roles": ["ATTENDANT"]
+                      "temporaryPassword": "Temp!1234",
+                      "roles": ["ATTENDANT"],
+                      "status": "ACTIVE"
                     }
                     """))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.email").value("attendant@kfood.local"))
         .andExpect(jsonPath("$.roles[0]").value("ATTENDANT"))
         .andExpect(jsonPath("$.status").value("ACTIVE"))
+        .andExpect(jsonPath("$.temporaryPassword").doesNotExist())
         .andExpect(jsonPath("$.password").doesNotExist())
         .andExpect(jsonPath("$.passwordHash").doesNotExist());
   }
@@ -86,7 +92,11 @@ class MerchantUserControllerWebMvcTest {
     when(merchantTenantAccessPort.getRequiredAuthenticatedUserRoles())
         .thenReturn(Set.of(UserRoleName.MANAGER));
     when(merchantUserManagementPort.create(
-            any(UUID.class), any(String.class), any(String.class), any(Set.class)))
+            any(UUID.class),
+            any(String.class),
+            any(String.class),
+            any(Set.class),
+            any(UserStatus.class)))
         .thenReturn(
             new MerchantUserOutput(
                 UUID.randomUUID(),
@@ -104,8 +114,9 @@ class MerchantUserControllerWebMvcTest {
                     """
                     {
                       "email": "attendant@kfood.local",
-                      "password": "Senha@123",
-                      "roles": ["ATTENDANT"]
+                      "temporaryPassword": "Temp!1234",
+                      "roles": ["ATTENDANT"],
+                      "status": "ACTIVE"
                     }
                     """))
         .andExpect(status().isCreated())
@@ -128,8 +139,9 @@ class MerchantUserControllerWebMvcTest {
                     """
                     {
                       "email": "manager@kfood.local",
-                      "password": "Senha@123",
-                      "roles": ["MANAGER"]
+                      "temporaryPassword": "Temp!1234",
+                      "roles": ["MANAGER"],
+                      "status": "ACTIVE"
                     }
                     """))
         .andExpect(status().isBadRequest())
@@ -152,8 +164,9 @@ class MerchantUserControllerWebMvcTest {
                     """
                     {
                       "email": "manager@kfood.local",
-                      "password": "Senha@123",
-                      "roles": ["MANAGER"]
+                      "temporaryPassword": "Temp!1234",
+                      "roles": ["MANAGER"],
+                      "status": "ACTIVE"
                     }
                     """))
         .andExpect(status().isForbidden())
@@ -176,8 +189,9 @@ class MerchantUserControllerWebMvcTest {
                     """
                     {
                       "email": "owner@kfood.local",
-                      "password": "Senha@123",
-                      "roles": ["OWNER", "MANAGER"]
+                      "temporaryPassword": "Temp!1234",
+                      "roles": ["OWNER", "MANAGER"],
+                      "status": "ACTIVE"
                     }
                     """))
         .andExpect(status().isBadRequest())
@@ -208,6 +222,7 @@ class MerchantUserControllerWebMvcTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$[0].email").value("attendant@kfood.local"))
         .andExpect(jsonPath("$[0].roles[0]").value("ATTENDANT"))
+        .andExpect(jsonPath("$[0].temporaryPassword").doesNotExist())
         .andExpect(jsonPath("$[0].password").doesNotExist())
         .andExpect(jsonPath("$[0].passwordHash").doesNotExist());
   }
@@ -223,8 +238,28 @@ class MerchantUserControllerWebMvcTest {
                     """
                     {
                       "email": "email-invalido",
-                      "password": "123",
-                      "roles": []
+                      "temporaryPassword": "123",
+                      "roles": [],
+                      "status": null
+                    }
+                    """))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+  }
+
+  @Test
+  void shouldRequireStatusOnCreateMerchantUser() throws Exception {
+    mockMvc
+        .perform(
+            post("/v1/merchant/users")
+                .header("Authorization", "Bearer " + tokenOf(UserRoleName.OWNER))
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "email": "attendant@kfood.local",
+                      "temporaryPassword": "Temp!1234",
+                      "roles": ["ATTENDANT"]
                     }
                     """))
         .andExpect(status().isBadRequest())
@@ -247,8 +282,9 @@ class MerchantUserControllerWebMvcTest {
                     """
                     {
                       "email": "manager@kfood.local",
-                      "password": "Senha@123",
-                      "roles": ["MANAGER"]
+                      "temporaryPassword": "Temp!1234",
+                      "roles": ["MANAGER"],
+                      "status": "ACTIVE"
                     }
                     """))
         .andExpect(status().isForbidden())

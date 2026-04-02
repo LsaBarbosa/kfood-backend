@@ -62,13 +62,17 @@ class CreateUserServiceIntegrationTest extends PostgreSqlContainerIT {
   }
 
   @Test
-  @DisplayName("should persist password as hash instead of plain text")
-  void shouldPersistPasswordAsHashInsteadOfPlainText() {
+  @DisplayName("should persist password as hash and keep informed status")
+  void shouldPersistPasswordAsHashAndKeepInformedStatus() {
     String rawPassword = "Senha@123";
 
     IdentityUserEntity created =
         createUserService.create(
-            null, "admin@kfood.local", rawPassword, Set.of(UserRoleName.ADMIN));
+            null,
+            "admin@kfood.local",
+            rawPassword,
+            Set.of(UserRoleName.ADMIN),
+            com.kfood.identity.domain.UserStatus.INACTIVE);
 
     entityManager.flush();
     entityManager.clear();
@@ -77,6 +81,7 @@ class CreateUserServiceIntegrationTest extends PostgreSqlContainerIT {
 
     assertThat(persisted.getPasswordHash()).isNotBlank();
     assertThat(persisted.getPasswordHash()).isNotEqualTo(rawPassword);
+    assertThat(persisted.getStatus()).isEqualTo(com.kfood.identity.domain.UserStatus.INACTIVE);
     assertThat(persisted.getRoles())
         .extracting(IdentityUserRoleEntity::getRoleName)
         .containsExactly(UserRoleName.ADMIN);

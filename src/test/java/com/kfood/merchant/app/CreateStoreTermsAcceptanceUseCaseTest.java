@@ -13,6 +13,7 @@ import com.kfood.merchant.app.port.MerchantCommandPort;
 import com.kfood.merchant.domain.LegalDocumentType;
 import com.kfood.shared.security.CurrentAuthenticatedUserProvider;
 import com.kfood.shared.tenancy.CurrentTenantProvider;
+import java.lang.reflect.RecordComponent;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -60,6 +61,11 @@ class CreateStoreTermsAcceptanceUseCaseTest {
 
     var response = createStoreTermsAcceptanceUseCase.execute(request, " 203.0.113.9 ");
 
+    assertThat(
+            java.util.Arrays.stream(request.getClass().getRecordComponents())
+                .map(RecordComponent::getName))
+        .containsExactly("documentType", "documentVersion")
+        .doesNotContain("acceptedAt");
     assertThat(response.documentVersion()).isEqualTo("2026.03");
     assertThat(response.acceptedAt()).isEqualTo(Instant.parse("2026-03-20T13:15:00Z"));
     verify(merchantCommandPort)

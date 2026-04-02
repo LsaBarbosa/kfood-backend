@@ -23,6 +23,7 @@ import com.kfood.merchant.app.StoreOutput;
 import com.kfood.merchant.app.StoreSlugAlreadyExistsException;
 import com.kfood.merchant.app.StoreTermsAcceptanceOutput;
 import com.kfood.merchant.app.TenantAccessDeniedException;
+import com.kfood.merchant.app.UpdateDeliveryZoneCommand;
 import com.kfood.merchant.app.UpdateStoreCommand;
 import com.kfood.merchant.app.UpdateStoreHoursCommand;
 import com.kfood.merchant.app.UpdateStoreHoursOutput;
@@ -31,6 +32,7 @@ import com.kfood.merchant.domain.StoreStatus;
 import com.kfood.merchant.infra.persistence.DeliveryZone;
 import com.kfood.merchant.infra.persistence.DeliveryZoneRepository;
 import com.kfood.merchant.infra.persistence.Store;
+import com.kfood.merchant.infra.persistence.StoreAddress;
 import com.kfood.merchant.infra.persistence.StoreBusinessHour;
 import com.kfood.merchant.infra.persistence.StoreBusinessHourRepository;
 import com.kfood.merchant.infra.persistence.StoreRepository;
@@ -99,6 +101,58 @@ public class JpaMerchantCommandAdapter implements MerchantCommandPort {
   }
 
   @Override
+  public DeliveryZoneOutput updateDeliveryZone(
+      UUID storeId, UUID zoneId, UpdateDeliveryZoneCommand command) {
+    var store =
+        storeRepository.findById(storeId).orElseThrow(() -> new StoreNotFoundException(storeId));
+    ensureStoreIsNotSuspended(store);
+    var zone =
+        deliveryZoneRepository
+            .findByIdAndStoreId(zoneId, storeId)
+            .orElseThrow(() -> new com.kfood.merchant.app.DeliveryZoneNotFoundException(zoneId));
+    var zoneName = command.zoneName().trim();
+
+    deliveryZoneRepository
+        .findByStoreIdAndZoneName(storeId, zoneName)
+        .filter(existing -> !existing.getId().equals(zoneId))
+        .ifPresent(
+            existing -> {
+              throw new DeliveryZoneAlreadyExistsException(zoneName);
+            });
+
+    zone.changeZoneName(zoneName);
+    zone.changeFeeAmount(command.feeAmount());
+    zone.changeMinOrderAmount(command.minOrderAmount());
+    if (command.active()) {
+      zone.activate();
+    } else {
+      zone.deactivate();
+    }
+
+    var savedZone = deliveryZoneRepository.saveAndFlush(zone);
+    return DeliveryZoneMapper.toOutput(
+        new MerchantViews.DeliveryZoneView(
+            savedZone.getId(),
+            savedZone.getZoneName(),
+            savedZone.getFeeAmount(),
+            savedZone.getMinOrderAmount(),
+            savedZone.isActive()));
+  }
+
+  @Override
+  public void deleteDeliveryZone(UUID storeId, UUID zoneId) {
+    var store =
+        storeRepository.findById(storeId).orElseThrow(() -> new StoreNotFoundException(storeId));
+    ensureStoreIsNotSuspended(store);
+    var zone =
+        deliveryZoneRepository
+            .findByIdAndStoreId(zoneId, storeId)
+            .orElseThrow(() -> new com.kfood.merchant.app.DeliveryZoneNotFoundException(zoneId));
+    zone.deactivate();
+    deliveryZoneRepository.saveAndFlush(zone);
+  }
+
+  @Override
   public UpdateStoreHoursOutput updateStoreHours(UUID storeId, UpdateStoreHoursCommand command) {
     var store =
         storeRepository.findById(storeId).orElseThrow(() -> new StoreNotFoundException(storeId));
@@ -141,6 +195,12 @@ public class JpaMerchantCommandAdapter implements MerchantCommandPort {
     if (command.timezone() != null) {
       store.changeTimezone(command.timezone());
     }
+    if (command.category() != null) {
+      store.changeCategory(command.category());
+    }
+    if (command.address() != null) {
+      store.changeAddress(toStoreAddress(command.address()));
+    }
 
     var savedStore = storeRepository.saveAndFlush(store);
     return new StoreOutput(
@@ -150,6 +210,8 @@ public class JpaMerchantCommandAdapter implements MerchantCommandPort {
         savedStore.getCnpj(),
         savedStore.getPhone(),
         savedStore.getTimezone(),
+        savedStore.getCategory(),
+        toAddressOutput(savedStore.getAddress()),
         savedStore.getStatus());
   }
 
@@ -175,7 +237,9 @@ public class JpaMerchantCommandAdapter implements MerchantCommandPort {
             command.slug(),
             command.cnpj(),
             command.phone(),
-            command.timezone());
+            command.timezone(),
+            command.category(),
+            toStoreAddress(command.address()));
     var savedStore = storeRepository.saveAndFlush(store);
 
     if (authenticatedUser.hasRole(UserRoleName.OWNER)) {
@@ -218,6 +282,8 @@ public class JpaMerchantCommandAdapter implements MerchantCommandPort {
         savedStore.getStatus(),
         savedStore.getPhone(),
         savedStore.getTimezone(),
+        savedStore.getCategory(),
+        toAddressOutput(savedStore.getAddress()),
         requirements.hoursConfigured(),
         requirements.deliveryZonesConfigured());
   }
@@ -301,5 +367,29 @@ public class JpaMerchantCommandAdapter implements MerchantCommandPort {
 
   private String normalizeRequestIp(String requestIp) {
     return Objects.requireNonNull(requestIp, "requestIp is required").trim();
+  }
+
+  private StoreAddress toStoreAddress(com.kfood.merchant.app.StoreAddressCommand address) {
+    return address == null
+        ? null
+        : new StoreAddress(
+            address.zipCode(),
+            address.street(),
+            address.number(),
+            address.district(),
+            address.city(),
+            address.state());
+  }
+
+  private com.kfood.merchant.app.StoreAddressOutput toAddressOutput(StoreAddress address) {
+    return address == null
+        ? null
+        : new com.kfood.merchant.app.StoreAddressOutput(
+            address.getZipCode(),
+            address.getStreet(),
+            address.getNumber(),
+            address.getDistrict(),
+            address.getCity(),
+            address.getState());
   }
 }

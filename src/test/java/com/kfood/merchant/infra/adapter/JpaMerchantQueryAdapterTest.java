@@ -13,11 +13,15 @@ import com.kfood.catalog.infra.persistence.CatalogOptionGroupRepository;
 import com.kfood.catalog.infra.persistence.CatalogOptionItem;
 import com.kfood.catalog.infra.persistence.CatalogProduct;
 import com.kfood.catalog.infra.persistence.CatalogProductRepository;
+import com.kfood.merchant.app.DeliveryZoneNotFoundException;
 import com.kfood.merchant.app.StoreActivationRequirements;
 import com.kfood.merchant.app.StoreNotFoundException;
+import com.kfood.merchant.app.StoreSlugNotFoundException;
+import com.kfood.merchant.domain.StoreCategory;
 import com.kfood.merchant.infra.persistence.DeliveryZone;
 import com.kfood.merchant.infra.persistence.DeliveryZoneRepository;
 import com.kfood.merchant.infra.persistence.Store;
+import com.kfood.merchant.infra.persistence.StoreAddress;
 import com.kfood.merchant.infra.persistence.StoreBusinessHour;
 import com.kfood.merchant.infra.persistence.StoreBusinessHourRepository;
 import com.kfood.merchant.infra.persistence.StoreRepository;
@@ -81,8 +85,10 @@ class JpaMerchantQueryAdapterTest {
             new BigDecimal("6.50"),
             new BigDecimal("25.00"),
             true);
-    var hour =
+    var mondayHour =
         StoreBusinessHour.open(store, DayOfWeek.MONDAY, LocalTime.of(10, 0), LocalTime.of(22, 0));
+    var sundayHour =
+        StoreBusinessHour.open(store, DayOfWeek.SUNDAY, LocalTime.of(11, 0), LocalTime.of(21, 0));
     var acceptance =
         new StoreTermsAcceptance(
             UUID.randomUUID(),
@@ -98,7 +104,8 @@ class JpaMerchantQueryAdapterTest {
         .thenReturn(Optional.of(zone));
     when(deliveryZoneRepository.findAllByStoreIdOrderByZoneNameAsc(storeId))
         .thenReturn(List.of(zone));
-    when(storeBusinessHourRepository.findByStoreId(storeId)).thenReturn(List.of(hour));
+    when(storeBusinessHourRepository.findByStoreId(storeId))
+        .thenReturn(List.of(mondayHour, sundayHour));
     when(storeTermsAcceptanceRepository.findAllByStoreIdOrderByAcceptedAtDesc(storeId))
         .thenReturn(List.of(acceptance));
     when(storeRepository.findBySlug("loja-do-bairro")).thenReturn(Optional.of(store));
@@ -112,12 +119,26 @@ class JpaMerchantQueryAdapterTest {
 
     assertThat(
             adapter
-                .getStoreDetails(storeId, new StoreActivationRequirements(true, true, true))
+                .getStoreDetails(
+                    storeId, new StoreActivationRequirements(true, true, true, true, true))
                 .status())
         .isEqualTo(store.getStatus());
+    assertThat(
+            adapter
+                .getStoreDetails(
+                    storeId, new StoreActivationRequirements(true, true, true, true, true))
+                .category())
+        .isEqualTo(StoreCategory.PIZZARIA);
+    assertThat(
+            adapter
+                .getStoreDetails(
+                    storeId, new StoreActivationRequirements(true, true, true, true, true))
+                .address()
+                .zipCode())
+        .isEqualTo("25000000");
     assertThat(adapter.getDeliveryZone(storeId, zone.getId()).zoneName()).isEqualTo("Centro");
     assertThat(adapter.listDeliveryZones(storeId)).hasSize(1);
-    assertThat(adapter.getStoreHours(storeId).hours()).hasSize(1);
+    assertThat(adapter.getStoreHours(storeId).hours()).hasSize(2);
     assertThat(adapter.getPublicStore("loja-do-bairro").deliveryZones()).hasSize(1);
     assertThat(adapter.getPublicStoreMenu("loja-do-bairro").categories()).hasSize(1);
     assertThat(adapter.getStoreTermsAcceptanceHistory(storeId)).hasSize(1);
@@ -171,6 +192,80 @@ class JpaMerchantQueryAdapterTest {
         .isInstanceOf(StoreNotFoundException.class);
   }
 
+  @Test
+  void shouldThrowWhenDeliveryZoneIsMissingForStore() {
+    var storeId = UUID.randomUUID();
+    var zoneId = UUID.randomUUID();
+
+    when(deliveryZoneRepository.findByIdAndStoreId(zoneId, storeId)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> adapter.getDeliveryZone(storeId, zoneId))
+        .isInstanceOf(DeliveryZoneNotFoundException.class);
+  }
+
+  @Test
+  void shouldThrowWhenStoreIsMissingForHours() {
+    var storeId = UUID.randomUUID();
+
+    when(storeRepository.findById(storeId)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> adapter.getStoreHours(storeId))
+        .isInstanceOf(StoreNotFoundException.class);
+  }
+
+  @Test
+  void shouldThrowWhenStoreSlugIsMissingForPublicStore() {
+    when(storeRepository.findBySlug("inexistente")).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> adapter.getPublicStore("inexistente"))
+        .isInstanceOf(StoreSlugNotFoundException.class);
+  }
+
+  @Test
+  void shouldThrowWhenStoreSlugIsMissingForPublicStoreMenu() {
+    when(storeRepository.findBySlug("inexistente")).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> adapter.getPublicStoreMenu("inexistente"))
+        .isInstanceOf(StoreSlugNotFoundException.class);
+  }
+
+  @Test
+  void shouldThrowWhenStoreIsMissingForTermsAcceptanceHistory() {
+    var storeId = UUID.randomUUID();
+
+    when(storeRepository.findById(storeId)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> adapter.getStoreTermsAcceptanceHistory(storeId))
+        .isInstanceOf(StoreNotFoundException.class);
+  }
+
+  @Test
+  void shouldMapLegacyStoreWithoutAddress() {
+    var storeId = UUID.randomUUID();
+    var legacyStore =
+        new Store(
+            storeId,
+            "Loja do Bairro",
+            "loja-do-bairro",
+            "45.723.174/0001-10",
+            "21999990000",
+            "America/Sao_Paulo");
+
+    when(storeRepository.findById(storeId)).thenReturn(Optional.of(legacyStore));
+    when(storeRepository.findBySlug("loja-do-bairro")).thenReturn(Optional.of(legacyStore));
+    when(storeBusinessHourRepository.findByStoreId(storeId)).thenReturn(List.of());
+    when(deliveryZoneRepository.findAllByStoreIdAndActiveTrueOrderByZoneNameAsc(storeId))
+        .thenReturn(List.of());
+
+    var details =
+        adapter.getStoreDetails(
+            storeId, new StoreActivationRequirements(false, false, false, false, false));
+    var publicStore = adapter.getPublicStore("loja-do-bairro");
+
+    assertThat(details.address()).isNull();
+    assertThat(publicStore.slug()).isEqualTo("loja-do-bairro");
+  }
+
   private Store store() {
     return new Store(
         UUID.randomUUID(),
@@ -178,6 +273,8 @@ class JpaMerchantQueryAdapterTest {
         "loja-do-bairro",
         "45.723.174/0001-10",
         "21999990000",
-        "America/Sao_Paulo");
+        "America/Sao_Paulo",
+        StoreCategory.PIZZARIA,
+        new StoreAddress("25000-000", "Rua Central", "100", "Centro", "Mage", "RJ"));
   }
 }
