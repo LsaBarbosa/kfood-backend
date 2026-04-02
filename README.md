@@ -347,6 +347,8 @@ V3__...
 - alterações incompatíveis devem seguir estratégia forward-only
 - toda mudança estrutural do banco deve passar por migration
 
+Dicionário técnico do aceite de termos: [docs/data/store_terms_acceptance_data_dictionary.md](/home/kronos/Documentos/Codigin/kfood-backend/docs/data/store_terms_acceptance_data_dictionary.md)
+
 ---
 
 ## Health checks e endpoints técnicos
@@ -419,14 +421,18 @@ A aplicação adota um payload padronizado para erros previsíveis e inesperados
 
 O repositório expõe uma leitura pública da loja por slug. O contrato abaixo reflete o comportamento implementado hoje, sem inventar campos sem backing real no modelo.
 
+Contrato formal da loja pública: [docs/api/public-store-contract.md](/home/kronos/Documentos/Codigin/kfood-backend/docs/api/public-store-contract.md)
+
 ### GET `/v1/public/stores/{slug}`
 
-Consulta os dados públicos da loja.
+Consulta somente os dados públicos mínimos da loja.
 
 - acesso esperado: público, sem autenticação
 - o payload retorna apenas campos públicos já suportados pela implementação
 - o payload não expõe `id`, `cnpj`, `timezone` nem outros campos internos do tenant
 - o payload não inclui mídia ou flags comerciais sem suporte persistido, como `logoUrl`, `bannerUrl` ou campos equivalentes
+- `deliveryZones` expõe somente `zoneName`, `feeAmount` e `minOrderAmount`, sem metadados internos
+- este endpoint documenta apenas os dados da loja; o cardápio público segue o contrato próprio de `/v1/public/stores/{slug}/menu`
 
 Response `200 OK`:
 
@@ -469,13 +475,18 @@ Response `404 Not Found`:
 
 Os endpoints abaixo refletem o comportamento atual implementado para a área da loja do merchant na Sprint 6.
 
+Contrato formal do aceite de termos: [docs/api/merchant-store-terms-acceptance-contract.md](/home/kronos/Documentos/Codigin/kfood-backend/docs/api/merchant-store-terms-acceptance-contract.md)
+
 ### POST `/v1/merchant/store/terms-acceptance`
 
 Registra a aceitação de um documento legal para o tenant autenticado.
 
 - acesso esperado: `OWNER`
 - `acceptedAt` é gerado no servidor
-- o request não aceita `acceptedAt` como campo de entrada
+- o backend deriva `requestIp` dos metadados da requisição HTTP; esse valor não faz parte do payload público
+- o cliente envia apenas `documentType` e `documentVersion`
+- o cliente não envia `acceptedAt` nem `requestIp` no payload
+- a resposta `201 Created` inclui `acceptedAt`
 
 Request:
 
@@ -503,6 +514,8 @@ Consulta o histórico de aceite legal do tenant autenticado.
 
 - acesso esperado: `OWNER`
 - itens retornam em ordem decrescente de `acceptedAt`
+- os itens refletem aceites persistidos com `acceptedAt` gerado no servidor
+- os campos públicos continuam limitados ao contrato já exposto pela API
 
 Response `200 OK`:
 

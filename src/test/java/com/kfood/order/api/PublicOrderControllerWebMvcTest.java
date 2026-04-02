@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.kfood.identity.infra.security.JwtAuthenticationFilter;
 import com.kfood.merchant.app.StoreSlugNotFoundException;
 import com.kfood.order.app.CreatePublicOrderOutput;
 import com.kfood.order.app.CreatePublicOrderService;
@@ -19,24 +20,34 @@ import com.kfood.order.domain.FulfillmentType;
 import com.kfood.order.domain.OrderStatus;
 import com.kfood.payment.domain.PaymentMethod;
 import com.kfood.payment.domain.PaymentStatusSnapshot;
+import com.kfood.shared.config.SecurityConfiguration;
+import com.kfood.shared.exceptions.ApiErrorResponseFactory;
+import com.kfood.shared.exceptions.GlobalExceptionHandler;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.test.context.TestPropertySource;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
+import org.springframework.context.annotation.Import;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@TestPropertySource(
-    properties = {
-      "app.security.jwt-secret=12345678901234567890123456789012",
-      "app.security.jwt-expiration-seconds=3600"
+@WebMvcTest(
+    controllers = PublicOrderController.class,
+    excludeFilters = {
+      @ComponentScan.Filter(
+          type = FilterType.ASSIGNABLE_TYPE,
+          classes = SecurityConfiguration.class),
+      @ComponentScan.Filter(
+          type = FilterType.ASSIGNABLE_TYPE,
+          classes = JwtAuthenticationFilter.class)
     })
+@AutoConfigureMockMvc(addFilters = false)
+@Import({GlobalExceptionHandler.class, ApiErrorResponseFactory.class})
 class PublicOrderControllerWebMvcTest {
 
   @Autowired private MockMvc mockMvc;

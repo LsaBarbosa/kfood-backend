@@ -129,7 +129,7 @@ public class StoreController {
   }
 
   @PatchMapping("/status")
-  @PreAuthorize(Roles.OWNER_OR_ADMIN)
+  @PreAuthorize(Roles.OWNER)
   public StoreDetailsResponse changeStatus(@Valid @RequestBody ChangeStoreStatusRequest request) {
     return toStoreDetailsResponse(
         changeStoreStatusUseCase().execute(new ChangeStoreStatusCommand(request.targetStatus())));
