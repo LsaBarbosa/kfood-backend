@@ -3,6 +3,7 @@ package com.kfood.merchant.app;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.kfood.identity.app.AuthenticatedUser;
 import com.kfood.identity.domain.UserRoleName;
 import com.kfood.identity.domain.UserStatus;
 import com.kfood.identity.persistence.IdentityUserEntity;
@@ -15,11 +16,14 @@ import com.kfood.merchant.infra.persistence.Store;
 import com.kfood.merchant.infra.persistence.StoreRepository;
 import com.kfood.shared.persistence.TestJpaAuditingConfig;
 import com.kfood.shared.security.CurrentAuthenticatedUserProvider;
+import com.kfood.shared.tenancy.SpringSecurityCurrentTenantProvider;
 import com.kfood.support.PostgreSqlContainerIT;
 import jakarta.persistence.EntityManager;
 import java.time.temporal.ChronoUnit;
+import java.util.List;
 import java.util.Set;
 import java.util.UUID;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +32,8 @@ import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabas
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
 
@@ -36,6 +42,7 @@ import org.springframework.test.context.TestPropertySource;
 @Import({
   TestJpaAuditingConfig.class,
   JpaMerchantCommandAdapter.class,
+  SpringSecurityCurrentTenantProvider.class,
   CreateStoreUseCaseIntegrationTest.TestConfig.class
 })
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
@@ -54,6 +61,13 @@ class CreateStoreUseCaseIntegrationTest extends PostgreSqlContainerIT {
   @Autowired private EntityManager entityManager;
 
   @Autowired private TestCurrentAuthenticatedUserProvider currentAuthenticatedUserProvider;
+
+  @Autowired private SpringSecurityCurrentTenantProvider currentTenantProvider;
+
+  @AfterEach
+  void clearSecurityContext() {
+    SecurityContextHolder.clearContext();
+  }
 
   @Test
   @DisplayName("should bind owner to newly created store using real create store flow")
@@ -94,6 +108,38 @@ class CreateStoreUseCaseIntegrationTest extends PostgreSqlContainerIT {
     assertThat(persistedOwner.getRoles())
         .extracting(IdentityUserRoleEntity::getStoreId)
         .containsOnly(persistedStore.getId());
+  }
+
+  @Test
+  @DisplayName(
+      "should resolve tenant from persisted owner binding after first store creation when token has no store")
+  void shouldResolveTenantFromPersistedOwnerBindingAfterFirstStoreCreationWhenTokenHasNoStore() {
+    var owner = ownerWithoutStore("owner-sem-tenant@kfood.local");
+    identityUserRepository.saveAndFlush(owner);
+    currentAuthenticatedUserProvider.setCurrentUserId(owner.getId());
+
+    var output =
+        createStoreUseCase.execute(
+            new CreateStoreCommand(
+                "Loja Tenant",
+                "loja-tenant",
+                "54.550.752/0001-55",
+                "21999990000",
+                "America/Sao_Paulo"));
+
+    entityManager.flush();
+    entityManager.clear();
+
+    var persistedOwner = identityUserRepository.findDetailedById(owner.getId()).orElseThrow();
+    assertThat(persistedOwner.getStoreId()).isEqualTo(output.id());
+
+    var principal =
+        new AuthenticatedUser(owner.getId(), persistedOwner.getEmail(), null, List.of("OWNER"));
+    SecurityContextHolder.getContext()
+        .setAuthentication(
+            new UsernamePasswordAuthenticationToken(principal, null, principal.getAuthorities()));
+
+    assertThat(currentTenantProvider.getRequiredStoreId()).isEqualTo(output.id());
   }
 
   @Test
