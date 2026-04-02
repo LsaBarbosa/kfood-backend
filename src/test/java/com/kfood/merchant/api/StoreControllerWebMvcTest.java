@@ -1,6 +1,8 @@
 package com.kfood.merchant.api;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -38,6 +40,7 @@ import com.kfood.merchant.domain.LegalDocumentType;
 import com.kfood.merchant.domain.StoreCategory;
 import com.kfood.merchant.domain.StoreStatus;
 import com.kfood.shared.web.ClientIpResolver;
+import java.lang.reflect.RecordComponent;
 import java.time.Instant;
 import java.util.List;
 import java.util.Set;
@@ -76,6 +79,15 @@ class StoreControllerWebMvcTest {
   @MockitoBean private ChangeStoreStatusUseCase changeStoreStatusUseCase;
 
   @MockitoBean private ClientIpResolver clientIpResolver;
+
+  @Test
+  void shouldExposeOnlyDocumentTypeAndDocumentVersionInTermsAcceptanceRequest() {
+    assertThat(
+            java.util.Arrays.stream(CreateStoreTermsAcceptanceRequest.class.getRecordComponents())
+                .map(RecordComponent::getName))
+        .containsExactly("documentType", "documentVersion")
+        .doesNotContain("acceptedAt");
+  }
 
   @Test
   void shouldCreateStoreSuccessfully() throws Exception {
@@ -326,7 +338,7 @@ class StoreControllerWebMvcTest {
   }
 
   @Test
-  void shouldChangeStoreStatus() throws Exception {
+  void shouldAllowOwnerToChangeStatusThroughCurrentMerchantStoreRoute() throws Exception {
     var storeId = UUID.randomUUID();
     when(changeStoreStatusUseCase.execute(any(ChangeStoreStatusCommand.class)))
         .thenReturn(
@@ -364,6 +376,8 @@ class StoreControllerWebMvcTest {
         .andExpect(jsonPath("$.address.zipCode").value("25000000"))
         .andExpect(jsonPath("$.hoursConfigured").value(true))
         .andExpect(jsonPath("$.deliveryZonesConfigured").value(true));
+
+    verify(changeStoreStatusUseCase).execute(new ChangeStoreStatusCommand(StoreStatus.ACTIVE));
   }
 
   @Test
@@ -406,21 +420,7 @@ class StoreControllerWebMvcTest {
   }
 
   @Test
-  void shouldAllowStatusChangeForAdmin() throws Exception {
-    when(changeStoreStatusUseCase.execute(any(ChangeStoreStatusCommand.class)))
-        .thenReturn(
-            new StoreDetailsOutput(
-                UUID.randomUUID(),
-                "loja-do-bairro",
-                "Loja do Bairro",
-                StoreStatus.SUSPENDED,
-                "21999990000",
-                "America/Sao_Paulo",
-                StoreCategory.PIZZARIA,
-                new StoreAddressOutput("25000000", "Rua Central", "100", "Centro", "Mage", "RJ"),
-                true,
-                true));
-
+  void shouldForbidStatusChangeForAdminOnMerchantRoute() throws Exception {
     mockMvc
         .perform(
             patch("/v1/merchant/store/status")
@@ -432,10 +432,8 @@ class StoreControllerWebMvcTest {
                       "targetStatus": "SUSPENDED"
                     }
                     """))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.status").value("SUSPENDED"))
-        .andExpect(jsonPath("$.category").value("PIZZARIA"))
-        .andExpect(jsonPath("$.address.city").value("Mage"));
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN_ROLE"));
   }
 
   @Test

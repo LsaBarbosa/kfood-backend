@@ -77,6 +77,10 @@ class ChangeStoreStatusUseCaseTest {
     var response = changeStoreStatusUseCase.execute(command);
 
     assertThat(response.status()).isEqualTo(StoreStatus.ACTIVE);
+    verify(currentTenantProvider).getRequiredStoreId();
+    verify(currentAuthenticatedUserProvider).getRequiredUserId();
+    verify(storeActivationRequirementsService).evaluate(storeId);
+    verify(merchantQueryPort).getStoreDetails(storeId, requirements);
     verify(merchantCommandPort).changeStoreStatus(storeId, command, requirements);
     verify(merchantStoreAuditPort)
         .recordStoreStatusChanged(storeId, actorUserId, currentStore.status(), output.status());
