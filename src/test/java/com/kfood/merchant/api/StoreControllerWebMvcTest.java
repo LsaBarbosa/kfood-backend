@@ -2,6 +2,7 @@ package com.kfood.merchant.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -247,7 +248,7 @@ class StoreControllerWebMvcTest {
   }
 
   @Test
-  void shouldChangeStoreStatus() throws Exception {
+  void shouldAllowOwnerToChangeStatusThroughCurrentMerchantStoreRoute() throws Exception {
     var storeId = UUID.randomUUID();
     when(changeStoreStatusUseCase.execute(any(ChangeStoreStatusCommand.class)))
         .thenReturn(
@@ -281,6 +282,8 @@ class StoreControllerWebMvcTest {
         .andExpect(jsonPath("$.timezone").value("America/Sao_Paulo"))
         .andExpect(jsonPath("$.hoursConfigured").value(true))
         .andExpect(jsonPath("$.deliveryZonesConfigured").value(true));
+
+    verify(changeStoreStatusUseCase).execute(new ChangeStoreStatusCommand(StoreStatus.ACTIVE));
   }
 
   @Test
@@ -323,19 +326,7 @@ class StoreControllerWebMvcTest {
   }
 
   @Test
-  void shouldAllowStatusChangeForAdmin() throws Exception {
-    when(changeStoreStatusUseCase.execute(any(ChangeStoreStatusCommand.class)))
-        .thenReturn(
-            new StoreDetailsOutput(
-                UUID.randomUUID(),
-                "loja-do-bairro",
-                "Loja do Bairro",
-                StoreStatus.SUSPENDED,
-                "21999990000",
-                "America/Sao_Paulo",
-                true,
-                true));
-
+  void shouldForbidStatusChangeForAdminOnMerchantRoute() throws Exception {
     mockMvc
         .perform(
             patch("/v1/merchant/store/status")
@@ -347,8 +338,8 @@ class StoreControllerWebMvcTest {
                       "targetStatus": "SUSPENDED"
                     }
                     """))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.status").value("SUSPENDED"));
+        .andExpect(status().isForbidden())
+        .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN_ROLE"));
   }
 
   @Test
