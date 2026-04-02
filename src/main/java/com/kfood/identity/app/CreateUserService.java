@@ -21,11 +21,11 @@ public class CreateUserService {
 
   @Transactional
   public IdentityUserEntity create(
-      UUID storeId, String email, String rawPassword, Set<UserRoleName> roles) {
+      UUID storeId, String email, String rawPassword, Set<UserRoleName> roles, UserStatus status) {
     String passwordHash = passwordHashService.hash(rawPassword);
 
     IdentityUserEntity user =
-        new IdentityUserEntity(UUID.randomUUID(), storeId, email, passwordHash, UserStatus.ACTIVE);
+        new IdentityUserEntity(UUID.randomUUID(), storeId, email, passwordHash, status);
     user.replaceRoles(roles);
 
     return identityUserRepository.save(user);

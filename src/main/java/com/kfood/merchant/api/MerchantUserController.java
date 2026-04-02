@@ -35,7 +35,8 @@ public class MerchantUserController {
   public MerchantUserResponse create(@Valid @RequestBody CreateMerchantUserRequest request) {
     return MerchantUserApiMapper.toResponse(
         createMerchantUserUseCase.execute(
-            new CreateMerchantUserCommand(request.email(), request.password(), request.roles())));
+            new CreateMerchantUserCommand(
+                request.email(), request.temporaryPassword(), request.roles(), request.status())));
   }
 
   @GetMapping

@@ -13,7 +13,21 @@ public final class StoreDetailsMapper {
         store.status(),
         store.phone(),
         store.timezone(),
+        store.category(),
+        toAddressOutput(store.address()),
         requirements.hoursConfigured(),
         requirements.deliveryZonesConfigured());
+  }
+
+  private static StoreAddressOutput toAddressOutput(MerchantViews.StoreAddressView address) {
+    return address == null
+        ? null
+        : new StoreAddressOutput(
+            address.zipCode(),
+            address.street(),
+            address.number(),
+            address.district(),
+            address.city(),
+            address.state());
   }
 }

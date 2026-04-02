@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import com.kfood.merchant.app.audit.MerchantStoreAuditPort;
 import com.kfood.merchant.app.port.MerchantCommandPort;
 import com.kfood.merchant.app.port.MerchantQueryPort;
+import com.kfood.merchant.domain.StoreCategory;
 import com.kfood.merchant.domain.StoreStatus;
 import com.kfood.shared.exceptions.BusinessException;
 import com.kfood.shared.security.CurrentAuthenticatedUserProvider;
@@ -41,7 +42,7 @@ class ChangeStoreStatusUseCaseTest {
     var storeId = UUID.randomUUID();
     var actorUserId = UUID.randomUUID();
     var command = new ChangeStoreStatusCommand(StoreStatus.ACTIVE);
-    var requirements = new StoreActivationRequirements(true, true, true);
+    var requirements = new StoreActivationRequirements(true, true, true, true, true);
     var currentStore =
         new StoreDetailsOutput(
             storeId,
@@ -50,6 +51,8 @@ class ChangeStoreStatusUseCaseTest {
             StoreStatus.SETUP,
             "21999990000",
             "America/Sao_Paulo",
+            StoreCategory.PIZZARIA,
+            new StoreAddressOutput("25000000", "Rua Central", "100", "Centro", "Mage", "RJ"),
             true,
             true);
     var output =
@@ -60,6 +63,8 @@ class ChangeStoreStatusUseCaseTest {
             StoreStatus.ACTIVE,
             "21999990000",
             "America/Sao_Paulo",
+            StoreCategory.PIZZARIA,
+            new StoreAddressOutput("25000000", "Rua Central", "100", "Centro", "Mage", "RJ"),
             true,
             true);
 
@@ -82,7 +87,7 @@ class ChangeStoreStatusUseCaseTest {
     var storeId = UUID.randomUUID();
     var actorUserId = UUID.randomUUID();
     var command = new ChangeStoreStatusCommand(StoreStatus.SUSPENDED);
-    var requirements = new StoreActivationRequirements(true, true, true);
+    var requirements = new StoreActivationRequirements(true, true, true, true, true);
     var currentStore =
         new StoreDetailsOutput(
             storeId,
@@ -122,7 +127,7 @@ class ChangeStoreStatusUseCaseTest {
     var storeId = UUID.randomUUID();
     var actorUserId = UUID.randomUUID();
     var command = new ChangeStoreStatusCommand(StoreStatus.ACTIVE);
-    var requirements = new StoreActivationRequirements(true, true, true);
+    var requirements = new StoreActivationRequirements(true, true, true, true, true);
     var currentStore =
         new StoreDetailsOutput(
             storeId,
@@ -162,7 +167,7 @@ class ChangeStoreStatusUseCaseTest {
     var storeId = UUID.randomUUID();
     var actorUserId = UUID.randomUUID();
     var command = new ChangeStoreStatusCommand(StoreStatus.ACTIVE);
-    var requirements = new StoreActivationRequirements(false, true, true);
+    var requirements = new StoreActivationRequirements(true, true, false, true, true);
     var currentStore =
         new StoreDetailsOutput(
             storeId,
@@ -193,7 +198,7 @@ class ChangeStoreStatusUseCaseTest {
     var storeId = UUID.randomUUID();
     var actorUserId = UUID.randomUUID();
     var command = new ChangeStoreStatusCommand(StoreStatus.SETUP);
-    var requirements = new StoreActivationRequirements(true, true, true);
+    var requirements = new StoreActivationRequirements(true, true, true, true, true);
     var currentStore =
         new StoreDetailsOutput(
             storeId,

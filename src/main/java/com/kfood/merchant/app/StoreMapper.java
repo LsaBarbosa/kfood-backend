@@ -16,6 +16,20 @@ public final class StoreMapper {
         store.cnpj(),
         store.phone(),
         store.timezone(),
+        store.category(),
+        toAddressOutput(store.address()),
         store.status());
+  }
+
+  private static StoreAddressOutput toAddressOutput(MerchantViews.StoreAddressView address) {
+    return address == null
+        ? null
+        : new StoreAddressOutput(
+            address.zipCode(),
+            address.street(),
+            address.number(),
+            address.district(),
+            address.city(),
+            address.state());
   }
 }

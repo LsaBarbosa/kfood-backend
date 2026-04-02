@@ -25,17 +25,28 @@ class MerchantUserManagementAdapterTest {
   @Test
   void shouldCreateUserThroughPortAdapter() {
     var storeId = UUID.randomUUID();
-    var user = user(storeId, "manager@kfood.local", Set.of(UserRoleName.MANAGER));
+    var user =
+        user(storeId, "manager@kfood.local", Set.of(UserRoleName.MANAGER), UserStatus.INACTIVE);
 
     when(createUserService.create(
-            storeId, "manager@kfood.local", "Senha@123", Set.of(UserRoleName.MANAGER)))
+            storeId,
+            "manager@kfood.local",
+            "Temp!1234",
+            Set.of(UserRoleName.MANAGER),
+            UserStatus.INACTIVE))
         .thenReturn(user);
 
     var output =
-        adapter.create(storeId, "manager@kfood.local", "Senha@123", Set.of(UserRoleName.MANAGER));
+        adapter.create(
+            storeId,
+            "manager@kfood.local",
+            "Temp!1234",
+            Set.of(UserRoleName.MANAGER),
+            UserStatus.INACTIVE);
 
     assertThat(output.email()).isEqualTo("manager@kfood.local");
     assertThat(output.roles()).containsExactly("MANAGER");
+    assertThat(output.status()).isEqualTo(UserStatus.INACTIVE);
   }
 
   @Test
@@ -56,8 +67,12 @@ class MerchantUserManagementAdapterTest {
   }
 
   private IdentityUserEntity user(UUID storeId, String email, Set<UserRoleName> roles) {
-    var user =
-        new IdentityUserEntity(UUID.randomUUID(), storeId, email, "$2a$10$hash", UserStatus.ACTIVE);
+    return user(storeId, email, roles, UserStatus.ACTIVE);
+  }
+
+  private IdentityUserEntity user(
+      UUID storeId, String email, Set<UserRoleName> roles, UserStatus status) {
+    var user = new IdentityUserEntity(UUID.randomUUID(), storeId, email, "$2a$10$hash", status);
     user.replaceRoles(roles);
     try {
       var createdAt = user.getClass().getSuperclass().getDeclaredField("createdAt");

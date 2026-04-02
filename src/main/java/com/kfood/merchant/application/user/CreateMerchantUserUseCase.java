@@ -32,7 +32,11 @@ public class CreateMerchantUserUseCase {
 
     var storeId = merchantTenantAccessPort.getRequiredStoreId();
     return merchantUserManagementPort.create(
-        storeId, command.email().trim(), command.password(), requestedRoles);
+        storeId,
+        command.email().trim(),
+        command.temporaryPassword(),
+        requestedRoles,
+        command.status());
   }
 
   private void validateRoles(Set<UserRoleName> actorRoles, Set<UserRoleName> requestedRoles) {

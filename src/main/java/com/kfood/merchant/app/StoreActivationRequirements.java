@@ -4,14 +4,33 @@ import java.util.ArrayList;
 import java.util.List;
 
 public record StoreActivationRequirements(
-    boolean hoursConfigured, boolean deliveryZonesConfigured, boolean termsAccepted) {
+    boolean categoryConfigured,
+    boolean addressConfigured,
+    boolean hoursConfigured,
+    boolean deliveryZonesConfigured,
+    boolean termsAccepted) {
+
+  public StoreActivationRequirements(
+      boolean hoursConfigured, boolean deliveryZonesConfigured, boolean termsAccepted) {
+    this(true, true, hoursConfigured, deliveryZonesConfigured, termsAccepted);
+  }
 
   public boolean canActivate() {
-    return hoursConfigured && deliveryZonesConfigured && termsAccepted;
+    return categoryConfigured
+        && addressConfigured
+        && hoursConfigured
+        && deliveryZonesConfigured
+        && termsAccepted;
   }
 
   public List<String> missingRequirements() {
     var missing = new ArrayList<String>();
+    if (!categoryConfigured) {
+      missing.add("category");
+    }
+    if (!addressConfigured) {
+      missing.add("address");
+    }
     if (!hoursConfigured) {
       missing.add("hoursConfigured");
     }
