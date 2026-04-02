@@ -26,6 +26,7 @@ import com.kfood.merchant.app.CreateStoreUseCase;
 import com.kfood.merchant.app.GetStoreDetailsUseCase;
 import com.kfood.merchant.app.GetStoreTermsAcceptanceHistoryUseCase;
 import com.kfood.merchant.app.StoreActivationRequirementsNotMetException;
+import com.kfood.merchant.app.StoreAddressOutput;
 import com.kfood.merchant.app.StoreDetailsOutput;
 import com.kfood.merchant.app.StoreNotActiveException;
 import com.kfood.merchant.app.StoreNotFoundException;
@@ -36,6 +37,7 @@ import com.kfood.merchant.app.TenantAccessDeniedException;
 import com.kfood.merchant.app.UpdateStoreCommand;
 import com.kfood.merchant.app.UpdateStoreUseCase;
 import com.kfood.merchant.domain.LegalDocumentType;
+import com.kfood.merchant.domain.StoreCategory;
 import com.kfood.merchant.domain.StoreStatus;
 import com.kfood.shared.web.ClientIpResolver;
 import java.lang.reflect.RecordComponent;
@@ -109,12 +111,72 @@ class StoreControllerWebMvcTest {
                       "slug": "loja-do-bairro",
                       "cnpj": "45.723.174/0001-10",
                       "phone": "21999990000",
-                      "timezone": "America/Sao_Paulo"
+                      "timezone": "America/Sao_Paulo",
+                      "category": "PIZZARIA",
+                      "address": {
+                        "zipCode": "25000-000",
+                        "street": "Rua Central",
+                        "number": "100",
+                        "district": "Centro",
+                        "city": "Mage",
+                        "state": "RJ"
+                      }
                     }
                     """))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.slug").value("loja-do-bairro"))
         .andExpect(jsonPath("$.status").value("SETUP"));
+  }
+
+  @Test
+  void shouldReturnBadRequestWhenCategoryIsMissingOnCreate() throws Exception {
+    mockMvc
+        .perform(
+            post("/v1/merchant/store")
+                .header("Authorization", "Bearer " + tokenOf(UserRoleName.OWNER, null))
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "name": "Loja do Bairro",
+                      "slug": "loja-do-bairro",
+                      "cnpj": "45.723.174/0001-10",
+                      "phone": "21999990000",
+                      "timezone": "America/Sao_Paulo",
+                      "address": {
+                        "zipCode": "25000-000",
+                        "street": "Rua Central",
+                        "number": "100",
+                        "district": "Centro",
+                        "city": "Mage",
+                        "state": "RJ"
+                      }
+                    }
+                    """))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+  }
+
+  @Test
+  void shouldReturnBadRequestWhenAddressIsMissingOnCreate() throws Exception {
+    mockMvc
+        .perform(
+            post("/v1/merchant/store")
+                .header("Authorization", "Bearer " + tokenOf(UserRoleName.OWNER, null))
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "name": "Loja do Bairro",
+                      "slug": "loja-do-bairro",
+                      "cnpj": "45.723.174/0001-10",
+                      "phone": "21999990000",
+                      "timezone": "America/Sao_Paulo",
+                      "category": "PIZZARIA"
+                    }
+                    """))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
   }
 
   @Test
@@ -167,6 +229,8 @@ class StoreControllerWebMvcTest {
                 "45.723.174/0001-10",
                 "21911112222",
                 "UTC",
+                StoreCategory.PIZZARIA,
+                new StoreAddressOutput("25000000", "Rua Central", "100", "Centro", "Mage", "RJ"),
                 StoreStatus.SETUP));
 
     mockMvc
@@ -178,12 +242,24 @@ class StoreControllerWebMvcTest {
                     """
                     {
                       "name": "Loja Premium",
-                      "slug": "loja-premium"
+                      "slug": "loja-premium",
+                      "category": "PIZZARIA",
+                      "address": {
+                        "zipCode": "25000-000",
+                        "street": "Rua Central",
+                        "number": "100",
+                        "district": "Centro",
+                        "city": "Mage",
+                        "state": "RJ"
+                      }
                     }
                     """))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.name").value("Loja Premium"))
-        .andExpect(jsonPath("$.slug").value("loja-premium"));
+        .andExpect(jsonPath("$.slug").value("loja-premium"))
+        .andExpect(jsonPath("$.category").value("PIZZARIA"))
+        .andExpect(jsonPath("$.address.zipCode").value("25000000"))
+        .andExpect(jsonPath("$.address.street").value("Rua Central"));
   }
 
   @Test
@@ -216,7 +292,16 @@ class StoreControllerWebMvcTest {
                       "slug": "loja-do-bairro",
                       "cnpj": "45.723.174/0001-10",
                       "phone": "21999990000",
-                      "timezone": "America/Sao_Paulo"
+                      "timezone": "America/Sao_Paulo",
+                      "category": "PIZZARIA",
+                      "address": {
+                        "zipCode": "25000-000",
+                        "street": "Rua Central",
+                        "number": "100",
+                        "district": "Centro",
+                        "city": "Mage",
+                        "state": "RJ"
+                      }
                     }
                     """))
         .andExpect(status().isUnauthorized())
@@ -234,6 +319,8 @@ class StoreControllerWebMvcTest {
                 StoreStatus.SETUP,
                 "21999990000",
                 "America/Sao_Paulo",
+                StoreCategory.PIZZARIA,
+                new StoreAddressOutput("25000000", "Rua Central", "100", "Centro", "Mage", "RJ"),
                 true,
                 false));
 
@@ -243,6 +330,9 @@ class StoreControllerWebMvcTest {
                 .header("Authorization", "Bearer " + tokenOf(UserRoleName.ATTENDANT)))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.status").value("SETUP"))
+        .andExpect(jsonPath("$.category").value("PIZZARIA"))
+        .andExpect(jsonPath("$.address.zipCode").value("25000000"))
+        .andExpect(jsonPath("$.address.street").value("Rua Central"))
         .andExpect(jsonPath("$.hoursConfigured").value(true))
         .andExpect(jsonPath("$.deliveryZonesConfigured").value(false));
   }
@@ -259,6 +349,8 @@ class StoreControllerWebMvcTest {
                 StoreStatus.ACTIVE,
                 "21999990000",
                 "America/Sao_Paulo",
+                StoreCategory.PIZZARIA,
+                new StoreAddressOutput("25000000", "Rua Central", "100", "Centro", "Mage", "RJ"),
                 true,
                 true));
 
@@ -280,6 +372,8 @@ class StoreControllerWebMvcTest {
         .andExpect(jsonPath("$.status").value("ACTIVE"))
         .andExpect(jsonPath("$.phone").value("21999990000"))
         .andExpect(jsonPath("$.timezone").value("America/Sao_Paulo"))
+        .andExpect(jsonPath("$.category").value("PIZZARIA"))
+        .andExpect(jsonPath("$.address.zipCode").value("25000000"))
         .andExpect(jsonPath("$.hoursConfigured").value(true))
         .andExpect(jsonPath("$.deliveryZonesConfigured").value(true));
 

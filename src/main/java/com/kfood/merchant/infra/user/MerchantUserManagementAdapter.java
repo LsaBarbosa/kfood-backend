@@ -2,6 +2,7 @@ package com.kfood.merchant.infra.user;
 
 import com.kfood.identity.app.CreateUserService;
 import com.kfood.identity.domain.UserRoleName;
+import com.kfood.identity.domain.UserStatus;
 import com.kfood.identity.persistence.IdentityUserEntity;
 import com.kfood.identity.persistence.IdentityUserRepository;
 import com.kfood.merchant.application.user.MerchantUserOutput;
@@ -26,8 +27,8 @@ public class MerchantUserManagementAdapter implements MerchantUserManagementPort
 
   @Override
   public MerchantUserOutput create(
-      UUID storeId, String email, String rawPassword, Set<UserRoleName> roles) {
-    return toOutput(createUserService.create(storeId, email, rawPassword, roles));
+      UUID storeId, String email, String rawPassword, Set<UserRoleName> roles, UserStatus status) {
+    return toOutput(createUserService.create(storeId, email, rawPassword, roles, status));
   }
 
   @Override

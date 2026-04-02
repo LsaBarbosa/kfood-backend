@@ -9,6 +9,7 @@ import com.kfood.merchant.app.CreateStoreTermsAcceptanceUseCase;
 import com.kfood.merchant.app.CreateStoreUseCase;
 import com.kfood.merchant.app.GetStoreDetailsUseCase;
 import com.kfood.merchant.app.GetStoreTermsAcceptanceHistoryUseCase;
+import com.kfood.merchant.app.StoreAddressCommand;
 import com.kfood.merchant.app.StoreDetailsOutput;
 import com.kfood.merchant.app.StoreOutput;
 import com.kfood.merchant.app.StoreTermsAcceptanceHistoryItemOutput;
@@ -75,7 +76,9 @@ public class StoreController {
                     request.slug(),
                     request.cnpj(),
                     request.phone(),
-                    request.timezone()));
+                    request.timezone(),
+                    request.category(),
+                    toAddressCommand(request.address())));
     return new CreateStoreResponse(result.id(), result.slug(), result.status(), result.createdAt());
   }
 
@@ -90,7 +93,9 @@ public class StoreController {
                     request.slug(),
                     request.cnpj(),
                     request.phone(),
-                    request.timezone())));
+                    request.timezone(),
+                    request.category(),
+                    toAddressCommand(request.address()))));
   }
 
   @PostMapping("/terms-acceptance")
@@ -162,6 +167,8 @@ public class StoreController {
         output.cnpj(),
         output.phone(),
         output.timezone(),
+        output.category(),
+        toStoreAddressResponse(output.address()),
         output.status());
   }
 
@@ -173,8 +180,35 @@ public class StoreController {
         output.status(),
         output.phone(),
         output.timezone(),
+        output.category(),
+        toStoreAddressResponse(output.address()),
         output.hoursConfigured(),
         output.deliveryZonesConfigured());
+  }
+
+  private StoreAddressCommand toAddressCommand(StoreAddressRequest address) {
+    return address == null
+        ? null
+        : new StoreAddressCommand(
+            address.zipCode(),
+            address.street(),
+            address.number(),
+            address.district(),
+            address.city(),
+            address.state());
+  }
+
+  private StoreAddressResponse toStoreAddressResponse(
+      com.kfood.merchant.app.StoreAddressOutput address) {
+    return address == null
+        ? null
+        : new StoreAddressResponse(
+            address.zipCode(),
+            address.street(),
+            address.number(),
+            address.district(),
+            address.city(),
+            address.state());
   }
 
   private StoreTermsAcceptanceHistoryItemResponse toStoreTermsAcceptanceHistoryItemResponse(

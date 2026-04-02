@@ -19,12 +19,14 @@ class StoreActivationRequirementsServiceTest {
   @Test
   void shouldReturnRequirementsFromPort() {
     var storeId = UUID.randomUUID();
-    var requirements = new StoreActivationRequirements(true, false, true);
+    var requirements = new StoreActivationRequirements(true, true, true, false, true);
 
     when(merchantActivationRequirementsPort.evaluate(storeId)).thenReturn(requirements);
 
     var response = service.evaluate(storeId);
 
+    assertThat(response.categoryConfigured()).isTrue();
+    assertThat(response.addressConfigured()).isTrue();
     assertThat(response.hoursConfigured()).isTrue();
     assertThat(response.deliveryZonesConfigured()).isFalse();
     assertThat(response.termsAccepted()).isTrue();

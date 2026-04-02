@@ -57,5 +57,13 @@ class DeliveryZoneRepositoryIntegrationTest extends PostgreSqlContainerIT {
     assertThat(deliveryZoneRepository.findByStoreIdAndZoneName(store.getId(), "Centro"))
         .isPresent();
     assertThat(deliveryZoneRepository.findAllByStoreIdOrderByZoneNameAsc(store.getId())).hasSize(1);
+
+    savedZone.deactivate();
+    deliveryZoneRepository.saveAndFlush(savedZone);
+
+    assertThat(deliveryZoneRepository.findAllByStoreIdOrderByZoneNameAsc(store.getId())).hasSize(1);
+    assertThat(
+            deliveryZoneRepository.findAllByStoreIdAndActiveTrueOrderByZoneNameAsc(store.getId()))
+        .isEmpty();
   }
 }

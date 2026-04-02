@@ -24,18 +24,23 @@ import com.kfood.merchant.app.InvalidStoreHoursException;
 import com.kfood.merchant.app.OwnerAlreadyBoundToAnotherStoreException;
 import com.kfood.merchant.app.StoreActivationRequirements;
 import com.kfood.merchant.app.StoreActivationRequirementsNotMetException;
+import com.kfood.merchant.app.StoreAddressCommand;
+import com.kfood.merchant.app.StoreAddressOutput;
 import com.kfood.merchant.app.StoreHourCommand;
 import com.kfood.merchant.app.StoreNotActiveException;
 import com.kfood.merchant.app.StoreNotFoundException;
 import com.kfood.merchant.app.StoreSlugAlreadyExistsException;
 import com.kfood.merchant.app.TenantAccessDeniedException;
+import com.kfood.merchant.app.UpdateDeliveryZoneCommand;
 import com.kfood.merchant.app.UpdateStoreCommand;
 import com.kfood.merchant.app.UpdateStoreHoursCommand;
 import com.kfood.merchant.domain.LegalDocumentType;
+import com.kfood.merchant.domain.StoreCategory;
 import com.kfood.merchant.domain.StoreStatus;
 import com.kfood.merchant.infra.persistence.DeliveryZone;
 import com.kfood.merchant.infra.persistence.DeliveryZoneRepository;
 import com.kfood.merchant.infra.persistence.Store;
+import com.kfood.merchant.infra.persistence.StoreAddress;
 import com.kfood.merchant.infra.persistence.StoreBusinessHour;
 import com.kfood.merchant.infra.persistence.StoreBusinessHourRepository;
 import com.kfood.merchant.infra.persistence.StoreRepository;
@@ -146,6 +151,186 @@ class JpaMerchantCommandAdapterTest {
         .isInstanceOf(DeliveryZoneAlreadyExistsException.class);
 
     verify(deliveryZoneRepository, never()).saveAndFlush(any());
+  }
+
+  @Test
+  void shouldUpdateDeliveryZoneWithSuccess() {
+    var store = activeStore();
+    var zone =
+        new DeliveryZone(
+            UUID.randomUUID(),
+            store,
+            "Centro",
+            new BigDecimal("6.50"),
+            new BigDecimal("25.00"),
+            true);
+
+    when(storeRepository.findById(store.getId())).thenReturn(Optional.of(store));
+    when(deliveryZoneRepository.findByIdAndStoreId(zone.getId(), store.getId()))
+        .thenReturn(Optional.of(zone));
+    when(deliveryZoneRepository.findByStoreIdAndZoneName(store.getId(), "Bairro Novo"))
+        .thenReturn(Optional.empty());
+    when(deliveryZoneRepository.saveAndFlush(zone)).thenReturn(zone);
+
+    var output =
+        adapter.updateDeliveryZone(
+            store.getId(),
+            zone.getId(),
+            new UpdateDeliveryZoneCommand(
+                "  Bairro Novo  ", new BigDecimal("8.00"), new BigDecimal("30.00"), false));
+
+    assertThat(output.zoneName()).isEqualTo("Bairro Novo");
+    assertThat(output.feeAmount()).isEqualByComparingTo("8.00");
+    assertThat(output.minOrderAmount()).isEqualByComparingTo("30.00");
+    assertThat(output.active()).isFalse();
+  }
+
+  @Test
+  void shouldThrowWhenUpdatingDeliveryZoneForMissingStore() {
+    var storeId = UUID.randomUUID();
+    var zoneId = UUID.randomUUID();
+
+    when(storeRepository.findById(storeId)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(
+            () ->
+                adapter.updateDeliveryZone(
+                    storeId,
+                    zoneId,
+                    new UpdateDeliveryZoneCommand(
+                        "Centro", new BigDecimal("6.50"), new BigDecimal("25.00"), true)))
+        .isInstanceOf(StoreNotFoundException.class);
+  }
+
+  @Test
+  void shouldActivateDeliveryZoneOnUpdateWhenRequested() {
+    var store = activeStore();
+    var zone =
+        new DeliveryZone(
+            UUID.randomUUID(),
+            store,
+            "Centro",
+            new BigDecimal("6.50"),
+            new BigDecimal("25.00"),
+            false);
+
+    when(storeRepository.findById(store.getId())).thenReturn(Optional.of(store));
+    when(deliveryZoneRepository.findByIdAndStoreId(zone.getId(), store.getId()))
+        .thenReturn(Optional.of(zone));
+    when(deliveryZoneRepository.findByStoreIdAndZoneName(store.getId(), "Centro"))
+        .thenReturn(Optional.of(zone));
+    when(deliveryZoneRepository.saveAndFlush(zone)).thenReturn(zone);
+
+    var output =
+        adapter.updateDeliveryZone(
+            store.getId(),
+            zone.getId(),
+            new UpdateDeliveryZoneCommand(
+                "Centro", new BigDecimal("6.50"), new BigDecimal("25.00"), true));
+
+    assertThat(output.active()).isTrue();
+  }
+
+  @Test
+  void shouldRejectUpdatingMissingDeliveryZone() {
+    var store = activeStore();
+    var zoneId = UUID.randomUUID();
+
+    when(storeRepository.findById(store.getId())).thenReturn(Optional.of(store));
+    when(deliveryZoneRepository.findByIdAndStoreId(zoneId, store.getId()))
+        .thenReturn(Optional.empty());
+
+    assertThatThrownBy(
+            () ->
+                adapter.updateDeliveryZone(
+                    store.getId(),
+                    zoneId,
+                    new UpdateDeliveryZoneCommand(
+                        "Centro", new BigDecimal("6.50"), new BigDecimal("25.00"), true)))
+        .isInstanceOf(com.kfood.merchant.app.DeliveryZoneNotFoundException.class);
+  }
+
+  @Test
+  void shouldRejectDuplicateDeliveryZoneOnUpdate() {
+    var store = activeStore();
+    var zone =
+        new DeliveryZone(
+            UUID.randomUUID(),
+            store,
+            "Centro",
+            new BigDecimal("6.50"),
+            new BigDecimal("25.00"),
+            true);
+    var duplicate =
+        new DeliveryZone(
+            UUID.randomUUID(),
+            store,
+            "Bairro Novo",
+            new BigDecimal("7.00"),
+            new BigDecimal("30.00"),
+            true);
+
+    when(storeRepository.findById(store.getId())).thenReturn(Optional.of(store));
+    when(deliveryZoneRepository.findByIdAndStoreId(zone.getId(), store.getId()))
+        .thenReturn(Optional.of(zone));
+    when(deliveryZoneRepository.findByStoreIdAndZoneName(store.getId(), "Bairro Novo"))
+        .thenReturn(Optional.of(duplicate));
+
+    assertThatThrownBy(
+            () ->
+                adapter.updateDeliveryZone(
+                    store.getId(),
+                    zone.getId(),
+                    new UpdateDeliveryZoneCommand(
+                        "Bairro Novo", new BigDecimal("8.00"), new BigDecimal("30.00"), true)))
+        .isInstanceOf(DeliveryZoneAlreadyExistsException.class);
+  }
+
+  @Test
+  void shouldDeleteDeliveryZoneLogically() {
+    var store = activeStore();
+    var zone =
+        new DeliveryZone(
+            UUID.randomUUID(),
+            store,
+            "Centro",
+            new BigDecimal("6.50"),
+            new BigDecimal("25.00"),
+            true);
+
+    when(storeRepository.findById(store.getId())).thenReturn(Optional.of(store));
+    when(deliveryZoneRepository.findByIdAndStoreId(zone.getId(), store.getId()))
+        .thenReturn(Optional.of(zone));
+    when(deliveryZoneRepository.saveAndFlush(zone)).thenReturn(zone);
+
+    adapter.deleteDeliveryZone(store.getId(), zone.getId());
+
+    assertThat(zone.isActive()).isFalse();
+    verify(deliveryZoneRepository).saveAndFlush(zone);
+  }
+
+  @Test
+  void shouldThrowWhenDeletingDeliveryZoneForMissingStore() {
+    var storeId = UUID.randomUUID();
+    var zoneId = UUID.randomUUID();
+
+    when(storeRepository.findById(storeId)).thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> adapter.deleteDeliveryZone(storeId, zoneId))
+        .isInstanceOf(StoreNotFoundException.class);
+  }
+
+  @Test
+  void shouldRejectDeletingMissingDeliveryZone() {
+    var store = activeStore();
+    var zoneId = UUID.randomUUID();
+
+    when(storeRepository.findById(store.getId())).thenReturn(Optional.of(store));
+    when(deliveryZoneRepository.findByIdAndStoreId(zoneId, store.getId()))
+        .thenReturn(Optional.empty());
+
+    assertThatThrownBy(() -> adapter.deleteDeliveryZone(store.getId(), zoneId))
+        .isInstanceOf(com.kfood.merchant.app.DeliveryZoneNotFoundException.class);
   }
 
   @Test
@@ -331,13 +516,24 @@ class JpaMerchantCommandAdapterTest {
         adapter.updateStore(
             store.getId(),
             new UpdateStoreCommand(
-                "Novo Nome", "novo-slug", "31.662.365/0001-40", "21911112222", "UTC"));
+                "Novo Nome",
+                "novo-slug",
+                "31.662.365/0001-40",
+                "21911112222",
+                "UTC",
+                StoreCategory.PIZZARIA,
+                new StoreAddressCommand(
+                    "25000-000", "Rua Central", "100", "Centro", "Mage", "RJ")));
 
     assertThat(output.name()).isEqualTo("Novo Nome");
     assertThat(output.slug()).isEqualTo("novo-slug");
     assertThat(output.cnpj()).isEqualTo("31.662.365/0001-40");
     assertThat(output.phone()).isEqualTo("21911112222");
     assertThat(output.timezone()).isEqualTo("UTC");
+    assertThat(output.category()).isEqualTo(StoreCategory.PIZZARIA);
+    assertThat(output.address())
+        .isEqualTo(
+            new StoreAddressOutput("25000000", "Rua Central", "100", "Centro", "Mage", "RJ"));
   }
 
   @Test
@@ -385,7 +581,70 @@ class JpaMerchantCommandAdapterTest {
   }
 
   @Test
+  void shouldKeepNullAddressInOutputWhenUpdatingLegacyStoreWithoutAddress() {
+    var store =
+        new Store(
+            UUID.randomUUID(),
+            "Loja do Bairro",
+            "loja-do-bairro",
+            "45.723.174/0001-10",
+            "21999990000",
+            "America/Sao_Paulo");
+
+    when(storeRepository.findById(store.getId())).thenReturn(Optional.of(store));
+    when(storeRepository.saveAndFlush(store)).thenReturn(store);
+
+    var output =
+        adapter.updateStore(
+            store.getId(), new UpdateStoreCommand("Novo Nome", null, null, null, null));
+
+    assertThat(output.name()).isEqualTo("Novo Nome");
+    assertThat(output.address()).isNull();
+    assertThat(output.category()).isNull();
+  }
+
+  @Test
   void shouldCreateStoreForUnboundOwner() {
+    var owner = owner(UUID.randomUUID(), null);
+    var createdAt = Instant.parse("2026-03-20T10:15:00Z");
+
+    when(identityUserRepository.findDetailedById(owner.getId())).thenReturn(Optional.of(owner));
+    when(storeRepository.existsBySlug("nova-loja")).thenReturn(false);
+    when(storeRepository.saveAndFlush(any(Store.class)))
+        .thenAnswer(
+            invocation -> {
+              var savedStore = invocation.getArgument(0, Store.class);
+              setCreatedAt(savedStore, createdAt);
+              return savedStore;
+            });
+    when(identityUserRepository.saveAndFlush(owner)).thenReturn(owner);
+
+    var output =
+        adapter.createStore(
+            owner.getId(),
+            new CreateStoreCommand(
+                "Nova Loja",
+                "nova-loja",
+                "45.723.174/0001-10",
+                "21999990000",
+                "America/Sao_Paulo",
+                StoreCategory.PIZZARIA,
+                new StoreAddressCommand(
+                    "25000-000", "Rua Central", "100", "Centro", "Mage", "RJ")));
+
+    assertThat(output.slug()).isEqualTo("nova-loja");
+    assertThat(output.status()).isEqualTo(StoreStatus.SETUP);
+    assertThat(output.createdAt()).isEqualTo(createdAt);
+    assertThat(owner.getStoreId()).isEqualTo(output.id());
+    var storeCaptor = ArgumentCaptor.forClass(Store.class);
+    verify(storeRepository).saveAndFlush(storeCaptor.capture());
+    assertThat(storeCaptor.getValue().getCategory()).isEqualTo(StoreCategory.PIZZARIA);
+    assertThat(storeCaptor.getValue().getAddress().getZipCode()).isEqualTo("25000000");
+    verify(identityUserRepository).saveAndFlush(owner);
+  }
+
+  @Test
+  void shouldCreateStoreWithoutCategoryAndAddressWhenUsingLegacyCommandConstructor() {
     var owner = owner(UUID.randomUUID(), null);
     var createdAt = Instant.parse("2026-03-20T10:15:00Z");
 
@@ -411,10 +670,10 @@ class JpaMerchantCommandAdapterTest {
                 "America/Sao_Paulo"));
 
     assertThat(output.slug()).isEqualTo("nova-loja");
-    assertThat(output.status()).isEqualTo(StoreStatus.SETUP);
-    assertThat(output.createdAt()).isEqualTo(createdAt);
-    assertThat(owner.getStoreId()).isEqualTo(output.id());
-    verify(identityUserRepository).saveAndFlush(owner);
+    var storeCaptor = ArgumentCaptor.forClass(Store.class);
+    verify(storeRepository).saveAndFlush(storeCaptor.capture());
+    assertThat(storeCaptor.getValue().getCategory()).isNull();
+    assertThat(storeCaptor.getValue().getAddress()).isNull();
   }
 
   @Test
@@ -432,7 +691,10 @@ class JpaMerchantCommandAdapterTest {
                         "nova-loja",
                         "45.723.174/0001-10",
                         "21999990000",
-                        "America/Sao_Paulo")))
+                        "America/Sao_Paulo",
+                        StoreCategory.PIZZARIA,
+                        new StoreAddressCommand(
+                            "25000-000", "Rua Central", "100", "Centro", "Mage", "RJ"))))
         .isInstanceOf(AuthenticatedUserNotFoundException.class);
   }
 
@@ -451,7 +713,10 @@ class JpaMerchantCommandAdapterTest {
                         "nova-loja",
                         "45.723.174/0001-10",
                         "21999990000",
-                        "America/Sao_Paulo")))
+                        "America/Sao_Paulo",
+                        StoreCategory.PIZZARIA,
+                        new StoreAddressCommand(
+                            "25000-000", "Rua Central", "100", "Centro", "Mage", "RJ"))))
         .isInstanceOf(OwnerAlreadyBoundToAnotherStoreException.class);
   }
 
@@ -471,7 +736,10 @@ class JpaMerchantCommandAdapterTest {
                         "duplicado",
                         "45.723.174/0001-10",
                         "21999990000",
-                        "America/Sao_Paulo")))
+                        "America/Sao_Paulo",
+                        StoreCategory.PIZZARIA,
+                        new StoreAddressCommand(
+                            "25000-000", "Rua Central", "100", "Centro", "Mage", "RJ"))))
         .isInstanceOf(StoreSlugAlreadyExistsException.class);
 
     verify(storeRepository, never()).saveAndFlush(any());
@@ -480,7 +748,7 @@ class JpaMerchantCommandAdapterTest {
   @Test
   void shouldActivateStoreWhenRequirementsAreMet() {
     var store = setupStore();
-    var requirements = new StoreActivationRequirements(true, true, true);
+    var requirements = new StoreActivationRequirements(true, true, true, true, true);
 
     when(storeRepository.findById(store.getId())).thenReturn(Optional.of(store));
     when(storeRepository.saveAndFlush(store)).thenReturn(store);
@@ -490,6 +758,8 @@ class JpaMerchantCommandAdapterTest {
             store.getId(), new ChangeStoreStatusCommand(StoreStatus.ACTIVE), requirements);
 
     assertThat(output.status()).isEqualTo(StoreStatus.ACTIVE);
+    assertThat(output.category()).isEqualTo(StoreCategory.PIZZARIA);
+    assertThat(output.address().city()).isEqualTo("Mage");
     assertThat(output.hoursConfigured()).isTrue();
     assertThat(output.deliveryZonesConfigured()).isTrue();
   }
@@ -497,7 +767,7 @@ class JpaMerchantCommandAdapterTest {
   @Test
   void shouldRejectActivationWhenRequirementsAreNotMet() {
     var store = setupStore();
-    var requirements = new StoreActivationRequirements(false, true, true);
+    var requirements = new StoreActivationRequirements(true, true, false, true, true);
 
     when(storeRepository.findById(store.getId())).thenReturn(Optional.of(store));
 
@@ -513,7 +783,7 @@ class JpaMerchantCommandAdapterTest {
   @Test
   void shouldSuspendActiveStore() {
     var store = activeStore();
-    var requirements = new StoreActivationRequirements(true, true, true);
+    var requirements = new StoreActivationRequirements(true, true, true, true, true);
 
     when(storeRepository.findById(store.getId())).thenReturn(Optional.of(store));
     when(storeRepository.saveAndFlush(store)).thenReturn(store);
@@ -536,7 +806,7 @@ class JpaMerchantCommandAdapterTest {
                 adapter.changeStoreStatus(
                     store.getId(),
                     new ChangeStoreStatusCommand(StoreStatus.SETUP),
-                    new StoreActivationRequirements(true, true, true)))
+                    new StoreActivationRequirements(true, true, true, true, true)))
         .isInstanceOfSatisfying(
             BusinessException.class,
             exception -> {
@@ -556,7 +826,7 @@ class JpaMerchantCommandAdapterTest {
                 adapter.changeStoreStatus(
                     storeId,
                     new ChangeStoreStatusCommand(StoreStatus.ACTIVE),
-                    new StoreActivationRequirements(true, true, true)))
+                    new StoreActivationRequirements(true, true, true, true, true)))
         .isInstanceOf(StoreNotFoundException.class);
   }
 
@@ -659,7 +929,9 @@ class JpaMerchantCommandAdapterTest {
         "loja-do-bairro",
         "45.723.174/0001-10",
         "21999990000",
-        "America/Sao_Paulo");
+        "America/Sao_Paulo",
+        StoreCategory.PIZZARIA,
+        new StoreAddress("25000-000", "Rua Central", "100", "Centro", "Mage", "RJ"));
   }
 
   private Store activeStore() {

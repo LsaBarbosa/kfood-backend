@@ -7,6 +7,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.kfood.merchant.app.port.MerchantCommandPort;
+import com.kfood.merchant.domain.StoreCategory;
 import com.kfood.merchant.domain.StoreStatus;
 import com.kfood.shared.security.CurrentAuthenticatedUserProvider;
 import java.time.Instant;
@@ -30,7 +31,9 @@ class CreateStoreUseCaseTest {
             "loja-do-bairro",
             "45.723.174/0001-10",
             "21999990000",
-            "America/Sao_Paulo");
+            "America/Sao_Paulo",
+            StoreCategory.PIZZARIA,
+            new StoreAddressCommand("25000-000", "Rua Central", "100", "Centro", "Mage", "RJ"));
     var output =
         new CreateStoreOutput(
             UUID.randomUUID(),
@@ -57,7 +60,9 @@ class CreateStoreUseCaseTest {
             "loja-do-bairro",
             "45.723.174/0001-10",
             "21999990000",
-            "America/Sao_Paulo");
+            "America/Sao_Paulo",
+            StoreCategory.PIZZARIA,
+            new StoreAddressCommand("25000-000", "Rua Central", "100", "Centro", "Mage", "RJ"));
 
     when(currentAuthenticatedUserProvider.getRequiredUserId()).thenReturn(userId);
     when(merchantCommandPort.createStore(userId, request))
@@ -66,5 +71,19 @@ class CreateStoreUseCaseTest {
     assertThatThrownBy(() -> createStoreUseCase.execute(request))
         .isInstanceOf(StoreSlugAlreadyExistsException.class)
         .hasMessageContaining("loja-do-bairro");
+  }
+
+  @Test
+  void shouldKeepLegacyCreateStoreCommandConstructorCompatible() {
+    var command =
+        new CreateStoreCommand(
+            "Loja do Bairro",
+            "loja-do-bairro",
+            "45.723.174/0001-10",
+            "21999990000",
+            "America/Sao_Paulo");
+
+    assertThat(command.category()).isNull();
+    assertThat(command.address()).isNull();
   }
 }
