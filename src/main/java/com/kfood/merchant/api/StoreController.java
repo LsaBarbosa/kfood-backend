@@ -108,7 +108,7 @@ public class StoreController {
         createStoreTermsAcceptanceUseCase()
             .execute(
                 new CreateStoreTermsAcceptanceCommand(
-                    request.documentType(), request.documentVersion()),
+                    request.documentType(), request.documentVersion(), request.acceptedAt()),
                 clientIpResolver.resolve(httpServletRequest));
     return new StoreTermsAcceptanceResponse(
         result.id(), result.documentType(), result.documentVersion(), result.acceptedAt());
