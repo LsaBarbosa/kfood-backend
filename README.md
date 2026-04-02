@@ -419,14 +419,18 @@ A aplicação adota um payload padronizado para erros previsíveis e inesperados
 
 O repositório expõe uma leitura pública da loja por slug. O contrato abaixo reflete o comportamento implementado hoje, sem inventar campos sem backing real no modelo.
 
+Contrato formal da loja pública: [docs/api/public-store-contract.md](/home/kronos/Documentos/Codigin/kfood-backend/docs/api/public-store-contract.md)
+
 ### GET `/v1/public/stores/{slug}`
 
-Consulta os dados públicos da loja.
+Consulta somente os dados públicos mínimos da loja.
 
 - acesso esperado: público, sem autenticação
 - o payload retorna apenas campos públicos já suportados pela implementação
 - o payload não expõe `id`, `cnpj`, `timezone` nem outros campos internos do tenant
 - o payload não inclui mídia ou flags comerciais sem suporte persistido, como `logoUrl`, `bannerUrl` ou campos equivalentes
+- `deliveryZones` expõe somente `zoneName`, `feeAmount` e `minOrderAmount`, sem metadados internos
+- este endpoint documenta apenas os dados da loja; o cardápio público segue o contrato próprio de `/v1/public/stores/{slug}/menu`
 
 Response `200 OK`:
 
