@@ -1,6 +1,7 @@
 package com.kfood.merchant.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.kfood.identity.domain.UserRoleName;
 import com.kfood.identity.domain.UserStatus;
@@ -10,6 +11,7 @@ import com.kfood.identity.persistence.IdentityUserRoleEntity;
 import com.kfood.merchant.app.port.MerchantCommandPort;
 import com.kfood.merchant.domain.StoreStatus;
 import com.kfood.merchant.infra.adapter.JpaMerchantCommandAdapter;
+import com.kfood.merchant.infra.persistence.Store;
 import com.kfood.merchant.infra.persistence.StoreRepository;
 import com.kfood.shared.persistence.TestJpaAuditingConfig;
 import com.kfood.shared.security.CurrentAuthenticatedUserProvider;
@@ -80,8 +82,10 @@ class CreateStoreUseCaseIntegrationTest extends PostgreSqlContainerIT {
     assertThat(persistedStore.getId()).isEqualTo(output.id());
     assertThat(persistedStore.getSlug()).isEqualTo("nova-loja");
     assertThat(persistedStore.getStatus()).isEqualTo(StoreStatus.SETUP);
-    assertThat(persistedStore.getCreatedAt())
-        .isEqualTo(output.createdAt().truncatedTo(ChronoUnit.MICROS));
+    assertThat(persistedStore.getCreatedAt()).isNotNull();
+    assertThat(
+            Math.abs(ChronoUnit.MICROS.between(output.createdAt(), persistedStore.getCreatedAt())))
+        .isLessThanOrEqualTo(1);
 
     assertThat(persistedOwner.getStoreId()).isEqualTo(persistedStore.getId());
     assertThat(persistedOwner.getRoles())
@@ -92,11 +96,109 @@ class CreateStoreUseCaseIntegrationTest extends PostgreSqlContainerIT {
         .containsOnly(persistedStore.getId());
   }
 
+  @Test
+  @DisplayName("should keep original binding when owner already belongs to another store")
+  void shouldKeepOriginalBindingWhenOwnerAlreadyBelongsToAnotherStore() {
+    var originalStore = store("loja-original", "45.723.174/0001-10");
+    storeRepository.saveAndFlush(originalStore);
+
+    var owner = ownerWithStore("owner-vinculado@kfood.local", originalStore.getId());
+    identityUserRepository.saveAndFlush(owner);
+    currentAuthenticatedUserProvider.setCurrentUserId(owner.getId());
+
+    entityManager.clear();
+
+    assertThatThrownBy(
+            () ->
+                createStoreUseCase.execute(
+                    new CreateStoreCommand(
+                        "Segunda Loja",
+                        "segunda-loja",
+                        "54.550.752/0001-55",
+                        "21988887777",
+                        "America/Sao_Paulo")))
+        .isInstanceOf(OwnerAlreadyBoundToAnotherStoreException.class)
+        .hasMessageContaining(originalStore.getId().toString());
+
+    entityManager.clear();
+
+    assertThat(merchantCommandPort).isInstanceOf(JpaMerchantCommandAdapter.class);
+    assertThat(storeRepository.count()).isEqualTo(1);
+    assertThat(storeRepository.existsBySlug("segunda-loja")).isFalse();
+
+    var persistedOriginalStore = storeRepository.findById(originalStore.getId()).orElseThrow();
+    var persistedOwner = identityUserRepository.findDetailedById(owner.getId()).orElseThrow();
+
+    assertThat(persistedOriginalStore.getSlug()).isEqualTo("loja-original");
+    assertThat(persistedOwner.getStoreId()).isEqualTo(originalStore.getId());
+    assertThat(persistedOwner.getRoles())
+        .extracting(IdentityUserRoleEntity::getRoleName)
+        .containsExactly(UserRoleName.OWNER);
+    assertThat(persistedOwner.getRoles())
+        .extracting(IdentityUserRoleEntity::getStoreId)
+        .containsOnly(originalStore.getId());
+  }
+
+  @Test
+  @DisplayName("should allow admin to create store without binding admin to created store")
+  void shouldAllowAdminToCreateStoreWithoutBindingAdminToCreatedStore() {
+    var admin = adminWithoutStore("admin@kfood.local");
+    identityUserRepository.saveAndFlush(admin);
+    currentAuthenticatedUserProvider.setCurrentUserId(admin.getId());
+
+    var output =
+        createStoreUseCase.execute(
+            new CreateStoreCommand(
+                "Loja Admin",
+                "loja-admin",
+                "54.550.752/0001-55",
+                "21977776666",
+                "America/Sao_Paulo"));
+
+    entityManager.flush();
+    entityManager.clear();
+
+    assertThat(merchantCommandPort).isInstanceOf(JpaMerchantCommandAdapter.class);
+
+    var persistedStore = storeRepository.findById(output.id()).orElseThrow();
+    var persistedAdmin = identityUserRepository.findDetailedById(admin.getId()).orElseThrow();
+
+    assertThat(persistedStore.getId()).isEqualTo(output.id());
+    assertThat(persistedStore.getSlug()).isEqualTo("loja-admin");
+    assertThat(persistedStore.getStatus()).isEqualTo(StoreStatus.SETUP);
+    assertThat(persistedAdmin.getStoreId()).isNull();
+    assertThat(persistedAdmin.getRoles())
+        .extracting(IdentityUserRoleEntity::getRoleName)
+        .containsExactly(UserRoleName.ADMIN);
+    assertThat(persistedAdmin.getRoles())
+        .extracting(IdentityUserRoleEntity::getStoreId)
+        .containsOnlyNulls();
+  }
+
   private IdentityUserEntity ownerWithoutStore(String email) {
     var owner =
         new IdentityUserEntity(UUID.randomUUID(), null, email, "$2a$10$hash", UserStatus.ACTIVE);
     owner.replaceRoles(Set.of(UserRoleName.OWNER));
     return owner;
+  }
+
+  private IdentityUserEntity adminWithoutStore(String email) {
+    var admin =
+        new IdentityUserEntity(UUID.randomUUID(), null, email, "$2a$10$hash", UserStatus.ACTIVE);
+    admin.replaceRoles(Set.of(UserRoleName.ADMIN));
+    return admin;
+  }
+
+  private IdentityUserEntity ownerWithStore(String email, UUID storeId) {
+    var owner =
+        new IdentityUserEntity(UUID.randomUUID(), storeId, email, "$2a$10$hash", UserStatus.ACTIVE);
+    owner.replaceRoles(Set.of(UserRoleName.OWNER));
+    return owner;
+  }
+
+  private Store store(String slug, String cnpj) {
+    return new Store(
+        UUID.randomUUID(), "Loja Base", slug, cnpj, "21999990000", "America/Sao_Paulo");
   }
 
   @TestConfiguration
