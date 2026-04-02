@@ -429,6 +429,8 @@ Consulta somente os dados públicos mínimos da loja.
 - o payload retorna apenas campos públicos já suportados pela implementação
 - o payload não expõe `id`, `cnpj`, `timezone` nem outros campos internos do tenant
 - o payload não inclui mídia ou flags comerciais sem suporte persistido, como `logoUrl`, `bannerUrl` ou campos equivalentes
+- `deliveryZones` expõe somente `zoneName`, `feeAmount` e `minOrderAmount`, sem metadados internos
+- este endpoint documenta apenas os dados da loja; o cardápio público segue o contrato próprio de `/v1/public/stores/{slug}/menu`
 
 Response `200 OK`:
 
@@ -453,15 +455,6 @@ Response `200 OK`:
       "minOrderAmount": 25.00
     }
   ]
-}
-```
-
-Response `404 Not Found`:
-
-```json
-{
-  "code": "RESOURCE_NOT_FOUND",
-  "message": "Store not found for slug: loja-inexistente"
 }
 ```
 

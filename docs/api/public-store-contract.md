@@ -11,6 +11,8 @@ Consulta os dados publicos minimos da loja pelo slug.
 - retorna somente os campos publicos minimos suportados hoje pela implementacao
 - nao expõe `id`, `cnpj`, `timezone`, `createdAt`, `hoursConfigured`, `deliveryZonesConfigured` ou outros campos internos
 - nao expõe `logoUrl`, `bannerUrl`, `acceptsDelivery`, `acceptsPickup` ou flags sem suporte real no runtime
+- `deliveryZones` nao expõe metadados internos como `id`, `active` ou `storeId`
+- este contrato cobre apenas `/v1/public/stores/{slug}` e nao altera o contrato de `/v1/public/stores/{slug}/menu`
 
 Shape oficial da resposta `200 OK`:
 
