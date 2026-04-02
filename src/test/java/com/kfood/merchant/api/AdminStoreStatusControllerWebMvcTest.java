@@ -7,40 +7,52 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.kfood.identity.app.JwtTokenService;
-import com.kfood.identity.domain.UserRoleName;
-import com.kfood.identity.domain.UserStatus;
-import com.kfood.identity.persistence.IdentityUserEntity;
+import com.kfood.identity.infra.security.JwtAuthenticationFilter;
 import com.kfood.merchant.app.AdminChangeStoreStatusUseCase;
 import com.kfood.merchant.app.ChangeStoreStatusCommand;
 import com.kfood.merchant.app.StoreDetailsOutput;
 import com.kfood.merchant.domain.StoreStatus;
-import java.util.Set;
+import com.kfood.shared.config.SecurityConfiguration;
+import com.kfood.shared.exceptions.ApiErrorResponseFactory;
+import com.kfood.shared.exceptions.GlobalExceptionHandler;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
-import org.springframework.test.context.TestPropertySource;
+import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.FilterType;
+import org.springframework.context.annotation.Import;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
-@SpringBootTest
-@AutoConfigureMockMvc
-@TestPropertySource(
-    properties = {
-      "app.security.jwt-secret=12345678901234567890123456789012",
-      "app.security.jwt-expiration-seconds=3600"
+@WebMvcTest(
+    controllers = AdminStoreStatusController.class,
+    excludeFilters = {
+      @ComponentScan.Filter(
+          type = FilterType.ASSIGNABLE_TYPE,
+          classes = SecurityConfiguration.class),
+      @ComponentScan.Filter(
+          type = FilterType.ASSIGNABLE_TYPE,
+          classes = JwtAuthenticationFilter.class)
     })
+@AutoConfigureMockMvc(addFilters = false)
+@Import({
+  GlobalExceptionHandler.class,
+  ApiErrorResponseFactory.class,
+  AdminStoreStatusControllerWebMvcTest.TestSecurityConfig.class
+})
 class AdminStoreStatusControllerWebMvcTest {
 
   @Autowired private MockMvc mockMvc;
 
-  @Autowired private JwtTokenService jwtTokenService;
-
   @MockitoBean private AdminChangeStoreStatusUseCase adminChangeStoreStatusUseCase;
 
   @Test
+  @WithMockUser(username = "admin@kfood.local", roles = "ADMIN")
   void shouldAllowAdminToChangeStatusForExplicitTargetStore() throws Exception {
     var targetStoreId = UUID.randomUUID();
     when(adminChangeStoreStatusUseCase.execute(
@@ -59,7 +71,6 @@ class AdminStoreStatusControllerWebMvcTest {
     mockMvc
         .perform(
             patch("/v1/admin/stores/{storeId}/status", targetStoreId)
-                .header("Authorization", "Bearer " + tokenOf(UserRoleName.ADMIN))
                 .contentType(APPLICATION_JSON)
                 .content(
                     """
@@ -82,11 +93,11 @@ class AdminStoreStatusControllerWebMvcTest {
   }
 
   @Test
+  @WithMockUser(username = "owner@kfood.local", roles = "OWNER")
   void shouldForbidOwnerFromUsingAdminStoreStatusRoute() throws Exception {
     mockMvc
         .perform(
             patch("/v1/admin/stores/{storeId}/status", UUID.randomUUID())
-                .header("Authorization", "Bearer " + tokenOf(UserRoleName.OWNER))
                 .contentType(APPLICATION_JSON)
                 .content(
                     """
@@ -99,11 +110,11 @@ class AdminStoreStatusControllerWebMvcTest {
   }
 
   @Test
+  @WithMockUser(username = "manager@kfood.local", roles = "MANAGER")
   void shouldForbidManagerFromUsingAdminStoreStatusRoute() throws Exception {
     mockMvc
         .perform(
             patch("/v1/admin/stores/{storeId}/status", UUID.randomUUID())
-                .header("Authorization", "Bearer " + tokenOf(UserRoleName.MANAGER))
                 .contentType(APPLICATION_JSON)
                 .content(
                     """
@@ -116,11 +127,11 @@ class AdminStoreStatusControllerWebMvcTest {
   }
 
   @Test
+  @WithMockUser(username = "attendant@kfood.local", roles = "ATTENDANT")
   void shouldForbidAttendantFromUsingAdminStoreStatusRoute() throws Exception {
     mockMvc
         .perform(
             patch("/v1/admin/stores/{storeId}/status", UUID.randomUUID())
-                .header("Authorization", "Bearer " + tokenOf(UserRoleName.ATTENDANT))
                 .contentType(APPLICATION_JSON)
                 .content(
                     """
@@ -132,15 +143,7 @@ class AdminStoreStatusControllerWebMvcTest {
         .andExpect(jsonPath("$.code").value("AUTH_FORBIDDEN_ROLE"));
   }
 
-  private String tokenOf(UserRoleName roleName) {
-    var user =
-        new IdentityUserEntity(
-            UUID.randomUUID(),
-            null,
-            roleName.name().toLowerCase() + "@kfood.local",
-            "$2a$10$hash",
-            UserStatus.ACTIVE);
-    user.replaceRoles(Set.of(roleName));
-    return jwtTokenService.generateToken(user);
-  }
+  @TestConfiguration
+  @EnableMethodSecurity
+  static class TestSecurityConfig {}
 }
