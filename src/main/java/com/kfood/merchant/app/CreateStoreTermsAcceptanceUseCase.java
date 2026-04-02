@@ -4,8 +4,6 @@ import com.kfood.merchant.app.audit.MerchantStoreAuditPort;
 import com.kfood.merchant.app.port.MerchantCommandPort;
 import com.kfood.shared.security.CurrentAuthenticatedUserProvider;
 import com.kfood.shared.tenancy.CurrentTenantProvider;
-import java.time.Clock;
-import java.time.Instant;
 import java.util.Objects;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Service;
@@ -24,19 +22,16 @@ public class CreateStoreTermsAcceptanceUseCase {
   private final MerchantStoreAuditPort merchantStoreAuditPort;
   private final CurrentTenantProvider currentTenantProvider;
   private final CurrentAuthenticatedUserProvider currentAuthenticatedUserProvider;
-  private final Clock clock;
 
   public CreateStoreTermsAcceptanceUseCase(
       MerchantCommandPort merchantCommandPort,
       MerchantStoreAuditPort merchantStoreAuditPort,
       CurrentTenantProvider currentTenantProvider,
-      CurrentAuthenticatedUserProvider currentAuthenticatedUserProvider,
-      Clock clock) {
+      CurrentAuthenticatedUserProvider currentAuthenticatedUserProvider) {
     this.merchantCommandPort = merchantCommandPort;
     this.merchantStoreAuditPort = merchantStoreAuditPort;
     this.currentTenantProvider = currentTenantProvider;
     this.currentAuthenticatedUserProvider = currentAuthenticatedUserProvider;
-    this.clock = clock;
   }
 
   @Transactional
@@ -44,13 +39,10 @@ public class CreateStoreTermsAcceptanceUseCase {
       CreateStoreTermsAcceptanceCommand command, String requestIp) {
     var storeId = currentTenantProvider.getRequiredStoreId();
     var authenticatedUserId = currentAuthenticatedUserProvider.getRequiredUserId();
+    var acceptedAt = Objects.requireNonNull(command.acceptedAt(), "acceptedAt is required");
     var result =
         merchantCommandPort.createStoreTermsAcceptance(
-            storeId,
-            authenticatedUserId,
-            command,
-            normalizeRequestIp(requestIp),
-            Instant.now(clock));
+            storeId, authenticatedUserId, command, normalizeRequestIp(requestIp), acceptedAt);
     merchantStoreAuditPort.recordTermsAccepted(
         storeId,
         authenticatedUserId,
