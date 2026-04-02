@@ -347,6 +347,8 @@ V3__...
 - alterações incompatíveis devem seguir estratégia forward-only
 - toda mudança estrutural do banco deve passar por migration
 
+Dicionário técnico do aceite de termos: [docs/data/store_terms_acceptance_data_dictionary.md](/home/kronos/Documentos/Codigin/kfood-backend/docs/data/store_terms_acceptance_data_dictionary.md)
+
 ---
 
 ## Health checks e endpoints técnicos

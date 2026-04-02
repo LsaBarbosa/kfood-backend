@@ -686,6 +686,12 @@ class FlywayMigrationTest {
   }
 
   @Test
+  void shouldApplyStoreTermsAcceptanceRequestIpColumnAfterApplyingMigrations() throws Exception {
+    assertThat(tableExists("store_terms_acceptance")).isTrue();
+    assertThat(columnExists("store_terms_acceptance", "request_ip")).isTrue();
+  }
+
+  @Test
   void shouldApplyCatalogCategoryMigrationAfterApplyingMigrations() throws Exception {
     assertThat(indexExists("catalog_category", "idx_catalog_category_store_active_sort_order"))
         .isTrue();
