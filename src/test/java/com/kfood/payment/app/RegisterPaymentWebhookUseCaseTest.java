@@ -109,6 +109,38 @@ class RegisterPaymentWebhookUseCaseTest {
   }
 
   @Test
+  void shouldNormalizeProviderReferenceBeforeSynchronousProcessing() {
+    var command =
+        new RegisterPaymentWebhookCommand(
+            "mock",
+            """
+            {
+              "externalEventId": "evt-123",
+              "eventType": "PAYMENT_CONFIRMED",
+              "providerReference": "  charge-123  "
+            }
+            """,
+            true);
+    var receivedEvent = receivedEvent("evt-123", "PAYMENT_CONFIRMED", true, command.rawPayload());
+    var processedEvent =
+        finalizedEvent(
+            receivedEvent, PaymentWebhookProcessingStatus.PROCESSED, command.rawPayload());
+
+    when(paymentWebhookEventPersistencePort.findByProviderNameAndExternalEventId("mock", "evt-123"))
+        .thenReturn(Optional.empty());
+    when(paymentWebhookEventPersistencePort.saveReceivedEvent(
+            any(), eq("mock"), eq("evt-123"), eq("PAYMENT_CONFIRMED"), eq(true), any(), any()))
+        .thenReturn(receivedEvent);
+    when(processConfirmedPaymentWebhookUseCase.executeOrThrow(receivedEvent, "charge-123"))
+        .thenReturn(processedEvent);
+
+    var result = useCase.execute(command);
+
+    assertThat(result).isSameAs(processedEvent);
+    verify(processConfirmedPaymentWebhookUseCase).executeOrThrow(receivedEvent, "charge-123");
+  }
+
+  @Test
   void shouldThrowConflictWhenReplayReusesExternalEventIdWithDifferentPayload() {
     var existingEvent =
         finalizedEvent(
@@ -144,6 +176,34 @@ class RegisterPaymentWebhookUseCaseTest {
                   .isEqualTo(ErrorCode.IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD);
               assertThat(businessException.getStatus()).isEqualTo(HttpStatus.CONFLICT);
             });
+
+    verify(paymentWebhookEventPersistencePort, never())
+        .saveReceivedEvent(any(), any(), any(), any(), anyBoolean(), any(), any());
+    verify(processConfirmedPaymentWebhookUseCase, never()).executeOrThrow(any(), any());
+  }
+
+  @Test
+  void shouldThrowWhenStoredWebhookPayloadIsNotValidJson() {
+    var existingEvent = receivedEvent("evt-123", "PAYMENT_CONFIRMED", true, "{");
+
+    when(paymentWebhookEventPersistencePort.findByProviderNameAndExternalEventId("mock", "evt-123"))
+        .thenReturn(Optional.of(existingEvent));
+
+    assertThatThrownBy(
+            () ->
+                useCase.execute(
+                    new RegisterPaymentWebhookCommand(
+                        "mock",
+                        """
+                        {
+                          "externalEventId": "evt-123",
+                          "eventType": "PAYMENT_CONFIRMED",
+                          "providerReference": "charge-123"
+                        }
+                        """,
+                        true)))
+        .isInstanceOf(IllegalStateException.class)
+        .hasMessage("Stored webhook payload is not valid JSON");
 
     verify(paymentWebhookEventPersistencePort, never())
         .saveReceivedEvent(any(), any(), any(), any(), anyBoolean(), any(), any());
