@@ -12,7 +12,10 @@ import com.kfood.shared.exceptions.ErrorCode;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,19 +23,41 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class RegisterPaymentWebhookUseCase {
 
-  private static final String CONFIRMED_EVENT_TYPE = "PAYMENT_CONFIRMED";
+  private static final Set<String> SUPPORTED_EVENT_TYPES =
+      Set.of(
+          "PAYMENT_PENDING",
+          "PAYMENT_CONFIRMED",
+          "PAYMENT_FAILED",
+          "PAYMENT_CANCELED",
+          "PAYMENT_EXPIRED");
 
   private final PaymentWebhookEventPersistencePort paymentWebhookEventPersistencePort;
   private final PaymentWebhookRegisteredPublisher paymentWebhookRegisteredPublisher;
+  private final ProcessConfirmedPaymentWebhookUseCase processConfirmedPaymentWebhookUseCase;
   private final ObjectMapper objectMapper;
   private final Clock clock;
 
+  @Autowired
   public RegisterPaymentWebhookUseCase(
       PaymentWebhookEventPersistencePort paymentWebhookEventPersistencePort,
       PaymentWebhookRegisteredPublisher paymentWebhookRegisteredPublisher,
+      ObjectProvider<ProcessConfirmedPaymentWebhookUseCase> processConfirmedPaymentWebhookUseCase,
+      Clock clock) {
+    this(
+        paymentWebhookEventPersistencePort,
+        paymentWebhookRegisteredPublisher,
+        processConfirmedPaymentWebhookUseCase.getIfAvailable(),
+        clock);
+  }
+
+  RegisterPaymentWebhookUseCase(
+      PaymentWebhookEventPersistencePort paymentWebhookEventPersistencePort,
+      PaymentWebhookRegisteredPublisher paymentWebhookRegisteredPublisher,
+      ProcessConfirmedPaymentWebhookUseCase processConfirmedPaymentWebhookUseCase,
       Clock clock) {
     this.paymentWebhookEventPersistencePort = paymentWebhookEventPersistencePort;
     this.paymentWebhookRegisteredPublisher = paymentWebhookRegisteredPublisher;
+    this.processConfirmedPaymentWebhookUseCase = processConfirmedPaymentWebhookUseCase;
     this.objectMapper = new ObjectMapper().findAndRegisterModules();
     this.clock = clock;
   }
@@ -49,7 +74,8 @@ public class RegisterPaymentWebhookUseCase {
         paymentWebhookEventPersistencePort.findByProviderNameAndExternalEventId(
             normalizedProvider, externalEventId);
     if (existingEvent.isPresent()) {
-      return existingEvent.get();
+      assertEquivalentPayload(existingEvent.get(), payload);
+      return finalizeEvent(existingEvent.get(), command.signatureValid(), providerReference);
     }
 
     var savedEvent =
@@ -61,18 +87,39 @@ public class RegisterPaymentWebhookUseCase {
             command.signatureValid(),
             command.rawPayload(),
             Instant.now(clock));
-    if (!CONFIRMED_EVENT_TYPE.equals(eventType)) {
-      if (savedEvent.getProcessingStatus() == PaymentWebhookProcessingStatus.RECEIVED) {
-        return paymentWebhookEventPersistencePort.markIgnored(
-            savedEvent.getId(), Instant.now(clock));
+    assertEquivalentPayload(savedEvent, payload);
+    return finalizeEvent(savedEvent, command.signatureValid(), providerReference);
+  }
+
+  private PaymentWebhookEventRecord finalizeEvent(
+      PaymentWebhookEventRecord event, boolean signatureValid, String providerReference) {
+    if (event.getProcessingStatus() != PaymentWebhookProcessingStatus.RECEIVED) {
+      return event;
+    }
+    if (!signatureValid) {
+      return event;
+    }
+    if (SUPPORTED_EVENT_TYPES.contains(event.getEventType())) {
+      if (processConfirmedPaymentWebhookUseCase == null) {
+        return paymentWebhookEventPersistencePort.markIgnored(event.getId(), Instant.now(clock));
       }
-      return savedEvent;
+      return processConfirmedPaymentWebhookUseCase.executeOrThrow(event, providerReference);
     }
-    if (savedEvent.getProcessingStatus() == PaymentWebhookProcessingStatus.RECEIVED) {
-      paymentWebhookRegisteredPublisher.publish(
-          new PaymentWebhookRegisteredEvent(savedEvent.getId(), providerReference, eventType));
+    return paymentWebhookEventPersistencePort.markIgnored(event.getId(), Instant.now(clock));
+  }
+
+  private void assertEquivalentPayload(PaymentWebhookEventRecord event, JsonNode currentPayload) {
+    try {
+      var existingPayload = objectMapper.readTree(event.getRawPayload());
+      if (!existingPayload.equals(currentPayload)) {
+        throw new BusinessException(
+            ErrorCode.IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD,
+            "The same externalEventId was reused with a different payload.",
+            HttpStatus.CONFLICT);
+      }
+    } catch (JsonProcessingException exception) {
+      throw new IllegalStateException("Stored webhook payload is not valid JSON", exception);
     }
-    return savedEvent;
   }
 
   private String readOptionalText(JsonNode payload, String fieldName) {

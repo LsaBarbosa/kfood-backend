@@ -13,14 +13,11 @@ import com.kfood.payment.domain.PaymentMethod;
 import com.kfood.payment.domain.PaymentStatus;
 import com.kfood.payment.domain.PaymentStatusSnapshot;
 import com.kfood.payment.domain.PaymentWebhookProcessingStatus;
-import com.kfood.payment.infra.eventing.PaymentWebhookRegisteredEventListener;
-import com.kfood.payment.infra.eventing.SpringPaymentWebhookRegisteredPublisher;
 import com.kfood.payment.infra.persistence.Payment;
 import com.kfood.payment.infra.persistence.PaymentRepository;
 import com.kfood.payment.infra.persistence.PaymentWebhookEventPersistenceAdapter;
 import com.kfood.payment.infra.persistence.PaymentWebhookEventRepository;
 import com.kfood.payment.infra.persistence.PaymentWebhookPaymentAdapter;
-import com.kfood.shared.config.AsyncConfig;
 import com.kfood.shared.persistence.TestJpaAuditingConfig;
 import com.kfood.support.PostgreSqlContainerIT;
 import java.math.BigDecimal;
@@ -36,9 +33,9 @@ import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabas
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -47,19 +44,16 @@ import org.springframework.transaction.support.TransactionTemplate;
 @ActiveProfiles("test")
 @Import({
   TestJpaAuditingConfig.class,
-  AsyncConfig.class,
   PaymentWebhookEventPersistenceAdapter.class,
   PaymentWebhookPaymentAdapter.class,
   RegisterPaymentWebhookUseCase.class,
   ProcessConfirmedPaymentWebhookUseCase.class,
-  SpringPaymentWebhookRegisteredPublisher.class,
-  PaymentWebhookRegisteredEventListener.class,
-  PaymentWebhookAsyncProcessingIntegrationTest.TestConfig.class
+  PaymentWebhookProcessingIntegrationTest.TestConfig.class
 })
 @AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
 @TestPropertySource(
     properties = {"spring.flyway.enabled=false", "spring.jpa.hibernate.ddl-auto=create"})
-class PaymentWebhookAsyncProcessingIntegrationTest extends PostgreSqlContainerIT {
+class PaymentWebhookProcessingIntegrationTest extends PostgreSqlContainerIT {
 
   @Autowired private RegisterPaymentWebhookUseCase registerPaymentWebhookUseCase;
   @Autowired private PaymentWebhookEventRepository paymentWebhookEventRepository;
@@ -67,19 +61,20 @@ class PaymentWebhookAsyncProcessingIntegrationTest extends PostgreSqlContainerIT
   @Autowired private SalesOrderRepository salesOrderRepository;
   @Autowired private StoreRepository storeRepository;
   @Autowired private CustomerRepository customerRepository;
-  @Autowired private JdbcTemplate jdbcTemplate;
   @Autowired private PlatformTransactionManager transactionManager;
 
+  @MockitoBean private PaymentWebhookRegisteredPublisher paymentWebhookRegisteredPublisher;
+
   @Test
-  @DisplayName("should register first and process payment confirmation after commit")
-  void shouldRegisterFirstAndProcessPaymentConfirmationAfterCommit() {
+  @DisplayName("should register and process payment confirmation synchronously in the same request")
+  void shouldRegisterAndProcessPaymentConfirmationSynchronouslyInTheSameRequest() {
     var fixture = inNewTransaction(status -> persistPaymentFixture("charge-123"));
     var command =
         new RegisterPaymentWebhookCommand(
             "mock",
             """
             {
-              "externalEventId": "evt-async-123",
+              "externalEventId": "evt-sync-123",
               "eventType": "PAYMENT_CONFIRMED",
               "providerReference": "charge-123"
             }
@@ -87,24 +82,20 @@ class PaymentWebhookAsyncProcessingIntegrationTest extends PostgreSqlContainerIT
             true);
 
     var returnedEvent = inNewTransaction(status -> registerPaymentWebhookUseCase.execute(command));
-
-    assertThat(returnedEvent.getProcessingStatus())
-        .isEqualTo(PaymentWebhookProcessingStatus.RECEIVED);
-    assertThat(returnedEvent.getExternalEventId()).isEqualTo("evt-async-123");
-
-    awaitUntilProcessed("evt-async-123");
-
     var processedEvent =
         inNewTransaction(
             status ->
                 paymentWebhookEventRepository
-                    .findByProviderNameAndExternalEventId("mock", "evt-async-123")
+                    .findByProviderNameAndExternalEventId("mock", "evt-sync-123")
                     .orElseThrow());
     var confirmedPayment =
         inNewTransaction(status -> paymentRepository.findById(fixture.paymentId()).orElseThrow());
     var refreshedOrder =
         inNewTransaction(status -> salesOrderRepository.findById(fixture.orderId()).orElseThrow());
 
+    assertThat(returnedEvent.getProcessingStatus())
+        .isEqualTo(PaymentWebhookProcessingStatus.PROCESSED);
+    assertThat(returnedEvent.getProcessedAt()).isNotNull();
     assertThat(processedEvent.getProcessingStatus())
         .isEqualTo(PaymentWebhookProcessingStatus.PROCESSED);
     assertThat(processedEvent.getProcessedAt()).isNotNull();
@@ -116,80 +107,67 @@ class PaymentWebhookAsyncProcessingIntegrationTest extends PostgreSqlContainerIT
   }
 
   @Test
-  @DisplayName("should keep confirmed webhook replay idempotent after asynchronous processing")
-  void shouldKeepConfirmedWebhookReplayIdempotentAfterAsynchronousProcessing() {
+  @DisplayName("should keep confirmed webhook replay idempotent after synchronous processing")
+  void shouldKeepConfirmedWebhookReplayIdempotentAfterSynchronousProcessing() {
     var fixture = inNewTransaction(status -> persistPaymentFixture("charge-replay"));
     var command =
         new RegisterPaymentWebhookCommand(
             "mock",
             """
             {
-              "externalEventId": "evt-async-replay",
+              "externalEventId": "evt-sync-replay",
               "eventType": "PAYMENT_CONFIRMED",
               "providerReference": "charge-replay"
             }
             """,
             true);
 
-    inNewTransaction(status -> registerPaymentWebhookUseCase.execute(command));
-    awaitUntilProcessed("evt-async-replay");
-
-    var processedEventBeforeReplay =
+    var firstResult = inNewTransaction(status -> registerPaymentWebhookUseCase.execute(command));
+    var replayResult = inNewTransaction(status -> registerPaymentWebhookUseCase.execute(command));
+    var persistedEvent =
         inNewTransaction(
             status ->
                 paymentWebhookEventRepository
-                    .findByProviderNameAndExternalEventId("mock", "evt-async-replay")
+                    .findByProviderNameAndExternalEventId("mock", "evt-sync-replay")
                     .orElseThrow());
-    var processedAt = processedEventBeforeReplay.getProcessedAt();
+    var payment =
+        inNewTransaction(status -> paymentRepository.findById(fixture.paymentId()).orElseThrow());
 
-    var replayResult = inNewTransaction(status -> registerPaymentWebhookUseCase.execute(command));
-
-    assertThat(replayResult.getId()).isEqualTo(processedEventBeforeReplay.getId());
+    assertThat(replayResult.getId()).isEqualTo(firstResult.getId());
     assertThat(replayResult.getProcessingStatus())
         .isEqualTo(PaymentWebhookProcessingStatus.PROCESSED);
-    assertThat(countRows("evt-async-replay")).isEqualTo(1);
-    assertThat(
-            inNewTransaction(
-                    status ->
-                        paymentWebhookEventRepository
-                            .findByProviderNameAndExternalEventId("mock", "evt-async-replay")
-                            .orElseThrow())
-                .getProcessedAt())
-        .isEqualTo(processedAt);
-    assertThat(
-            inNewTransaction(
-                    status -> paymentRepository.findById(fixture.paymentId()).orElseThrow())
-                .getStatus())
-        .isEqualTo(PaymentStatus.CONFIRMED);
+    assertThat(persistedEvent.getProcessingStatus())
+        .isEqualTo(PaymentWebhookProcessingStatus.PROCESSED);
+    assertThat(persistedEvent.getProcessedAt()).isEqualTo(firstResult.getProcessedAt());
+    assertThat(payment.getStatus()).isEqualTo(PaymentStatus.CONFIRMED);
   }
 
-  private void awaitUntilProcessed(String externalEventId) {
-    Instant deadline = Instant.now().plusSeconds(5);
-    while (Instant.now().isBefore(deadline)) {
-      var current =
-          inNewTransaction(
-              status ->
-                  paymentWebhookEventRepository.findByProviderNameAndExternalEventId(
-                      "mock", externalEventId));
-      if (current.isPresent()
-          && current.get().getProcessingStatus() == PaymentWebhookProcessingStatus.PROCESSED) {
-        return;
-      }
-      sleepBriefly();
-    }
-    throw new AssertionError("Webhook event was not processed asynchronously in time");
-  }
+  @Test
+  @DisplayName("should process failed webhook synchronously and update payment snapshot")
+  void shouldProcessFailedWebhookSynchronouslyAndUpdatePaymentSnapshot() {
+    var fixture = inNewTransaction(status -> persistPaymentFixture("charge-failed"));
+    var command =
+        new RegisterPaymentWebhookCommand(
+            "mock",
+            """
+            {
+              "externalEventId": "evt-sync-failed",
+              "eventType": "PAYMENT_FAILED",
+              "providerReference": "charge-failed"
+            }
+            """,
+            true);
 
-  private int countRows(String externalEventId) {
-    return jdbcTemplate.queryForObject(
-        """
-        select count(*)
-        from payment_webhook_event
-        where provider_name = ? and external_event_id = ?
-        """,
-        Integer.class,
-        "mock",
-        externalEventId);
+    var returnedEvent = inNewTransaction(status -> registerPaymentWebhookUseCase.execute(command));
+    var payment =
+        inNewTransaction(status -> paymentRepository.findById(fixture.paymentId()).orElseThrow());
+    var order =
+        inNewTransaction(status -> salesOrderRepository.findById(fixture.orderId()).orElseThrow());
+
+    assertThat(returnedEvent.getProcessingStatus())
+        .isEqualTo(PaymentWebhookProcessingStatus.PROCESSED);
+    assertThat(payment.getStatus()).isEqualTo(PaymentStatus.FAILED);
+    assertThat(order.getPaymentStatusSnapshot()).isEqualTo(PaymentStatusSnapshot.FAILED);
   }
 
   private <T> T inNewTransaction(
@@ -197,15 +175,6 @@ class PaymentWebhookAsyncProcessingIntegrationTest extends PostgreSqlContainerIT
     var template = new TransactionTemplate(transactionManager);
     template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     return template.execute(action);
-  }
-
-  private void sleepBriefly() {
-    try {
-      Thread.sleep(100L);
-    } catch (InterruptedException exception) {
-      Thread.currentThread().interrupt();
-      throw new AssertionError("Interrupted while waiting for webhook processing", exception);
-    }
   }
 
   private PaymentFixture persistPaymentFixture(String providerReference) {
@@ -232,7 +201,7 @@ class PaymentWebhookAsyncProcessingIntegrationTest extends PostgreSqlContainerIT
             new Store(
                 UUID.randomUUID(),
                 "Loja do Bairro",
-                "loja-webhook-async-" + suffix,
+                "loja-webhook-sync-" + suffix,
                 "45.723.174/0001-10",
                 "21999990000",
                 "America/Sao_Paulo"));
