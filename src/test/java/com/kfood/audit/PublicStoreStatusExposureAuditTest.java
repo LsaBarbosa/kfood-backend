@@ -40,9 +40,8 @@ class PublicStoreStatusExposureAuditTest {
 
     mockMvc
         .perform(get("/v1/public/stores/{slug}", slug))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.slug").value(slug))
-        .andExpect(jsonPath("$.status").value("SETUP"));
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.code").value("STORE_NOT_ACTIVE"));
 
     mockMvc
         .perform(get("/v1/public/stores/{slug}/menu", slug))
@@ -61,9 +60,8 @@ class PublicStoreStatusExposureAuditTest {
 
     mockMvc
         .perform(get("/v1/public/stores/{slug}", slug))
-        .andExpect(status().isOk())
-        .andExpect(jsonPath("$.slug").value(slug))
-        .andExpect(jsonPath("$.status").value("SUSPENDED"));
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.code").value("STORE_NOT_ACTIVE"));
 
     mockMvc
         .perform(get("/v1/public/stores/{slug}/menu", slug))
