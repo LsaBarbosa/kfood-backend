@@ -15,6 +15,7 @@ import com.kfood.merchant.app.PublicStoreMenuOptionItemOutput;
 import com.kfood.merchant.app.PublicStoreMenuOutput;
 import com.kfood.merchant.app.PublicStoreMenuProductOutput;
 import com.kfood.merchant.app.PublicStoreOutput;
+import com.kfood.merchant.app.StoreNotActiveException;
 import com.kfood.merchant.app.StoreSlugNotFoundException;
 import com.kfood.merchant.domain.StoreStatus;
 import java.math.BigDecimal;
@@ -105,6 +106,32 @@ class PublicStoreControllerWebMvcTest {
         .perform(get("/v1/public/stores/nao-existe"))
         .andExpect(status().isNotFound())
         .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
+  }
+
+  @Test
+  void shouldReturnConflictWhenStoreIsSetup() throws Exception {
+    when(getPublicStoreUseCase.execute("loja-em-setup"))
+        .thenThrow(
+            new StoreNotActiveException(
+                UUID.fromString("11111111-1111-1111-1111-111111111111"), StoreStatus.SETUP));
+
+    mockMvc
+        .perform(get("/v1/public/stores/loja-em-setup"))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.code").value("STORE_NOT_ACTIVE"));
+  }
+
+  @Test
+  void shouldReturnConflictWhenStoreIsSuspended() throws Exception {
+    when(getPublicStoreUseCase.execute("loja-suspensa"))
+        .thenThrow(
+            new StoreNotActiveException(
+                UUID.fromString("22222222-2222-2222-2222-222222222222"), StoreStatus.SUSPENDED));
+
+    mockMvc
+        .perform(get("/v1/public/stores/loja-suspensa"))
+        .andExpect(status().isConflict())
+        .andExpect(jsonPath("$.code").value("STORE_NOT_ACTIVE"));
   }
 
   @Test
