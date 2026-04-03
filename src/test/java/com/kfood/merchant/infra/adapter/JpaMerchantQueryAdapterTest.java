@@ -15,6 +15,7 @@ import com.kfood.catalog.infra.persistence.CatalogProduct;
 import com.kfood.catalog.infra.persistence.CatalogProductRepository;
 import com.kfood.merchant.app.DeliveryZoneNotFoundException;
 import com.kfood.merchant.app.StoreActivationRequirements;
+import com.kfood.merchant.app.StoreNotActiveException;
 import com.kfood.merchant.app.StoreNotFoundException;
 import com.kfood.merchant.app.StoreSlugNotFoundException;
 import com.kfood.merchant.domain.StoreCategory;
@@ -62,7 +63,7 @@ class JpaMerchantQueryAdapterTest {
 
   @Test
   void shouldMapStoreDetailsHoursZonesAndTermsHistory() {
-    var store = store();
+    var store = activeStore();
     var storeId = store.getId();
     var category = new CatalogCategory(UUID.randomUUID(), store, "Pizzas", 10, true);
     var product =
@@ -250,6 +251,7 @@ class JpaMerchantQueryAdapterTest {
             "45.723.174/0001-10",
             "21999990000",
             "America/Sao_Paulo");
+    legacyStore.activate();
 
     when(storeRepository.findById(storeId)).thenReturn(Optional.of(legacyStore));
     when(storeRepository.findBySlug("loja-do-bairro")).thenReturn(Optional.of(legacyStore));
@@ -264,6 +266,67 @@ class JpaMerchantQueryAdapterTest {
 
     assertThat(details.address()).isNull();
     assertThat(publicStore.slug()).isEqualTo("loja-do-bairro");
+  }
+
+  @Test
+  void shouldThrowConflictWhenPublicStoreIsSetup() {
+    var store = store();
+    when(storeRepository.findBySlug("loja-setup")).thenReturn(Optional.of(store));
+
+    assertThatThrownBy(() -> adapter.getPublicStore("loja-setup"))
+        .isInstanceOf(StoreNotActiveException.class)
+        .hasMessageContaining("SETUP");
+  }
+
+  @Test
+  void shouldThrowConflictWhenPublicStoreIsSuspended() {
+    var store = suspendedStore();
+    when(storeRepository.findBySlug("loja-suspensa")).thenReturn(Optional.of(store));
+
+    assertThatThrownBy(() -> adapter.getPublicStore("loja-suspensa"))
+        .isInstanceOf(StoreNotActiveException.class)
+        .hasMessageContaining("SUSPENDED");
+  }
+
+  @Test
+  void shouldKeepPublicMenuAvailableWhenStoreIsNotActive() {
+    var store = store();
+    var category = new CatalogCategory(UUID.randomUUID(), store, "Pizzas", 10, true);
+    var product =
+        new CatalogProduct(
+            UUID.randomUUID(),
+            store,
+            category,
+            "Pizza Calabresa",
+            "Descricao",
+            new BigDecimal("39.90"),
+            null,
+            10,
+            true,
+            false);
+
+    when(storeRepository.findBySlug("loja-setup")).thenReturn(Optional.of(store));
+    when(catalogProductRepository.findAllVisibleForPublicMenu(any(), any(), any()))
+        .thenReturn(List.of(product));
+    when(catalogOptionGroupRepository.findAllByProduct_IdInAndActiveTrueOrderByProduct_IdAscIdAsc(
+            any()))
+        .thenReturn(List.of());
+
+    var response = adapter.getPublicStoreMenu("loja-setup");
+
+    assertThat(response.categories()).hasSize(1);
+  }
+
+  private Store activeStore() {
+    var store = store();
+    store.activate();
+    return store;
+  }
+
+  private Store suspendedStore() {
+    var store = activeStore();
+    store.suspend();
+    return store;
   }
 
   private Store store() {

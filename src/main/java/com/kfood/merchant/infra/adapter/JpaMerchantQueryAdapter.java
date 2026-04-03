@@ -18,6 +18,7 @@ import com.kfood.merchant.app.StoreActivationRequirements;
 import com.kfood.merchant.app.StoreDetailsOutput;
 import com.kfood.merchant.app.StoreHoursMapper;
 import com.kfood.merchant.app.StoreHoursOutput;
+import com.kfood.merchant.app.StoreNotActiveException;
 import com.kfood.merchant.app.StoreNotFoundException;
 import com.kfood.merchant.app.StoreSlugNotFoundException;
 import com.kfood.merchant.app.StoreTermsAcceptanceHistoryItemOutput;
@@ -114,6 +115,9 @@ public class JpaMerchantQueryAdapter implements MerchantQueryPort {
   public PublicStoreOutput getPublicStore(String slug) {
     var store =
         storeRepository.findBySlug(slug).orElseThrow(() -> new StoreSlugNotFoundException(slug));
+    if (!store.isActive()) {
+      throw new StoreNotActiveException(store.getId(), store.getStatus());
+    }
     var hours =
         storeBusinessHourRepository.findByStoreId(store.getId()).stream()
             .sorted(Comparator.comparingInt(item -> item.getDayOfWeek().getValue()))
