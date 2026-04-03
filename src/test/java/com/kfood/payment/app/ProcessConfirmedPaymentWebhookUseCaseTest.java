@@ -1,6 +1,7 @@
 package com.kfood.payment.app;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -18,6 +19,8 @@ import com.kfood.payment.domain.PaymentStatusSnapshot;
 import com.kfood.payment.domain.PaymentWebhookProcessingStatus;
 import com.kfood.payment.infra.persistence.Payment;
 import com.kfood.payment.infra.persistence.PaymentWebhookEvent;
+import com.kfood.shared.exceptions.BusinessException;
+import com.kfood.shared.exceptions.ErrorCode;
 import java.math.BigDecimal;
 import java.time.Clock;
 import java.time.Instant;
@@ -25,6 +28,7 @@ import java.time.ZoneOffset;
 import java.util.Optional;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
 
 class ProcessConfirmedPaymentWebhookUseCaseTest {
 
@@ -114,6 +118,27 @@ class ProcessConfirmedPaymentWebhookUseCaseTest {
   }
 
   @Test
+  void shouldThrowValidationErrorWhenProviderReferenceIsBlankAndExecuteOrThrowIsUsed() {
+    var event = webhookEvent();
+    var failedEvent = failedEvent();
+    when(paymentWebhookEventPersistencePort.markFailed(event.getId(), Instant.now(clock)))
+        .thenReturn(failedEvent);
+
+    assertThatThrownBy(() -> useCase.executeOrThrow(event, "   "))
+        .isInstanceOf(BusinessException.class)
+        .satisfies(
+            throwable -> {
+              var businessException = (BusinessException) throwable;
+              assertThat(businessException.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR);
+              assertThat(businessException.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
+            });
+
+    verify(paymentWebhookEventPersistencePort).markFailed(event.getId(), Instant.now(clock));
+    verify(paymentWebhookPaymentPort, never())
+        .findByProviderNameAndProviderReference("mock", "charge-123");
+  }
+
+  @Test
   void shouldMarkEventAsFailedWhenPaymentCannotBeCorrelated() {
     var event = webhookEvent();
     var failedEvent = failedEvent();
@@ -125,6 +150,27 @@ class ProcessConfirmedPaymentWebhookUseCaseTest {
     var result = useCase.execute(event, "charge-123");
 
     assertThat(result.getProcessingStatus()).isEqualTo(PaymentWebhookProcessingStatus.FAILED);
+    verify(paymentWebhookEventPersistencePort).markFailed(event.getId(), Instant.now(clock));
+  }
+
+  @Test
+  void shouldThrowNotFoundWhenPaymentCannotBeCorrelatedAndExecuteOrThrowIsUsed() {
+    var event = webhookEvent();
+    var failedEvent = failedEvent();
+    when(paymentWebhookPaymentPort.findByProviderNameAndProviderReference("mock", "charge-123"))
+        .thenReturn(Optional.empty());
+    when(paymentWebhookEventPersistencePort.markFailed(event.getId(), Instant.now(clock)))
+        .thenReturn(failedEvent);
+
+    assertThatThrownBy(() -> useCase.executeOrThrow(event, "charge-123"))
+        .isInstanceOf(BusinessException.class)
+        .satisfies(
+            throwable -> {
+              var businessException = (BusinessException) throwable;
+              assertThat(businessException.getErrorCode()).isEqualTo(ErrorCode.RESOURCE_NOT_FOUND);
+              assertThat(businessException.getStatus()).isEqualTo(HttpStatus.NOT_FOUND);
+            });
+
     verify(paymentWebhookEventPersistencePort).markFailed(event.getId(), Instant.now(clock));
   }
 
@@ -146,15 +192,127 @@ class ProcessConfirmedPaymentWebhookUseCaseTest {
         .isEqualTo(PaymentStatusSnapshot.FAILED);
   }
 
+  @Test
+  void shouldThrowConflictWhenPaymentTransitionIsInvalidAndExecuteOrThrowIsUsed() {
+    var event = webhookEvent();
+    var failedEvent = failedEvent();
+    var payment = payment(PaymentStatus.FAILED);
+    when(paymentWebhookPaymentPort.findByProviderNameAndProviderReference("mock", "charge-123"))
+        .thenReturn(Optional.of(payment));
+    when(paymentWebhookEventPersistencePort.markFailed(event.getId(), Instant.now(clock)))
+        .thenReturn(failedEvent);
+
+    assertThatThrownBy(() -> useCase.executeOrThrow(event, "charge-123"))
+        .isInstanceOf(BusinessException.class)
+        .satisfies(
+            throwable -> {
+              var businessException = (BusinessException) throwable;
+              assertThat(businessException.getErrorCode())
+                  .isEqualTo(ErrorCode.PAYMENT_STATUS_TRANSITION_INVALID);
+              assertThat(businessException.getStatus()).isEqualTo(HttpStatus.CONFLICT);
+            });
+
+    verify(paymentWebhookEventPersistencePort).markFailed(event.getId(), Instant.now(clock));
+  }
+
+  @Test
+  void shouldKeepPendingPaymentWhenPendingWebhookUsesTrimmedProviderReference() {
+    var event = webhookEvent("PAYMENT_PENDING");
+    var payment = payment(PaymentStatus.PENDING);
+    var processedEvent = webhookEvent("PAYMENT_PENDING");
+    processedEvent.attachPayment(payment);
+    processedEvent.markProcessed(Instant.now(clock));
+
+    when(paymentWebhookPaymentPort.findByProviderNameAndProviderReference("mock", "charge-123"))
+        .thenReturn(Optional.of(payment));
+    when(paymentWebhookEventPersistencePort.markProcessed(
+            event.getId(), payment.getId(), Instant.now(clock)))
+        .thenReturn(processedEvent);
+
+    var result = useCase.execute(event, "  charge-123  ");
+
+    assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PENDING);
+    assertThat(((SalesOrder) payment.getOrder()).getPaymentStatusSnapshot())
+        .isEqualTo(PaymentStatusSnapshot.PENDING);
+    assertThat(result.getProcessingStatus()).isEqualTo(PaymentWebhookProcessingStatus.PROCESSED);
+    verify(paymentWebhookPaymentPort).findByProviderNameAndProviderReference("mock", "charge-123");
+  }
+
+  @Test
+  void shouldCancelPaymentAndOrderSnapshotWhenCanceledWebhookIsReceived() {
+    var event = webhookEvent("PAYMENT_CANCELED");
+    var payment = payment(PaymentStatus.PENDING);
+    var processedEvent = webhookEvent("PAYMENT_CANCELED");
+    processedEvent.attachPayment(payment);
+    processedEvent.markProcessed(Instant.now(clock));
+
+    when(paymentWebhookPaymentPort.findByProviderNameAndProviderReference("mock", "charge-123"))
+        .thenReturn(Optional.of(payment));
+    when(paymentWebhookEventPersistencePort.markProcessed(
+            event.getId(), payment.getId(), Instant.now(clock)))
+        .thenReturn(processedEvent);
+
+    var result = useCase.execute(event, "charge-123");
+
+    assertThat(payment.getStatus()).isEqualTo(PaymentStatus.CANCELED);
+    assertThat(((SalesOrder) payment.getOrder()).getPaymentStatusSnapshot())
+        .isEqualTo(PaymentStatusSnapshot.FAILED);
+    assertThat(result.getProcessingStatus()).isEqualTo(PaymentWebhookProcessingStatus.PROCESSED);
+  }
+
+  @Test
+  void shouldExpirePaymentAndOrderSnapshotWhenExpiredWebhookIsReceived() {
+    var event = webhookEvent("PAYMENT_EXPIRED");
+    var payment = payment(PaymentStatus.PENDING);
+    var processedEvent = webhookEvent("PAYMENT_EXPIRED");
+    processedEvent.attachPayment(payment);
+    processedEvent.markProcessed(Instant.now(clock));
+
+    when(paymentWebhookPaymentPort.findByProviderNameAndProviderReference("mock", "charge-123"))
+        .thenReturn(Optional.of(payment));
+    when(paymentWebhookEventPersistencePort.markProcessed(
+            event.getId(), payment.getId(), Instant.now(clock)))
+        .thenReturn(processedEvent);
+
+    var result = useCase.execute(event, "charge-123");
+
+    assertThat(payment.getStatus()).isEqualTo(PaymentStatus.EXPIRED);
+    assertThat(((SalesOrder) payment.getOrder()).getPaymentStatusSnapshot())
+        .isEqualTo(PaymentStatusSnapshot.FAILED);
+    assertThat(result.getProcessingStatus()).isEqualTo(PaymentWebhookProcessingStatus.PROCESSED);
+  }
+
+  @Test
+  void shouldThrowIllegalArgumentExceptionWhenWebhookEventTypeIsUnsupported() {
+    var event = webhookEvent("PAYMENT_REFUNDED");
+    var payment = payment(PaymentStatus.PENDING);
+
+    when(paymentWebhookPaymentPort.findByProviderNameAndProviderReference("mock", "charge-123"))
+        .thenReturn(Optional.of(payment));
+
+    assertThatThrownBy(() -> useCase.execute(event, "charge-123"))
+        .isInstanceOf(IllegalArgumentException.class)
+        .hasMessage("Unsupported payment webhook event type: PAYMENT_REFUNDED");
+
+    verify(paymentWebhookEventPersistencePort, never())
+        .markProcessed(event.getId(), payment.getId(), Instant.now(clock));
+    verify(paymentWebhookEventPersistencePort, never())
+        .markFailed(event.getId(), Instant.now(clock));
+  }
+
   private PaymentWebhookEvent webhookEvent() {
+    return webhookEvent("PAYMENT_CONFIRMED");
+  }
+
+  private PaymentWebhookEvent webhookEvent(String eventType) {
     return new PaymentWebhookEvent(
         UUID.randomUUID(),
         null,
         "mock",
         "evt-123",
-        "PAYMENT_CONFIRMED",
+        eventType,
         false,
-        "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_CONFIRMED\"}",
+        "{\"externalEventId\":\"evt-123\",\"eventType\":\"%s\"}".formatted(eventType),
         Instant.parse("2026-03-30T17:00:00Z"));
   }
 

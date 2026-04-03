@@ -8,6 +8,7 @@ import com.kfood.payment.app.port.PaymentOrderLookupPort;
 import com.kfood.payment.app.port.PaymentPersistencePort;
 import com.kfood.payment.domain.PaymentMethod;
 import com.kfood.payment.domain.PaymentStatus;
+import com.kfood.shared.idempotency.IdempotencyService;
 import com.kfood.shared.tenancy.CurrentTenantProvider;
 import java.util.UUID;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
@@ -20,32 +21,51 @@ import org.springframework.transaction.annotation.Transactional;
   PaymentPersistencePort.class,
   CurrentTenantProvider.class,
   CreatePixChargeUseCase.class,
-  PixChargeGatewayResponseValidator.class
+  PixChargeGatewayResponseValidator.class,
+  IdempotencyService.class
 })
 public class CreateOrderPixPaymentUseCase {
+
+  private static final String IDEMPOTENCY_SCOPE = "order-pix-payment-create";
 
   private final PaymentOrderLookupPort paymentOrderLookupPort;
   private final PaymentPersistencePort paymentPersistencePort;
   private final CurrentTenantProvider currentTenantProvider;
   private final CreatePixChargeUseCase createPixChargeUseCase;
   private final PixChargeGatewayResponseValidator pixChargeGatewayResponseValidator;
+  private final IdempotencyService idempotencyService;
 
   public CreateOrderPixPaymentUseCase(
       PaymentOrderLookupPort paymentOrderLookupPort,
       PaymentPersistencePort paymentPersistencePort,
       CurrentTenantProvider currentTenantProvider,
       CreatePixChargeUseCase createPixChargeUseCase,
-      PixChargeGatewayResponseValidator pixChargeGatewayResponseValidator) {
+      PixChargeGatewayResponseValidator pixChargeGatewayResponseValidator,
+      IdempotencyService idempotencyService) {
     this.paymentOrderLookupPort = paymentOrderLookupPort;
     this.paymentPersistencePort = paymentPersistencePort;
     this.currentTenantProvider = currentTenantProvider;
     this.createPixChargeUseCase = createPixChargeUseCase;
     this.pixChargeGatewayResponseValidator = pixChargeGatewayResponseValidator;
+    this.idempotencyService = idempotencyService;
   }
 
   @Transactional
   public OrderPixPaymentOutput execute(CreateOrderPixPaymentCommand command) {
     var storeId = currentTenantProvider.getRequiredStoreId();
+    if (command.idempotencyKey() == null || command.idempotencyKey().isBlank()) {
+      return doCreate(storeId, command);
+    }
+    return idempotencyService.execute(
+        storeId,
+        IDEMPOTENCY_SCOPE,
+        command.idempotencyKey(),
+        command,
+        OrderPixPaymentOutput.class,
+        () -> doCreate(storeId, command));
+  }
+
+  private OrderPixPaymentOutput doCreate(UUID storeId, CreateOrderPixPaymentCommand command) {
     var order =
         paymentOrderLookupPort
             .findOrderByIdAndStoreId(command.orderId(), storeId)

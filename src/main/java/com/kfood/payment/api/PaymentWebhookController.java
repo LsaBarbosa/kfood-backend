@@ -3,6 +3,8 @@ package com.kfood.payment.api;
 import com.kfood.payment.app.PaymentWebhookAuthenticationService;
 import com.kfood.payment.app.RegisterPaymentWebhookCommand;
 import com.kfood.payment.app.RegisterPaymentWebhookUseCase;
+import com.kfood.shared.exceptions.BusinessException;
+import com.kfood.shared.exceptions.ErrorCode;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -34,9 +36,14 @@ public class PaymentWebhookController {
       @PathVariable String provider,
       @RequestHeader(name = WEBHOOK_TOKEN_HEADER, required = false) String webhookToken,
       @RequestBody String rawPayload) {
-    paymentWebhookAuthenticationService.authenticate(provider, webhookToken);
-    return PaymentWebhookResponse.from(
+    var signatureValid = paymentWebhookAuthenticationService.isValid(provider, webhookToken);
+    var result =
         registerPaymentWebhookUseCase.execute(
-            new RegisterPaymentWebhookCommand(provider, rawPayload, true)));
+            new RegisterPaymentWebhookCommand(provider, rawPayload, signatureValid));
+    if (!signatureValid) {
+      throw new BusinessException(
+          ErrorCode.WEBHOOK_SIGNATURE_INVALID, "Invalid webhook token.", HttpStatus.UNAUTHORIZED);
+    }
+    return PaymentWebhookResponse.from(result);
   }
 }

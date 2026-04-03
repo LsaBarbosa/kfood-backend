@@ -15,13 +15,24 @@ public class PaymentWebhookAuthenticationService {
     this.authenticators = authenticators;
   }
 
-  public void authenticate(String provider, String token) {
+  public boolean isValid(String provider, String token) {
     var authenticator =
         authenticators.stream().filter(candidate -> candidate.supports(provider)).findFirst();
     if (authenticator.isEmpty()) {
+      return false;
+    }
+    try {
+      authenticator.get().authenticate(token);
+      return true;
+    } catch (BusinessException exception) {
+      return false;
+    }
+  }
+
+  public void authenticate(String provider, String token) {
+    if (!isValid(provider, token)) {
       throw invalidWebhookToken();
     }
-    authenticator.get().authenticate(token);
   }
 
   private BusinessException invalidWebhookToken() {

@@ -5,9 +5,17 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.JsonDeserializer;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.fasterxml.jackson.databind.ser.std.ToStringSerializer;
 import com.kfood.customer.infra.persistence.Customer;
 import com.kfood.merchant.infra.persistence.Store;
 import com.kfood.order.app.OrderNotFoundException;
@@ -21,15 +29,25 @@ import com.kfood.payment.app.port.PaymentPersistencePort;
 import com.kfood.payment.domain.PaymentMethod;
 import com.kfood.payment.domain.PaymentStatus;
 import com.kfood.payment.domain.PaymentStatusSnapshot;
+import com.kfood.shared.exceptions.BusinessException;
+import com.kfood.shared.exceptions.ErrorCode;
+import com.kfood.shared.idempotency.IdempotencyKeyEntry;
+import com.kfood.shared.idempotency.IdempotencyKeyRepository;
+import com.kfood.shared.idempotency.IdempotencyService;
 import com.kfood.shared.tenancy.CurrentTenantProvider;
+import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.http.HttpStatus;
 
 class CreateOrderPixPaymentUseCaseTest {
+
+  private static final String IDEMPOTENCY_SCOPE = "order-pix-payment-create";
 
   private final PaymentOrderLookupPort paymentOrderLookupPort = mock(PaymentOrderLookupPort.class);
   private final PaymentPersistencePort paymentPersistencePort = mock(PaymentPersistencePort.class);
@@ -37,13 +55,18 @@ class CreateOrderPixPaymentUseCaseTest {
   private final CreatePixChargeUseCase createPixChargeUseCase = mock(CreatePixChargeUseCase.class);
   private final PixChargeGatewayResponseValidator pixChargeGatewayResponseValidator =
       new PixChargeGatewayResponseValidator();
+  private final IdempotencyKeyRepository idempotencyKeyRepository =
+      mock(IdempotencyKeyRepository.class);
+  private final IdempotencyService idempotencyService =
+      createIdempotencyService(idempotencyKeyRepository);
   private final CreateOrderPixPaymentUseCase useCase =
       new CreateOrderPixPaymentUseCase(
           paymentOrderLookupPort,
           paymentPersistencePort,
           currentTenantProvider,
           createPixChargeUseCase,
-          pixChargeGatewayResponseValidator);
+          pixChargeGatewayResponseValidator,
+          idempotencyService);
 
   @Test
   void shouldCreatePendingPixPaymentAndReturnExpectedPayload() {
@@ -51,22 +74,13 @@ class CreateOrderPixPaymentUseCaseTest {
     var command =
         new CreateOrderPixPaymentCommand(
             order.getId(), new BigDecimal("57.50"), "mock", "idem-123");
+    mockNewIdempotentExecution(order.getStoreId(), command.idempotencyKey());
 
-    when(currentTenantProvider.getRequiredStoreId()).thenReturn(order.getStoreId());
-    when(paymentOrderLookupPort.findOrderByIdAndStoreId(order.getId(), order.getStoreId()))
-        .thenReturn(Optional.of(order));
-    when(paymentPersistencePort.savePendingPixPayment(
-            any(UUID.class), eq(order), eq(new BigDecimal("57.50"))))
-        .thenAnswer(
-            invocation ->
-                com.kfood.payment.infra.persistence.Payment.createPendingPix(
-                    invocation.getArgument(0),
-                    (SalesOrder) invocation.getArgument(1),
-                    invocation.getArgument(2)));
-    when(createPixChargeUseCase.execute(any(CreatePixChargeCommand.class)))
-        .thenReturn(
-            new PixChargeOutput(
-                "mock", "pix-ref-123", "000201mock", OffsetDateTime.parse("2099-01-01T00:30:00Z")));
+    mockSuccessfulPixChargeCreation(
+        order,
+        command.amount(),
+        new PixChargeOutput(
+            "mock", "pix-ref-123", "000201mock", OffsetDateTime.parse("2099-01-01T00:30:00Z")));
 
     var result = useCase.execute(command);
 
@@ -93,20 +107,91 @@ class CreateOrderPixPaymentUseCaseTest {
   }
 
   @Test
+  void shouldReturnSameResponseWhenIdempotencyKeyIsReusedWithSamePayload() {
+    var order = order();
+    var command =
+        new CreateOrderPixPaymentCommand(
+            order.getId(), new BigDecimal("57.50"), "mock", "idem-replay");
+    var storedEntry = mockNewIdempotentExecution(order.getStoreId(), command.idempotencyKey());
+
+    mockSuccessfulPixChargeCreation(
+        order,
+        command.amount(),
+        new PixChargeOutput(
+            "mock", "pix-ref-123", "000201mock", OffsetDateTime.parse("2099-01-01T00:30:00Z")));
+
+    var firstResult = useCase.execute(command);
+    var secondResult = useCase.execute(command);
+
+    assertThat(secondResult).isEqualTo(firstResult);
+    assertThat(storedEntry.get()).isNotNull();
+    assertThat(storedEntry.get().getResponseBody()).isNotNull();
+    verify(paymentOrderLookupPort, times(1))
+        .findOrderByIdAndStoreId(order.getId(), order.getStoreId());
+    verify(paymentPersistencePort, times(1))
+        .savePendingPixPayment(any(UUID.class), eq(order), eq(command.amount()));
+    verify(createPixChargeUseCase, times(1)).execute(any(CreatePixChargeCommand.class));
+  }
+
+  @Test
+  void shouldThrowConflictWhenIdempotencyKeyIsReusedWithDifferentPayload() {
+    var order = order();
+    var firstCommand =
+        new CreateOrderPixPaymentCommand(
+            order.getId(), new BigDecimal("57.50"), "mock", "idem-conflict");
+    var secondCommand =
+        new CreateOrderPixPaymentCommand(
+            order.getId(), new BigDecimal("58.50"), "mock", "idem-conflict");
+
+    mockNewIdempotentExecution(order.getStoreId(), firstCommand.idempotencyKey());
+    mockSuccessfulPixChargeCreation(
+        order,
+        firstCommand.amount(),
+        new PixChargeOutput(
+            "mock", "pix-ref-123", "000201mock", OffsetDateTime.parse("2099-01-01T00:30:00Z")));
+
+    useCase.execute(firstCommand);
+
+    assertThatThrownBy(() -> useCase.execute(secondCommand))
+        .isInstanceOf(BusinessException.class)
+        .satisfies(
+            throwable -> {
+              var businessException = (BusinessException) throwable;
+              assertThat(businessException.getErrorCode())
+                  .isEqualTo(ErrorCode.IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD);
+              assertThat(businessException.getStatus()).isEqualTo(HttpStatus.CONFLICT);
+            });
+    verify(paymentOrderLookupPort, times(1))
+        .findOrderByIdAndStoreId(order.getId(), order.getStoreId());
+    verify(createPixChargeUseCase, times(1)).execute(any(CreatePixChargeCommand.class));
+  }
+
+  @Test
+  void shouldBypassLocalIdempotencyWhenHeaderIsMissing() {
+    var order = order();
+    var command =
+        new CreateOrderPixPaymentCommand(order.getId(), new BigDecimal("57.50"), "mock", null);
+
+    mockSuccessfulPixChargeCreation(
+        order,
+        command.amount(),
+        new PixChargeOutput(
+            "mock", "pix-ref-123", "000201mock", OffsetDateTime.parse("2099-01-01T00:30:00Z")));
+
+    var result = useCase.execute(command);
+
+    var gatewayCommandCaptor = ArgumentCaptor.forClass(CreatePixChargeCommand.class);
+    verify(createPixChargeUseCase).execute(gatewayCommandCaptor.capture());
+    assertThat(gatewayCommandCaptor.getValue().idempotencyKey()).isNull();
+    assertThat(result.providerReference()).isEqualTo("pix-ref-123");
+    verifyNoInteractions(idempotencyKeyRepository);
+  }
+
+  @Test
   void shouldRejectInvalidProviderResponse() {
     var order = order();
 
-    when(currentTenantProvider.getRequiredStoreId()).thenReturn(order.getStoreId());
-    when(paymentOrderLookupPort.findOrderByIdAndStoreId(order.getId(), order.getStoreId()))
-        .thenReturn(Optional.of(order));
-    when(paymentPersistencePort.savePendingPixPayment(
-            any(UUID.class), eq(order), eq(new BigDecimal("57.50"))))
-        .thenAnswer(
-            invocation ->
-                com.kfood.payment.infra.persistence.Payment.createPendingPix(
-                    invocation.getArgument(0),
-                    (SalesOrder) invocation.getArgument(1),
-                    invocation.getArgument(2)));
+    mockSuccessfulPixPaymentPersistence(order, new BigDecimal("57.50"));
     when(createPixChargeUseCase.execute(any(CreatePixChargeCommand.class)))
         .thenReturn(
             new PixChargeOutput(
@@ -133,17 +218,7 @@ class CreateOrderPixPaymentUseCaseTest {
         new PaymentGatewayException(
             "mock", PaymentGatewayErrorType.TIMEOUT, "Pix provider timed out");
 
-    when(currentTenantProvider.getRequiredStoreId()).thenReturn(order.getStoreId());
-    when(paymentOrderLookupPort.findOrderByIdAndStoreId(order.getId(), order.getStoreId()))
-        .thenReturn(Optional.of(order));
-    when(paymentPersistencePort.savePendingPixPayment(
-            any(UUID.class), eq(order), eq(new BigDecimal("57.50"))))
-        .thenAnswer(
-            invocation ->
-                com.kfood.payment.infra.persistence.Payment.createPendingPix(
-                    invocation.getArgument(0),
-                    (SalesOrder) invocation.getArgument(1),
-                    invocation.getArgument(2)));
+    mockSuccessfulPixPaymentPersistence(order, new BigDecimal("57.50"));
     when(createPixChargeUseCase.execute(any(CreatePixChargeCommand.class))).thenThrow(exception);
 
     assertThatThrownBy(
@@ -171,6 +246,42 @@ class CreateOrderPixPaymentUseCaseTest {
         .isInstanceOf(OrderNotFoundException.class);
   }
 
+  private AtomicReference<IdempotencyKeyEntry> mockNewIdempotentExecution(
+      UUID storeId, String idempotencyKey) {
+    var storedEntry = new AtomicReference<IdempotencyKeyEntry>();
+    when(idempotencyKeyRepository.findByStoreIdAndScopeAndKeyValue(
+            storeId, IDEMPOTENCY_SCOPE, idempotencyKey))
+        .thenAnswer(invocation -> Optional.ofNullable(storedEntry.get()));
+    when(idempotencyKeyRepository.save(any(IdempotencyKeyEntry.class)))
+        .thenAnswer(
+            invocation -> {
+              var entry = invocation.getArgument(0, IdempotencyKeyEntry.class);
+              storedEntry.set(entry);
+              return entry;
+            });
+    return storedEntry;
+  }
+
+  private void mockSuccessfulPixChargeCreation(
+      SalesOrder order, BigDecimal amount, PixChargeOutput gatewayOutput) {
+    mockSuccessfulPixPaymentPersistence(order, amount);
+    when(createPixChargeUseCase.execute(any(CreatePixChargeCommand.class)))
+        .thenReturn(gatewayOutput);
+  }
+
+  private void mockSuccessfulPixPaymentPersistence(SalesOrder order, BigDecimal amount) {
+    when(currentTenantProvider.getRequiredStoreId()).thenReturn(order.getStoreId());
+    when(paymentOrderLookupPort.findOrderByIdAndStoreId(order.getId(), order.getStoreId()))
+        .thenReturn(Optional.of(order));
+    when(paymentPersistencePort.savePendingPixPayment(any(UUID.class), eq(order), eq(amount)))
+        .thenAnswer(
+            invocation ->
+                com.kfood.payment.infra.persistence.Payment.createPendingPix(
+                    invocation.getArgument(0),
+                    (SalesOrder) invocation.getArgument(1),
+                    invocation.getArgument(2)));
+  }
+
   private static SalesOrder order() {
     var store =
         new Store(
@@ -193,5 +304,34 @@ class CreateOrderPixPaymentUseCaseTest {
         new BigDecimal("57.50"),
         null,
         null);
+  }
+
+  private static IdempotencyService createIdempotencyService(
+      IdempotencyKeyRepository idempotencyKeyRepository) {
+    try {
+      var constructor =
+          IdempotencyService.class.getDeclaredConstructor(
+              IdempotencyKeyRepository.class, ObjectMapper.class);
+      constructor.setAccessible(true);
+      return constructor.newInstance(idempotencyKeyRepository, createIdempotencyObjectMapper());
+    } catch (ReflectiveOperationException exception) {
+      throw new RuntimeException("Unable to create IdempotencyService for test", exception);
+    }
+  }
+
+  private static ObjectMapper createIdempotencyObjectMapper() {
+    var offsetDateTimeModule = new SimpleModule();
+    offsetDateTimeModule.addSerializer(OffsetDateTime.class, ToStringSerializer.instance);
+    offsetDateTimeModule.addDeserializer(
+        OffsetDateTime.class,
+        new JsonDeserializer<>() {
+          @Override
+          public OffsetDateTime deserialize(JsonParser parser, DeserializationContext context)
+              throws IOException {
+            var value = parser.getValueAsString();
+            return value == null ? null : OffsetDateTime.parse(value);
+          }
+        });
+    return new ObjectMapper().findAndRegisterModules().registerModule(offsetDateTimeModule);
   }
 }
