@@ -11,16 +11,18 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kfood.identity.app.JwtTokenReader;
 import com.kfood.payment.app.MockPaymentWebhookAuthenticator;
 import com.kfood.payment.app.PaymentWebhookAuthenticationService;
-import com.kfood.payment.app.PaymentWebhookRegisteredEvent;
 import com.kfood.payment.app.PaymentWebhookRegisteredPublisher;
+import com.kfood.payment.app.ProcessConfirmedPaymentWebhookUseCase;
 import com.kfood.payment.app.RegisterPaymentWebhookUseCase;
 import com.kfood.payment.app.port.PaymentWebhookEventPersistencePort;
+import com.kfood.payment.infra.persistence.PaymentWebhookEvent;
 import com.kfood.shared.config.AppProperties;
 import com.kfood.shared.exceptions.ApiErrorResponseFactory;
+import com.kfood.shared.exceptions.BusinessException;
+import com.kfood.shared.exceptions.ErrorCode;
 import com.kfood.shared.exceptions.GlobalExceptionHandler;
 import java.time.Clock;
 import java.time.Instant;
@@ -35,6 +37,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.access.AccessDeniedHandler;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -55,20 +58,33 @@ class PaymentWebhookControllerWebMvcTest {
   @Autowired private MockMvc mockMvc;
 
   @MockitoBean private PaymentWebhookEventPersistencePort paymentWebhookEventPersistencePort;
+  @MockitoBean private ProcessConfirmedPaymentWebhookUseCase processConfirmedPaymentWebhookUseCase;
   @MockitoBean private PaymentWebhookRegisteredPublisher paymentWebhookRegisteredPublisher;
   @MockitoBean private JwtTokenReader jwtTokenReader;
   @MockitoBean private AuthenticationEntryPoint authenticationEntryPoint;
   @MockitoBean private AccessDeniedHandler accessDeniedHandler;
 
   @Test
-  @DisplayName("should accept valid webhook payload")
-  void shouldAcceptValidWebhookPayload() throws Exception {
+  @DisplayName("should accept valid webhook payload and return processed status")
+  void shouldAcceptValidWebhookPayloadAndReturnProcessedStatus() throws Exception {
+    var receivedEvent =
+        receivedEvent(
+            "evt-123",
+            "PAYMENT_CONFIRMED",
+            true,
+            "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_CONFIRMED\",\"providerReference\":\"charge-123\"}");
+    var processedEvent =
+        processedEvent(
+            receivedEvent,
+            "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_CONFIRMED\",\"providerReference\":\"charge-123\"}");
+
     when(paymentWebhookEventPersistencePort.findByProviderNameAndExternalEventId("mock", "evt-123"))
         .thenReturn(Optional.empty());
-    var savedEvent = savedEvent();
     when(paymentWebhookEventPersistencePort.saveReceivedEvent(
-            any(), any(), any(), any(), anyBoolean(), any(), any()))
-        .thenReturn(savedEvent);
+            any(), eq("mock"), eq("evt-123"), eq("PAYMENT_CONFIRMED"), eq(true), any(), any()))
+        .thenReturn(receivedEvent);
+    when(processConfirmedPaymentWebhookUseCase.executeOrThrow(receivedEvent, "charge-123"))
+        .thenReturn(processedEvent);
 
     mockMvc
         .perform(
@@ -85,23 +101,66 @@ class PaymentWebhookControllerWebMvcTest {
                     """))
         .andExpect(status().isAccepted())
         .andExpect(jsonPath("$.accepted").value(true))
-        .andExpect(jsonPath("$.processingStatus").value("RECEIVED"))
+        .andExpect(jsonPath("$.processingStatus").value("PROCESSED"))
         .andExpect(jsonPath("$.externalEventId").value("evt-123"));
 
     verify(paymentWebhookEventPersistencePort)
         .saveReceivedEvent(
             any(), eq("mock"), eq("evt-123"), eq("PAYMENT_CONFIRMED"), eq(true), any(), any());
-    verify(paymentWebhookRegisteredPublisher)
-        .publish(
-            new PaymentWebhookRegisteredEvent(
-                savedEvent.getId(), "charge-123", "PAYMENT_CONFIRMED"));
+    verify(processConfirmedPaymentWebhookUseCase).executeOrThrow(receivedEvent, "charge-123");
+    verify(paymentWebhookRegisteredPublisher, never()).publish(any());
   }
 
   @Test
-  @DisplayName("should return accepted for replayed webhook payload")
-  void shouldReturnAcceptedForReplayedWebhookPayload() throws Exception {
-    var existingEvent = savedEvent();
-    existingEvent.markProcessed(Instant.parse("2026-03-30T15:01:00Z"));
+  @DisplayName("should return accepted for replayed webhook with semantically equal payload")
+  void shouldReturnAcceptedForReplayedWebhookWithSemanticallyEqualPayload() throws Exception {
+    var existingEvent =
+        processedEvent(
+            receivedEvent(
+                "evt-123",
+                "PAYMENT_CONFIRMED",
+                true,
+                "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_CONFIRMED\",\"providerReference\":\"charge-123\"}"),
+            "{\"externalEventId\":\"evt-123\",\"providerReference\":\"charge-123\",\"eventType\":\"PAYMENT_CONFIRMED\"}");
+    when(paymentWebhookEventPersistencePort.findByProviderNameAndExternalEventId("mock", "evt-123"))
+        .thenReturn(Optional.of(existingEvent));
+
+    mockMvc
+        .perform(
+            post("/v1/payments/webhooks/{provider}", "mock")
+                .header("X-Webhook-Token", "mock-token")
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "providerReference": "charge-123",
+                      "eventType": "PAYMENT_CONFIRMED",
+                      "externalEventId": "evt-123"
+                    }
+                    """))
+        .andExpect(status().isAccepted())
+        .andExpect(jsonPath("$.accepted").value(true))
+        .andExpect(jsonPath("$.processingStatus").value("PROCESSED"))
+        .andExpect(jsonPath("$.externalEventId").value("evt-123"));
+
+    verify(paymentWebhookEventPersistencePort, never())
+        .saveReceivedEvent(any(), any(), any(), any(), anyBoolean(), any(), any());
+    verify(processConfirmedPaymentWebhookUseCase, never()).executeOrThrow(any(), any());
+    verify(paymentWebhookRegisteredPublisher, never()).publish(any());
+  }
+
+  @Test
+  @DisplayName(
+      "should return conflict when same external event id is reused with different payload")
+  void shouldReturnConflictWhenSameExternalEventIdIsReusedWithDifferentPayload() throws Exception {
+    var existingEvent =
+        processedEvent(
+            receivedEvent(
+                "evt-123",
+                "PAYMENT_CONFIRMED",
+                true,
+                "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_CONFIRMED\",\"providerReference\":\"charge-123\"}"),
+            "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_CONFIRMED\",\"providerReference\":\"charge-123\"}");
     when(paymentWebhookEventPersistencePort.findByProviderNameAndExternalEventId("mock", "evt-123"))
         .thenReturn(Optional.of(existingEvent));
 
@@ -114,71 +173,42 @@ class PaymentWebhookControllerWebMvcTest {
                     """
                     {
                       "externalEventId": "evt-123",
-                      "eventType": "PAYMENT_CONFIRMED"
+                      "eventType": "PAYMENT_CONFIRMED",
+                      "providerReference": "charge-999"
                     }
                     """))
-        .andExpect(status().isAccepted())
-        .andExpect(jsonPath("$.accepted").value(true))
-        .andExpect(jsonPath("$.processingStatus").value("PROCESSED"))
-        .andExpect(jsonPath("$.externalEventId").value("evt-123"));
+        .andExpect(status().isConflict())
+        .andExpect(
+            jsonPath("$.code")
+                .value(ErrorCode.IDEMPOTENCY_KEY_REUSED_WITH_DIFFERENT_PAYLOAD.name()));
 
     verify(paymentWebhookEventPersistencePort, never())
         .saveReceivedEvent(any(), any(), any(), any(), anyBoolean(), any(), any());
-    verify(paymentWebhookRegisteredPublisher, never()).publish(any());
+    verify(processConfirmedPaymentWebhookUseCase, never()).executeOrThrow(any(), any());
   }
 
   @Test
-  @DisplayName("should return unauthorized when webhook token is missing")
-  void shouldReturnUnauthorizedWhenWebhookTokenIsMissing() throws Exception {
-    mockMvc
-        .perform(
-            post("/v1/payments/webhooks/{provider}", "mock")
-                .contentType(APPLICATION_JSON)
-                .content(
-                    """
-                    {
-                      "externalEventId": "evt-123",
-                      "eventType": "PAYMENT_CONFIRMED"
-                    }
-                    """))
-        .andExpect(status().isUnauthorized())
-        .andExpect(jsonPath("$.code").value("WEBHOOK_SIGNATURE_INVALID"));
+  @DisplayName("should persist invalid parseable webhook attempt and still return unauthorized")
+  void shouldPersistInvalidParseableWebhookAttemptAndStillReturnUnauthorized() throws Exception {
+    var receivedEvent =
+        receivedEvent(
+            "evt-unauthorized",
+            "PAYMENT_CONFIRMED",
+            false,
+            "{\"externalEventId\":\"evt-unauthorized\",\"eventType\":\"PAYMENT_CONFIRMED\",\"providerReference\":\"charge-123\"}");
+    when(paymentWebhookEventPersistencePort.findByProviderNameAndExternalEventId(
+            "mock", "evt-unauthorized"))
+        .thenReturn(Optional.empty());
+    when(paymentWebhookEventPersistencePort.saveReceivedEvent(
+            any(),
+            eq("mock"),
+            eq("evt-unauthorized"),
+            eq("PAYMENT_CONFIRMED"),
+            eq(false),
+            any(),
+            any()))
+        .thenReturn(receivedEvent);
 
-    verify(paymentWebhookEventPersistencePort, never())
-        .findByProviderNameAndExternalEventId(any(), any());
-    verify(paymentWebhookEventPersistencePort, never())
-        .saveReceivedEvent(any(), any(), any(), any(), anyBoolean(), any(), any());
-    verify(paymentWebhookRegisteredPublisher, never()).publish(any());
-  }
-
-  @Test
-  @DisplayName("should return unauthorized when webhook token is blank")
-  void shouldReturnUnauthorizedWhenWebhookTokenIsBlank() throws Exception {
-    mockMvc
-        .perform(
-            post("/v1/payments/webhooks/{provider}", "mock")
-                .header("X-Webhook-Token", "   ")
-                .contentType(APPLICATION_JSON)
-                .content(
-                    """
-                    {
-                      "externalEventId": "evt-123",
-                      "eventType": "PAYMENT_CONFIRMED"
-                    }
-                    """))
-        .andExpect(status().isUnauthorized())
-        .andExpect(jsonPath("$.code").value("WEBHOOK_SIGNATURE_INVALID"));
-
-    verify(paymentWebhookEventPersistencePort, never())
-        .findByProviderNameAndExternalEventId(any(), any());
-    verify(paymentWebhookEventPersistencePort, never())
-        .saveReceivedEvent(any(), any(), any(), any(), anyBoolean(), any(), any());
-    verify(paymentWebhookRegisteredPublisher, never()).publish(any());
-  }
-
-  @Test
-  @DisplayName("should return unauthorized when webhook token is invalid")
-  void shouldReturnUnauthorizedWhenWebhookTokenIsInvalid() throws Exception {
     mockMvc
         .perform(
             post("/v1/payments/webhooks/{provider}", "mock")
@@ -187,17 +217,24 @@ class PaymentWebhookControllerWebMvcTest {
                 .content(
                     """
                     {
-                      "externalEventId": "evt-123",
-                      "eventType": "PAYMENT_CONFIRMED"
+                      "externalEventId": "evt-unauthorized",
+                      "eventType": "PAYMENT_CONFIRMED",
+                      "providerReference": "charge-123"
                     }
                     """))
         .andExpect(status().isUnauthorized())
         .andExpect(jsonPath("$.code").value("WEBHOOK_SIGNATURE_INVALID"));
 
-    verify(paymentWebhookEventPersistencePort, never())
-        .findByProviderNameAndExternalEventId(any(), any());
-    verify(paymentWebhookEventPersistencePort, never())
-        .saveReceivedEvent(any(), any(), any(), any(), anyBoolean(), any(), any());
+    verify(paymentWebhookEventPersistencePort)
+        .saveReceivedEvent(
+            any(),
+            eq("mock"),
+            eq("evt-unauthorized"),
+            eq("PAYMENT_CONFIRMED"),
+            eq(false),
+            any(),
+            any());
+    verify(processConfirmedPaymentWebhookUseCase, never()).executeOrThrow(any(), any());
     verify(paymentWebhookRegisteredPublisher, never()).publish(any());
   }
 
@@ -207,7 +244,7 @@ class PaymentWebhookControllerWebMvcTest {
     mockMvc
         .perform(
             post("/v1/payments/webhooks/{provider}", "mock")
-                .header("X-Webhook-Token", "mock-token")
+                .header("X-Webhook-Token", "wrong-token")
                 .contentType(APPLICATION_JSON)
                 .content("{"))
         .andExpect(status().isBadRequest())
@@ -217,80 +254,29 @@ class PaymentWebhookControllerWebMvcTest {
 
     verify(paymentWebhookEventPersistencePort, never())
         .saveReceivedEvent(any(), any(), any(), any(), anyBoolean(), any(), any());
+    verify(processConfirmedPaymentWebhookUseCase, never()).executeOrThrow(any(), any());
   }
 
   @Test
-  @DisplayName("should return bad request when external event id is missing")
-  void shouldReturnBadRequestWhenExternalEventIdIsMissing() throws Exception {
-    mockMvc
-        .perform(
-            post("/v1/payments/webhooks/{provider}", "mock")
-                .header("X-Webhook-Token", "mock-token")
-                .contentType(APPLICATION_JSON)
-                .content(
-                    """
-                    {
-                      "eventType": "PAYMENT_CONFIRMED"
-                    }
-                    """))
-        .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
-        .andExpect(jsonPath("$.details[0].field").value("externalEventId"))
-        .andExpect(jsonPath("$.details[0].message").value("externalEventId must not be blank"));
-  }
-
-  @Test
-  @DisplayName("should return bad request when event type is missing")
-  void shouldReturnBadRequestWhenEventTypeIsMissing() throws Exception {
-    mockMvc
-        .perform(
-            post("/v1/payments/webhooks/{provider}", "mock")
-                .header("X-Webhook-Token", "mock-token")
-                .contentType(APPLICATION_JSON)
-                .content(
-                    """
-                    {
-                      "externalEventId": "evt-123"
-                    }
-                    """))
-        .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
-        .andExpect(jsonPath("$.details[0].field").value("eventType"))
-        .andExpect(jsonPath("$.details[0].message").value("eventType must not be blank"));
-  }
-
-  @Test
-  @DisplayName("should return bad request when external event id is blank")
-  void shouldReturnBadRequestWhenExternalEventIdIsBlank() throws Exception {
-    mockMvc
-        .perform(
-            post("/v1/payments/webhooks/{provider}", "mock")
-                .header("X-Webhook-Token", "mock-token")
-                .contentType(APPLICATION_JSON)
-                .content(
-                    """
-                    {
-                      "externalEventId": "   ",
-                      "eventType": "PAYMENT_CONFIRMED"
-                    }
-                    """))
-        .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
-        .andExpect(jsonPath("$.details[0].field").value("externalEventId"))
-        .andExpect(jsonPath("$.details[0].message").value("externalEventId must not be blank"));
-  }
-
-  @Test
-  @DisplayName(
-      "should accept confirmed webhook with missing provider reference without confirming payment")
-  void shouldAcceptConfirmedWebhookWithMissingProviderReferenceWithoutConfirmingPayment()
-      throws Exception {
-    var receivedEvent = savedEvent();
-    when(paymentWebhookEventPersistencePort.findByProviderNameAndExternalEventId("mock", "evt-999"))
+  @DisplayName("should return not found when payment cannot be correlated")
+  void shouldReturnNotFoundWhenPaymentCannotBeCorrelated() throws Exception {
+    var receivedEvent =
+        receivedEvent(
+            "evt-404",
+            "PAYMENT_CONFIRMED",
+            true,
+            "{\"externalEventId\":\"evt-404\",\"eventType\":\"PAYMENT_CONFIRMED\",\"providerReference\":\"charge-missing\"}");
+    when(paymentWebhookEventPersistencePort.findByProviderNameAndExternalEventId("mock", "evt-404"))
         .thenReturn(Optional.empty());
     when(paymentWebhookEventPersistencePort.saveReceivedEvent(
-            any(), any(), any(), any(), anyBoolean(), any(), any()))
+            any(), eq("mock"), eq("evt-404"), eq("PAYMENT_CONFIRMED"), eq(true), any(), any()))
         .thenReturn(receivedEvent);
+    when(processConfirmedPaymentWebhookUseCase.executeOrThrow(receivedEvent, "charge-missing"))
+        .thenThrow(
+            new BusinessException(
+                ErrorCode.RESOURCE_NOT_FOUND,
+                "Payment not found for providerReference.",
+                HttpStatus.NOT_FOUND));
 
     mockMvc
         .perform(
@@ -300,15 +286,54 @@ class PaymentWebhookControllerWebMvcTest {
                 .content(
                     """
                     {
-                      "externalEventId": "evt-999",
+                      "externalEventId": "evt-404",
+                      "eventType": "PAYMENT_CONFIRMED",
+                      "providerReference": "charge-missing"
+                    }
+                    """))
+        .andExpect(status().isNotFound())
+        .andExpect(jsonPath("$.code").value("RESOURCE_NOT_FOUND"));
+
+    verify(processConfirmedPaymentWebhookUseCase).executeOrThrow(receivedEvent, "charge-missing");
+  }
+
+  @Test
+  @DisplayName("should return bad request when provider reference is missing for supported event")
+  void shouldReturnBadRequestWhenProviderReferenceIsMissingForSupportedEvent() throws Exception {
+    var receivedEvent =
+        receivedEvent(
+            "evt-400",
+            "PAYMENT_CONFIRMED",
+            true,
+            "{\"externalEventId\":\"evt-400\",\"eventType\":\"PAYMENT_CONFIRMED\"}");
+    when(paymentWebhookEventPersistencePort.findByProviderNameAndExternalEventId("mock", "evt-400"))
+        .thenReturn(Optional.empty());
+    when(paymentWebhookEventPersistencePort.saveReceivedEvent(
+            any(), eq("mock"), eq("evt-400"), eq("PAYMENT_CONFIRMED"), eq(true), any(), any()))
+        .thenReturn(receivedEvent);
+    when(processConfirmedPaymentWebhookUseCase.executeOrThrow(receivedEvent, null))
+        .thenThrow(
+            new BusinessException(
+                ErrorCode.VALIDATION_ERROR,
+                "providerReference must not be blank for supported webhook event types.",
+                HttpStatus.BAD_REQUEST));
+
+    mockMvc
+        .perform(
+            post("/v1/payments/webhooks/{provider}", "mock")
+                .header("X-Webhook-Token", "mock-token")
+                .contentType(APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "externalEventId": "evt-400",
                       "eventType": "PAYMENT_CONFIRMED"
                     }
                     """))
-        .andExpect(status().isAccepted());
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
 
-    verify(paymentWebhookRegisteredPublisher)
-        .publish(
-            new PaymentWebhookRegisteredEvent(receivedEvent.getId(), null, "PAYMENT_CONFIRMED"));
+    verify(processConfirmedPaymentWebhookUseCase).executeOrThrow(receivedEvent, null);
   }
 
   @TestConfiguration
@@ -325,22 +350,33 @@ class PaymentWebhookControllerWebMvcTest {
     Clock clock() {
       return Clock.fixed(Instant.parse("2026-03-30T16:00:00Z"), ZoneOffset.UTC);
     }
-
-    @Bean
-    ObjectMapper objectMapper() {
-      return new ObjectMapper().findAndRegisterModules();
-    }
   }
 
-  private com.kfood.payment.infra.persistence.PaymentWebhookEvent savedEvent() {
-    return new com.kfood.payment.infra.persistence.PaymentWebhookEvent(
+  private PaymentWebhookEvent receivedEvent(
+      String externalEventId, String eventType, boolean signatureValid, String rawPayload) {
+    return new PaymentWebhookEvent(
         UUID.randomUUID(),
         null,
         "mock",
-        "evt-123",
-        "PAYMENT_CONFIRMED",
-        false,
-        "{\"externalEventId\":\"evt-123\",\"eventType\":\"PAYMENT_CONFIRMED\"}",
+        externalEventId,
+        eventType,
+        signatureValid,
+        rawPayload,
         Instant.parse("2026-03-30T16:00:00Z"));
+  }
+
+  private PaymentWebhookEvent processedEvent(PaymentWebhookEvent event, String rawPayload) {
+    var processed =
+        new PaymentWebhookEvent(
+            event.getId(),
+            null,
+            event.getProviderName(),
+            event.getExternalEventId(),
+            event.getEventType(),
+            event.isSignatureValid(),
+            rawPayload,
+            event.getReceivedAt());
+    processed.markProcessed(Instant.parse("2026-03-30T16:01:00Z"));
+    return processed;
   }
 }
