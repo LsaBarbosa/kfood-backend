@@ -107,21 +107,24 @@ class CreateOrderPixPaymentUseCaseTest {
   }
 
   @Test
-  void shouldReturnSameResponseWhenIdempotencyKeyIsReusedWithSamePayload() {
+  void shouldReturnSameResponseWhenIdempotencyKeyIsReusedWithSemanticallyEquivalentPayload() {
     var order = order();
-    var command =
+    var firstCommand =
+        new CreateOrderPixPaymentCommand(
+            order.getId(), new BigDecimal("57.5"), " Mock ", "idem-replay");
+    var secondCommand =
         new CreateOrderPixPaymentCommand(
             order.getId(), new BigDecimal("57.50"), "mock", "idem-replay");
-    var storedEntry = mockNewIdempotentExecution(order.getStoreId(), command.idempotencyKey());
+    var storedEntry = mockNewIdempotentExecution(order.getStoreId(), firstCommand.idempotencyKey());
 
     mockSuccessfulPixChargeCreation(
         order,
-        command.amount(),
+        firstCommand.amount(),
         new PixChargeOutput(
             "mock", "pix-ref-123", "000201mock", OffsetDateTime.parse("2099-01-01T00:30:00Z")));
 
-    var firstResult = useCase.execute(command);
-    var secondResult = useCase.execute(command);
+    var firstResult = useCase.execute(firstCommand);
+    var secondResult = useCase.execute(secondCommand);
 
     assertThat(secondResult).isEqualTo(firstResult);
     assertThat(storedEntry.get()).isNotNull();
@@ -129,7 +132,7 @@ class CreateOrderPixPaymentUseCaseTest {
     verify(paymentOrderLookupPort, times(1))
         .findOrderByIdAndStoreId(order.getId(), order.getStoreId());
     verify(paymentPersistencePort, times(1))
-        .savePendingPixPayment(any(UUID.class), eq(order), eq(command.amount()));
+        .savePendingPixPayment(any(UUID.class), eq(order), eq(firstCommand.amount()));
     verify(createPixChargeUseCase, times(1)).execute(any(CreatePixChargeCommand.class));
   }
 
