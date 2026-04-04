@@ -10,6 +10,9 @@ import com.kfood.payment.domain.PaymentMethod;
 import com.kfood.payment.domain.PaymentStatus;
 import com.kfood.shared.idempotency.IdempotencyService;
 import com.kfood.shared.tenancy.CurrentTenantProvider;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.util.Locale;
 import java.util.UUID;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.stereotype.Service;
@@ -60,7 +63,7 @@ public class CreateOrderPixPaymentUseCase {
         storeId,
         IDEMPOTENCY_SCOPE,
         command.idempotencyKey(),
-        command,
+        normalizedIdempotencyPayload(command),
         OrderPixPaymentOutput.class,
         () -> doCreate(storeId, command));
   }
@@ -119,4 +122,23 @@ public class CreateOrderPixPaymentUseCase {
             : order.getOrderNumber();
     return "Pix charge for order " + orderReference;
   }
+
+  private CreateOrderPixPaymentIdempotencyPayload normalizedIdempotencyPayload(
+      CreateOrderPixPaymentCommand command) {
+    return new CreateOrderPixPaymentIdempotencyPayload(
+        command.orderId(),
+        normalizeAmount(command.amount()),
+        normalizeProvider(command.provider()));
+  }
+
+  private BigDecimal normalizeAmount(BigDecimal amount) {
+    return amount == null ? null : amount.setScale(2, RoundingMode.HALF_UP);
+  }
+
+  private String normalizeProvider(String provider) {
+    return provider == null ? null : provider.trim().toLowerCase(Locale.ROOT);
+  }
+
+  private record CreateOrderPixPaymentIdempotencyPayload(
+      UUID orderId, BigDecimal amount, String provider) {}
 }
