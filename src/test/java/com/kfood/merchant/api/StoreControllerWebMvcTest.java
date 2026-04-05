@@ -2,6 +2,7 @@ package com.kfood.merchant.api;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
@@ -81,11 +82,11 @@ class StoreControllerWebMvcTest {
   @MockitoBean private ClientIpResolver clientIpResolver;
 
   @Test
-  void shouldExposeDocumentTypeDocumentVersionAndAcceptedAtInTermsAcceptanceRequest() {
+  void shouldExposeDocumentTypeAndDocumentVersionInTermsAcceptanceRequest() {
     assertThat(
             java.util.Arrays.stream(CreateStoreTermsAcceptanceRequest.class.getRecordComponents())
                 .map(RecordComponent::getName))
-        .containsExactly("documentType", "documentVersion", "acceptedAt");
+        .containsExactly("documentType", "documentVersion");
   }
 
   @Test
@@ -436,7 +437,7 @@ class StoreControllerWebMvcTest {
   }
 
   @Test
-  void shouldAcceptTermsSuccessfullyWithAcceptedAtInRequest() throws Exception {
+  void shouldAcceptTermsSuccessfullyWithoutAcceptedAtInRequest() throws Exception {
     var acceptedAt = Instant.parse("2026-03-20T10:15:00Z");
     when(clientIpResolver.resolve(any())).thenReturn("203.0.113.9");
     when(createStoreTermsAcceptanceUseCase.execute(
@@ -454,32 +455,18 @@ class StoreControllerWebMvcTest {
                     """
                     {
                       "documentType": "TERMS_OF_USE",
-                      "documentVersion": "2026.03",
-                      "acceptedAt": "2026-03-20T10:15:00Z"
+                      "documentVersion": "2026.03"
                     }
                     """))
         .andExpect(status().isCreated())
         .andExpect(jsonPath("$.documentType").value("TERMS_OF_USE"))
         .andExpect(jsonPath("$.documentVersion").value("2026.03"))
         .andExpect(jsonPath("$.acceptedAt").value("2026-03-20T10:15:00Z"));
-  }
 
-  @Test
-  void shouldReturnBadRequestWhenAcceptedAtIsMissingInTermsAcceptanceRequest() throws Exception {
-    mockMvc
-        .perform(
-            post("/v1/merchant/store/terms-acceptance")
-                .header("Authorization", "Bearer " + tokenOf(UserRoleName.OWNER))
-                .contentType(APPLICATION_JSON)
-                .content(
-                    """
-                    {
-                      "documentType": "TERMS_OF_USE",
-                      "documentVersion": "2026.03"
-                    }
-                    """))
-        .andExpect(status().isBadRequest())
-        .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    verify(createStoreTermsAcceptanceUseCase)
+        .execute(
+            eq(new CreateStoreTermsAcceptanceCommand(LegalDocumentType.TERMS_OF_USE, "2026.03")),
+            eq("203.0.113.9"));
   }
 
   @Test
@@ -515,8 +502,7 @@ class StoreControllerWebMvcTest {
                     """
                     {
                       "documentType": "TERMS_OF_USE",
-                      "documentVersion": "2026.03",
-                      "acceptedAt": "2026-03-20T10:15:00Z"
+                      "documentVersion": "2026.03"
                     }
                     """))
         .andExpect(status().isForbidden())
@@ -606,8 +592,7 @@ class StoreControllerWebMvcTest {
                     """
                     {
                       "documentType": "TERMS_OF_USE",
-                      "documentVersion": "2026.03",
-                      "acceptedAt": "2026-03-20T10:15:00Z"
+                      "documentVersion": "2026.03"
                     }
                     """))
         .andExpect(status().isForbidden())
